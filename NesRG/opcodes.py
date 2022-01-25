@@ -31,7 +31,7 @@ with open("include/opcodes.h","w") as wfile:
 
 	wfile.write('\n};\n\n')
 
-	wfile.write('''struct disasmdata\n{\n\tchar* name;\n\topcid id;
+	wfile.write('''struct disasmdata\n{\n\tconst char* name;\n\topcid id;
 \tint mode;\n\tint size;\n\tint cycles;\n};\n\n''')
 
 	wfile.write('enum addrmode\n{' '\
@@ -46,9 +46,9 @@ with open("include/opcodes.h","w") as wfile:
 	opid = 0
 	for l in lines:
 		if l[1] == 'err':
-			wfile.write('\t{"%s", opcid::%s ,%so, %s, %s}, //0x%02X\n' % (l[0],l[0].upper(),l[1],1,l[3],opid))
+			wfile.write('\t{"%s", opcid::%s ,%so, %s, %s}, //0x%02X\n' % (l[0].upper(),l[0].upper(),l[1],1,l[3],opid))
 		else:
-			wfile.write('\t{"%s", opcid::%s, %s, %s, %s}, //0x%02X\n' % (l[0],l[0].upper(),l[1],l[2],l[3],opid))
+			wfile.write('\t{"%s", opcid::%s, %s, %s, %s}, //0x%02X\n' % (l[0].upper(),l[0].upper(),l[1],l[2],l[3],opid))
 		opid += 1
 		#print("{%s,%s,%s,%s}," % (l[0],l[1],l[2],l[3]))
 

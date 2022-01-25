@@ -31,7 +31,7 @@ struct Cpu
 {
 public:
 	void execute();
-	void step();
+	int step();
 	void init();
 	void reset();
 
@@ -40,21 +40,20 @@ public:
 	//int* get_state() { return &cycles; }
 	//int* set_state(int v) { cycles = v; }
 
-	u16 get_imme(u16 pc);
-	u16 get_zerp(u16 pc);
-	u16 get_zerx(u16 pc);
-	u16 get_zery(u16 pc);
-	u16 get_abso(u16 pc);
-	u16 get_absx(u16 pc);
-	u16 get_absy(u16 pc);
-	u16 get_indx(u16 pc);
-	u16 get_indy(u16 pc);
-	u16 get_indi(u16 pc);
-	u16 get_rela(u16 pc);
-	u16 get_impl(u16 pc);
-	u16 get_accu(u16 pc);
-
-	u16 get_erro(u16 pc);
+	u16 get_imme(u16 pc, bool trace = false);
+	u16 get_zerp(u16 pc, bool trace = false);
+	u16 get_zerx(u16 pc, bool trace = false);
+	u16 get_zery(u16 pc, bool trace = false);
+	u16 get_abso(u16 pc, bool trace = false);
+	u16 get_absx(u16 pc, bool trace = false);
+	u16 get_absy(u16 pc, bool trace = false);
+	u16 get_indx(u16 pc, bool trace = false);
+	u16 get_indy(u16 pc, bool trace = false);
+	u16 get_indi(u16 pc, bool trace = false);
+	u16 get_rela(u16 pc, bool trace = false);
+	u16 get_impl(u16 pc, bool trace = false);
+	u16 get_accu(u16 pc, bool trace = false);
+	u16 get_erro(u16 pc, bool trace = false);
 
 	int cycles = 0;
 	int state = cstate::running;
@@ -63,26 +62,10 @@ private:
 	bool pagecrossed = false;
 
 private:
+	void op_nmi();
 	u8 op_pop();
 	void op_push(u16 addr, u8 v);
 	void op_bra(u16 addr, bool flag);
-	void op_bit(u16 addr);
-	u8 op_and(u16 addr);
-	void op_dec(u16 addr);
-	void op_inc(u16 addr);
-	void op_sty(u16 addr);
-	void op_stx(u16 addr);
-	void op_sta(u16 addr);
-	void op_ldy(u16 addr);
-	void op_ldx(u16 addr);
-	void op_lda(u16 addr);
-	void op_cpy(u16 addr);
-	void op_cpx(u16 addr);
-	void op_cmp(u16 addr);
-	void op_eor(u16 addr);
-	void op_ora(u16 addr);
-	void op_sbc(u16 addr);
-	void op_adc(u16 addr);
 	void op_dey();
 	void op_dex();
 	void op_iny();
@@ -91,10 +74,6 @@ private:
 	void op_tax();
 	void op_tya();
 	void op_txa();
-	void op_rol(u16 addr);
-	void op_asl(u16 addr);
-	void op_ror(u16 addr);
-	void op_lsr(u16 addr);
 
 	void set_flag(bool flag, u8 v);
 };
@@ -104,7 +83,7 @@ extern Registers r;
 
 struct amodefuncs
 {
-	u16(Cpu::* modefuncs)(u16 pc);
+	u16(Cpu::* modefuncs)(u16 pc, bool trace);
 };
 
 extern vector<amodefuncs> func;

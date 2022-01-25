@@ -109,7 +109,7 @@ id,opcode,mode,size,cycles
 0x6b,err,err,0,0
 0x6c,jmp,indi,3,5
 0x6d,adc,abso,3,4
-0x6e,ror,absx,3,7
+0x6e,ror,abso,3,7
 0x6f,err,err,0,0
 0x70,bvs,rela,2,2
 0x71,adc,indy,2,5
@@ -125,7 +125,7 @@ id,opcode,mode,size,cycles
 0x7b,err,err,0,0
 0x7c,err,err,0,0
 0x7d,adc,absx,3,4
-0x7e,ror,abso,3,6
+0x7e,ror,absx,3,6
 0x7f,err,err,0,0
 0x80,err,err,0,0
 0x81,sta,indx,2,6
@@ -144,7 +144,7 @@ id,opcode,mode,size,cycles
 0x8e,stx,abso,3,4
 0x8f,err,err,0,0
 0x90,bcc,rela,2,2
-0x91,sta,indx,2,6
+0x91,sta,indy,2,6
 0x92,err,err,0,0
 0x93,err,err,0,0
 0x94,sty,zerx,2,3
@@ -152,7 +152,7 @@ id,opcode,mode,size,cycles
 0x96,stx,zery,2,3
 0x97,err,err,0,0
 0x98,tya,impl,1,2
-0x99,err,err,0,0
+0x99,sta,absy,3,5
 0x9a,txs,impl,1,2
 0x9b,err,err,0,0
 0x9c,err,err,0,0

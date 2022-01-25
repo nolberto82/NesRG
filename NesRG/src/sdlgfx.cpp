@@ -26,8 +26,8 @@ bool SDLGfx::init()
 		return false;
 	}
 
-	SDL_initFramerate(&fpsman);
-	SDL_setFramerate(&fpsman, 60);
+	//SDL_initFramerate(&fpsman);
+	//SDL_setFramerate(&fpsman, 60);
 
 	return true;
 }
@@ -38,8 +38,6 @@ void SDLGfx::update()
 
 void SDLGfx::input()
 {
-	int wheel = 0;
-
 	//memset(keystick1, 0, sizeof(keystick1));
 #if _WIN64
 
@@ -58,7 +56,7 @@ void SDLGfx::begin_frame()
 
 void SDLGfx::end_frame()
 {
-	SDL_framerateDelay(&fpsman);
+	//SDL_framerateDelay(&fpsman);
 	SDL_RenderPresent(renderer);
 }
 

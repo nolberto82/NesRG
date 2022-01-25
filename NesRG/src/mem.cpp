@@ -88,7 +88,7 @@ u16 Memory::rw(u16 addr)
 {
 	
 	//if (addr == 0x2002)
-	//	return ppu.ppu_2002_rb();
+	//	return ppu.ppu_2002_rb(ram[0x2002]);
 
 	return rb(addr + 0) | rb(addr + 1) << 8;
 }

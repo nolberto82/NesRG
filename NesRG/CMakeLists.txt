@@ -35,12 +35,15 @@ if(WIN32)
 
 	include_directories(${SRC_DIR}/windows)	
 	include_directories(${SRC_DIR}/imgui)
+	include_directories(${SRC_DIR}/sdl2/include)
+	link_directories(${SRC_DIR}/sdl2/lib)
+	#set(SDL2_DIR ${CMAKE_MODULE_PATH} ${SRC_DIR}/sdl2)
 
 	add_executable (${PROJECT_NAME} ${SRC_WIN})
 
-	find_package(SDL2 CONFIG REQUIRED)
-	find_package(sdl2-gfx CONFIG REQUIRED)
-	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_gfx)
+	#find_package(SDL2 CONFIG REQUIRED)
+	#find_package(sdl2-gfx CONFIG REQUIRED)
+	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2 SDL2main)# SDL2::SDL2_gfx)
 endif()
 
 if(UNIX)
@@ -69,3 +72,9 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${TOP_DIR}/${TEST_DIR}
                 ${APP_DIR}/${TEST_DIR})
+
+add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${SRC_DIR}/sdl2/lib/SDL2.dll
+                ${APP_DIR})

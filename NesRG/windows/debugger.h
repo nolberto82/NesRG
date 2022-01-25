@@ -3,8 +3,9 @@
 #include "types.h"
 
 #include "imgui.h"
+#include "imgui_memory_editor.h"
 #include "imgui_impl_sdl.h"
-#include "imgui_sdl.h"
+#include "imgui_impl_sdlrenderer.h"
 
 #define TEXTSIZE 512
 
@@ -40,20 +41,29 @@ public:
 	bool init();
 	void update();
 	void show_disassembly();
+	void show_memory();
 	void show_breakpoints();
 	void clean();
 
 private:
 	int lineoffset = 0;
 	int item_id = 0;
+	u16 inputaddr = 0;
 
 	bool logging = false;
 	bool stepping = false;
+	bool is_jump = false;
+
+	ofstream outFile;
+
+	vector<disasmentry> vdentry;
 
 	void show_registers();
 	void show_buttons(u16& inputaddr, bool& is_jump, ImGuiIO io);
 	void input(ImGuiIO io);
 	void step(bool stepping = false);
-	std::vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false);
+	void log_to_file();
+	void create_close_log(bool status);
+	vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false);
 	disasmdata get_disasm_entry(u8 op, u16 pc);
 };

@@ -6,7 +6,7 @@
 
 #include <SDL.h>
 //#include <SDL_image.h>
-#include <SDL2_framerate.h>
+//#include <SDL2_framerate.h>
 
 
 
@@ -27,7 +27,7 @@ public:
 
 private:
 
-	FPSmanager fpsman;
+	//FPSmanager fpsman;
 	SDL_Renderer* renderer = nullptr;
 	SDL_Window* window = nullptr;
 	SDL_Texture* font = nullptr;

@@ -12,34 +12,35 @@ void Cpu::execute()
 
 	cycles -= CYCLES_PER_FRAME;
 
-	ppu.set_scanline();
+	//ppu.set_scanline();
+	//ppu.step();
 }
 
-void Cpu::step()
+int Cpu::step()
 {
 	u8 op = mem.rb(r.pc);
 	u8 b1 = 0;
 	u16 b2 = 0;
 
 	int mode = disasm[op].mode;
-	u16 addr = (this->*func[disasm[op].mode].modefuncs)(r.pc + 1);
+	u16 addr = (this->*func[mode].modefuncs)(r.pc + 1, false);
 
 	if (state == cstate::crashed)
-		return;
+		return 0;
 
 	switch (disasm[op].id)
 	{
 		case opcid::ADC:
 		{
 			u8 v = mem.rb(addr);
-			u16 t = r.a + v + (r.ps & FC ? 1 : 0);
+			u16 b = r.a + v + (r.ps & FC);
 
-			set_flag((t & 0xff) == 0, FZ);
-			set_flag(t & 0x80, FN);
-			set_flag((r.a ^ v) & (r.a ^ t) & 0x80, FV);
-			set_flag((t & 0xff00) == 0, FC);
+			set_flag((b & 0xff) == 0, FZ);
+			set_flag(b & 0x80, FN);
+			set_flag(~(r.a ^ v) & (r.a ^ b) & 0x80, FV);
+			set_flag(b > 0xff, FC);
 
-			r.a = t;
+			r.a = b;
 			break;
 		}
 		case opcid::AND:
@@ -87,6 +88,12 @@ void Cpu::step()
 		}
 		case opcid::BIT:
 		{
+			u8 v = mem.rb(addr);
+			u8 b = r.a & v;
+
+			set_flag(b == 0, FZ);
+			set_flag(v & 0x80, FN);
+			set_flag(v & 0x40, FV);
 			break;
 		}
 		case opcid::BMI:
@@ -234,8 +241,8 @@ void Cpu::step()
 		case opcid::JSR:
 		{
 			u16 pc = r.pc + 2;
-			op_push(r.sp-- | 0x100, pc & 0xff);
-			op_push(r.sp-- | 0x100, pc >> 8);
+			op_push(r.sp--, pc >> 8);
+			op_push(r.sp--, pc & 0xff);
 			r.pc = addr - 3;
 			break;
 		}
@@ -275,7 +282,7 @@ void Cpu::step()
 			{
 				b = mem.rb(addr);
 				set_flag(b & 0x01, FC);
-				b = (b << 1) & 0x7f;
+				b = (b >> 1) & 0x7f;
 				mem.wb(addr, b);
 			}
 
@@ -302,12 +309,15 @@ void Cpu::step()
 		}
 		case opcid::PHP:
 		{
-			op_push(r.sp--, r.ps);
+			op_push(r.sp--, r.ps | 0x30);
 			break;
 		}
 		case opcid::PLA:
 		{
 			r.a = op_pop();
+
+			set_flag(r.a == 0, FZ);
+			set_flag(r.a & 0x80, FN);
 			break;
 		}
 		case opcid::PLP:
@@ -323,17 +333,18 @@ void Cpu::step()
 			if (mode == addrmode::accu)
 			{
 				bit7 = r.a & 0x80 ? 1 : 0;
-				r.a = b = (r.a << 1) & 0xff;
+				r.a = r.a << 1;
 				if (r.ps & FC)
 					r.a |= 0x01;
+				b = r.a;
 			}
 			else
 			{
 				b = mem.rb(addr);
 				bit7 = r.a & 0x80 ? 1 : 0;
-				b = (b << 1) & 0x7f;
+				b = b << 1;
 				if (r.ps & FC)
-					r.a |= 0x01;
+					b |= 0x01;
 
 				mem.wb(addr, b);
 			}
@@ -350,18 +361,19 @@ void Cpu::step()
 
 			if (mode == addrmode::accu)
 			{
-				bit0 = r.a & 0x80 ? 1 : 0;
-				r.a = b = (r.a >> 1) & 0xff;
+				bit0 = r.a & 0x01 ? 1 : 0;
+				r.a = r.a >> 1;
 				if (r.ps & FC)
 					r.a |= 0x80;
+				b = r.a;
 			}
 			else
 			{
 				b = mem.rb(addr);
-				bit0 = r.a & 0x80 ? 1 : 0;
-				b = (b >> 1) & 0x7f;
+				bit0 = r.a & 0x01 ? 1 : 0;
+				b = b >> 1;
 				if (r.ps & FC)
-					r.a |= 0x80;
+					b |= 0x80;
 
 				mem.wb(addr, b);
 			}
@@ -374,12 +386,12 @@ void Cpu::step()
 		case opcid::RTI:
 		{
 			r.ps = op_pop();
-			r.pc = op_pop() << 8 | op_pop();
+			r.pc = (op_pop() | op_pop() << 8) - 1;
 			break;
 		}
 		case opcid::RTS:
 		{
-			r.pc = op_pop() << 8 | op_pop();
+			r.pc = op_pop() | op_pop() << 8;
 			break;
 		}
 		case opcid::SBC:
@@ -480,8 +492,16 @@ void Cpu::step()
 		}
 	}
 
-	cycles += disasm[op].cycles;
 	r.pc += disasm[op].size;
+
+	if (ppu.nmi)
+	{
+		op_nmi();
+		return 7;
+	}
+
+	cycles += disasm[op].cycles;
+	return disasm[op].cycles;
 }
 
 void Cpu::init()
@@ -504,101 +524,42 @@ void Cpu::init()
 		{ &c::get_accu },
 		{ &c::get_erro },
 	};
+
+	//r.ps = 0x36;
+	//r.x = 0x80;
 }
 
 void Cpu::reset()
 {
-	//r.pc = mem.rw(0xfffc);
-	r.pc = 0xc000;
+	r.pc = mem.rw(0xfffc);
+	//r.pc = 0xc000;
+	r.sp = 0xfd;
+	r.ps = 0x04;
+	r.x = 0x00;
+	r.a = 0x00;
+	r.y = 0x00;
+
+	for (int i = 0; i < 0x800; i++)
+	{
+		if (i & 0x04)
+			mem.ram[i] = 0xff;
+	}
+
+	cycles = 0;
+
+	ppu.reset();
 }
 
-//void Cpu::op_brk()
-//{
-//}
-//
-//void Cpu::op_nmi()
-//{
-//	mem.wb(r.sp | 0x100, r.pc >> 8);
-//	r.sp--;
-//	mem.wb(r.sp | 0x100, r.pc & 0xff);
-//	r.sp--;
-//	mem.wb(r.sp | 0x100, r.ps);
-//	r.sp--;
-//	r.pc = mem.rw(0xfffa);
-//	//ppu_nmi = false;
-//}
-//
-//void Cpu::op_rti()
-//{
-//	u8 hi, lo;
-//	op_plp();
-//	r.sp++;
-//	lo = mem.rb(r.sp | 0x100);
-//	r.sp++;
-//	hi = mem.rb(r.sp | 0x100);
-//	r.pc = (hi << 8 | lo);
-//}
-//
-//void Cpu::op_rts()
-//{
-//	u8 hi, lo;
-//	r.sp++;
-//	lo = mem.rb(r.sp | 0x100);
-//	r.sp++;
-//	hi = mem.rb(r.sp | 0x100);
-//	r.pc = (hi << 8 | lo) + 1;
-//}
-//
-//void Cpu::op_jsr(u16 addr)
-//{
-//	r.pc++;
-//	mem.wb(r.sp | 0x100, r.pc >> 8);
-//	r.sp--;
-//	mem.wb(r.sp | 0x100, r.pc & 0xff);
-//	r.sp--;
-//	r.pc = addr;
-//}
-//
-//void Cpu::op_tsx()
-//{
-//	r.x = r.sp;
-//
-//	set_flag(r.x == 0, FZ);
-//	set_flag(r.x & 0x80, FN);
-//}
-//
-//void Cpu::op_txs()
-//{
-//	r.sp = r.x;
-//}
-//
-//void Cpu::op_plp()
-//{
-//	r.sp++;
-//	r.ps = mem.rb(r.sp | 0x100);
-//}
-//
-//void Cpu::op_pla()
-//{
-//	r.sp++;
-//	r.a = mem.rb(r.sp | 0x100);
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_php()
-//{
-//	mem.wb(r.sp | 0x100, r.ps | 0x30);
-//	r.sp--;
-//}
-//
-//void Cpu::op_pha()
-//{
-//	mem.wb(r.sp | 0x100, r.a);
-//	r.sp--;
-//}
-//
+void Cpu::op_nmi()
+{
+	op_push(r.sp--, r.pc >> 8);
+	op_push(r.sp--, r.pc & 0xff);
+	op_push(r.sp--, r.ps);
+	r.pc = mem.rw(0xfffa);
+	ppu.nmi = false;
+	cycles += 7;
+}
+
 u8 Cpu::op_pop()
 {
 	return mem.rb(++r.sp | 0x100);
@@ -606,7 +567,7 @@ u8 Cpu::op_pop()
 
 void Cpu::op_push(u16 addr, u8 v)
 {
-	mem.wb(addr, v);
+	mem.wb(addr | 0x100, v);
 }
 
 void Cpu::op_bra(u16 addr, bool flag)
@@ -615,395 +576,7 @@ void Cpu::op_bra(u16 addr, bool flag)
 	{
 		r.pc = addr - 2;
 	}
-	//else
-	//	r.pc += 2;
 }
-//
-//void Cpu::op_bit(u16 addr)
-//{
-//	u8 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else
-//	//	b = mem.rb(get_abso());
-//
-//	u8 t = r.a & b;
-//
-//	set_flag(t == 0, FZ);
-//	set_flag(b & 0x80, FN);
-//	set_flag(b & 0x40, FV);
-//}
-//
-//void Cpu::op_and(u16 addr)
-//{
-//	r.a &= mem.rb(r.pc);
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_dec(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else
-//	//	b = get_abso();
-//
-//	mem.wb(b, mem.rb(b) - 1);
-//
-//	set_flag(b == 0, FZ);
-//	set_flag(b & 0x80, FN);
-//}
-//
-//void Cpu::op_inc(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else
-//	//	b = get_abso();
-//
-//	mem.wb(b, mem.rb(b) + 1);
-//
-//	set_flag(b == 0, FZ);
-//	set_flag(b & 0x80, FN);
-//}
-//
-//void Cpu::op_sty(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else if (mode == addrmode::zery)
-//	//	b = get_zerx();
-//	//else
-//	//	b = get_absy();
-//
-//	mem.wb(b, r.y);
-//
-//	pagecrossed = false;
-//}
-//
-//void Cpu::op_stx(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else if (mode == addrmode::zery)
-//	//	b = get_zery();
-//	//else
-//	//	b = get_absx();
-//
-//	mem.wb(b, r.x);
-//
-//	pagecrossed = false;
-//}
-//
-//void Cpu::op_sta(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else if (mode == addrmode::zerx)
-//	//	b = get_zerx();
-//	//else if (mode == addrmode::indx)
-//	//	b = get_indx();
-//	//else if (mode == addrmode::indy)
-//	//	b = get_indy();
-//	//else if (mode == addrmode::absx)
-//	//	b = get_absx();
-//	//else if (mode == addrmode::absy)
-//	//	b = get_absy();
-//	//else
-//	//	b = get_abso();
-//
-//	mem.wb(b, r.a);
-//
-//	pagecrossed = false;
-//}
-//
-//void Cpu::op_ldy(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	//if (mode == addrmode::imme || mode == addrmode::zerp)
-//	//	b = get_zerp();
-//	//else if (mode == addrmode::zerx)
-//	//	b = get_zerx();
-//	//else if (mode == addrmode::absx)
-//	//	b = get_absx();
-//	//else
-//	//	b = get_abso();
-//
-//	r.y = mem.rb(b);
-//
-//	set_flag(r.y == 0, FZ);
-//	set_flag(r.y & 0x80, FN);
-//}
-//
-//void Cpu::op_ldx(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	r.x = (this->*func[mode].modefuncs)(r.pc + 1);
-//
-//	//r.x = mem.rb(b);
-//
-//	set_flag(r.x == 0, FZ);
-//	set_flag(r.x & 0x80, FN);
-//}
-//
-//void Cpu::op_lda(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	r.a = (this->*func[mode].modefuncs)(r.pc + 1);
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_cpy(u16 addr)
-//{
-//	u8 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	u8 v = mem.rb(b);
-//	s8 t = r.y - v;
-//
-//	set_flag(r.y >= v, FC);
-//	set_flag(r.y == v, FZ);
-//	set_flag(t & 0x80, FN);
-//}
-//
-//void Cpu::op_cpx(u16 addr)
-//{
-//	u8 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	u8 v = mem.rb(b);
-//	s8 t = r.x - v;
-//
-//	set_flag(r.x >= v, FC);
-//	set_flag(r.x == v, FZ);
-//	set_flag(t & 0x80, FN);
-//}
-//
-//void Cpu::op_cmp(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	u8 v = mem.rb(b);
-//	s8 t = r.a - v;
-//
-//	set_flag(r.a >= v, FC);
-//	set_flag(r.a == v, FZ);
-//	set_flag(t & 0x80, FN);
-//}
-//
-//void Cpu::op_eor(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	r.a ^= mem.rb(b);
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_ora(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	r.a |= mem.rb(b);
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_sbc(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	u8 v = mem.rb(b);
-//	u16 t = r.a + ~v + (r.ps & FC ? 1 : 0);
-//
-//	set_flag((t & 0xff) == 0, FZ);
-//	set_flag(t & 0x80, FN);
-//	set_flag((r.a ^ v) & (r.a ^ t) & 0x80, FV);
-//	set_flag((t & 0xff00) == 0, FC);
-//
-//	r.a = t;
-//}
-//
-//void Cpu::op_adc(u16 addr)
-//{
-//	u16 b = 0;
-//
-//	b = (this->*func[mode].modefuncs)(r.pc);
-//
-//	u8 v = mem.rb(b);
-//	u16 t = r.a + v + (r.ps & FC ? 1 : 0);
-//
-//	set_flag((t & 0xff) == 0, FZ);
-//	set_flag(t & 0x80, FN);
-//	set_flag((r.a ^ v) & (r.a ^ t) & 0x80, FV);
-//	set_flag((t & 0xff00) == 0, FC);
-//
-//	r.a = t;
-//}
-//
-//void Cpu::op_dey()
-//{
-//	r.y--;
-//
-//	set_flag(r.y == 0, FZ);
-//	set_flag(r.y & 0x80, FN);
-//}
-//
-//void Cpu::op_dex()
-//{
-//	r.x--;
-//
-//	set_flag(r.x == 0, FZ);
-//	set_flag(r.x & 0x80, FN);
-//}
-//
-//void Cpu::op_iny()
-//{
-//	r.y++;
-//
-//	set_flag(r.y == 0, FZ);
-//	set_flag(r.y & 0x80, FN);
-//}
-//
-//void Cpu::op_inx()
-//{
-//	r.x++;
-//
-//	set_flag(r.x == 0, FZ);
-//	set_flag(r.x & 0x80, FN);
-//}
-//
-//void Cpu::op_tay()
-//{
-//	r.y = r.a;
-//
-//	set_flag(r.y == 0, FZ);
-//	set_flag(r.y & 0x80, FN);
-//}
-//
-//void Cpu::op_tax()
-//{
-//	r.x = r.a;
-//
-//	set_flag(r.x == 0, FZ);
-//	set_flag(r.x & 0x80, FN);
-//}
-//
-//void Cpu::op_tya()
-//{
-//	r.a = r.y;
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//void Cpu::op_txa()
-//{
-//	r.a = r.x;
-//
-//	set_flag(r.a == 0, FZ);
-//	set_flag(r.a & 0x80, FN);
-//}
-//
-//u8 Cpu::op_rol(u16 addr)
-//{
-//	u16 b = 0;
-//	u8 v = 0;
-//	bool bit7 = false;
-//
-//	if (mode == addrmode::accu)
-//	{
-//		bit7 = r.a & (1 << 7) ? true : false;
-//		r.a <<= 1 & 0xff;
-//		if (r.ps & FC)
-//			r.a |= (1 << 0);
-//		v = r.a;
-//	}
-//	else
-//	{
-//		b = (this->*func[mode].modefuncs)(r.pc);
-//
-//		v = mem.rb(b);
-//		bit7 = v & (1 << 7) ? true : false;
-//		v <<= 1 & 0xff;
-//		if (r.ps & FC)
-//			v |= (1 << 0);
-//	}
-//
-//	set_flag(v == 0, FZ);
-//	set_flag(v & 0x80, FN);
-//	set_flag(bit7, FC);
-//
-//	return v;
-//}
-//
-//void Cpu::op_asl(u16 addr)
-//{
-//	u16 b = 0;
-//	u8 v = 0;
-//	bool bit7 = false;
-//
-//	set_flag(bit7, FC);
-//
-//	if (mode == addrmode::accu)
-//	{
-//		bit7 = r.a & (1 << 7) ? true : false;
-//		r.a <<= 1 & 0xff;
-//		if (r.ps & FC)
-//			r.a |= (1 << 0);
-//		v = r.a;
-//	}
-//	else
-//	{
-//		b = (this->*func[mode].modefuncs)(r.pc);
-//
-//		v = mem.rb(b);
-//		bit7 = v & (1 << 7) ? true : false;
-//		v <<= 1 & 0xff;
-//		if (r.ps & FC)
-//			v |= (1 << 0);
-//	}
-//
-//	set_flag(v == 0, FZ);
-//	set_flag(v & 0x80, FN);
-//}
-//
-//void Cpu::op_ror(u16 addr)
-//{
-//}
-//
-//void Cpu::op_lsr(u16 addr)
-//{
-//}
 
 void Cpu::set_flag(bool flag, u8 v)
 {
@@ -1013,32 +586,32 @@ void Cpu::set_flag(bool flag, u8 v)
 		r.ps &= ~v;
 }
 
-u16 Cpu::get_imme(u16 pc)
+u16 Cpu::get_imme(u16 pc, bool trace)
 {
 	return pc;
 }
 
-u16 Cpu::get_zerp(u16 pc)
+u16 Cpu::get_zerp(u16 pc, bool trace)
 {
 	return (u8)mem.rb(pc);
 }
 
-u16 Cpu::get_zerx(u16 pc)
+u16 Cpu::get_zerx(u16 pc, bool trace)
 {
 	return (u8)(mem.rb(pc) + r.x);
 }
 
-u16 Cpu::get_zery(u16 pc)
+u16 Cpu::get_zery(u16 pc, bool trace)
 {
 	return (u8)(mem.rb(pc) + r.y);
 }
 
-u16 Cpu::get_abso(u16 pc)
+u16 Cpu::get_abso(u16 pc, bool trace)
 {
 	return mem.rw(pc);
 }
 
-u16 Cpu::get_absx(u16 pc)
+u16 Cpu::get_absx(u16 pc, bool trace)
 {
 	u16 oldaddr = mem.rw(pc);
 	u32 newaddr = oldaddr + r.x;
@@ -1046,7 +619,7 @@ u16 Cpu::get_absx(u16 pc)
 	return newaddr & 0xffff;
 }
 
-u16 Cpu::get_absy(u16 pc)
+u16 Cpu::get_absy(u16 pc, bool trace)
 {
 	u16 oldaddr = mem.rw(pc);
 	u32 newaddr = oldaddr + r.y;
@@ -1054,27 +627,34 @@ u16 Cpu::get_absy(u16 pc)
 	return newaddr & 0xffff;
 }
 
-u16 Cpu::get_indx(u16 pc)
+u16 Cpu::get_indx(u16 pc, bool trace)
 {
 	u8 b1 = mem.rb(pc);
 	u8 lo = mem.rb(b1 + r.x & 0xff);
 	u8 hi = mem.rb(b1 + 1 + r.x & 0xff);
-	//return hi << 8 | lo;
-	return b1;
+
+	if (trace)
+		return b1;
+	else
+		return hi << 8 | lo;
 }
 
-u16 Cpu::get_indy(u16 pc)
+u16 Cpu::get_indy(u16 pc, bool trace)
 {
 	u8 b1 = mem.rb(pc);
-	u8 lo = mem.rb(b1 & 0xff);
+	u8 lo = mem.rb((b1 & 0xff));
 	u8 hi = mem.rb(b1 + 1 & 0xff);
 	u16 oldaddr = (hi << 8 | lo);
 	u32 newaddr = oldaddr + r.y;
 	pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-	return b1;
+
+	if (trace)
+		return b1;
+	else
+		return (hi << 8 | lo) + r.y;
 }
 
-u16 Cpu::get_indi(u16 pc)
+u16 Cpu::get_indi(u16 pc, bool trace)
 {
 	u16 addr = mem.rw(pc);
 
@@ -1088,23 +668,23 @@ u16 Cpu::get_indi(u16 pc)
 	}
 }
 
-u16 Cpu::get_rela(u16 pc)
+u16 Cpu::get_rela(u16 pc, bool trace)
 {
 	u8 b1 = mem.rb(pc);
 	return pc + (s8)(b1 + 1);
 }
 
-u16 Cpu::get_impl(u16 pc)
+u16 Cpu::get_impl(u16 pc, bool trace)
 {
 	return 0;
 }
 
-u16 Cpu::get_accu(u16 pc)
+u16 Cpu::get_accu(u16 pc, bool trace)
 {
 	return 0;
 }
 
-u16 Cpu::get_erro(u16 pc)
+u16 Cpu::get_erro(u16 pc, bool trace)
 {
 	state = cstate::crashed;
 	return 0;

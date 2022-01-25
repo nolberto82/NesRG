@@ -230,12 +230,11 @@ static bool ImGui_ImplSDL2_Init(SDL_Window* window)
     bd->MouseCursors[ImGuiMouseCursor_Hand] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_HAND);
     bd->MouseCursors[ImGuiMouseCursor_NotAllowed] = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NO);
 
-    // Set platform dependent data in viewport
 #ifdef _WIN32
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     if (SDL_GetWindowWMInfo(window, &info))
-        ImGui::GetMainViewport()->PlatformHandleRaw = (void*)info.info.win.window;
+        io.ImeWindowHandle = info.info.win.window;
 #else
     (void)window;
 #endif
