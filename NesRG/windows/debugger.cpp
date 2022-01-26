@@ -39,10 +39,12 @@ void Debugger::update()
 	gfx.running = true;
 	cpu.state = cstate::debugging;
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	while (gfx.running)
 	{
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+		input(io);
 
 		ImGui_ImplSDLRenderer_NewFrame();
 		ImGui_ImplSDL2_NewFrame(gfx.get_window());
@@ -51,38 +53,38 @@ void Debugger::update()
 		gfx.begin_frame();
 
 		step();
-		input(io);
 
 		//ImGui::ShowDemoWindow();
-		ImGui::ShowStyleEditor();
+		//ImGui::ShowStyleEditor();
 		//ImGui::ShowStyleSelector("stylesel");
 
 		//Debugger UI
-		ImGui::Begin("Debugger", nullptr, 0);
+		ImGui::Begin("Debugger", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-		ImGui::SetWindowSize(ImVec2(APP_WIDTH - 400 - 10, 900));
-		ImGui::SetWindowPos(ImVec2(5, 5));
+		ImGui::SetWindowSize(ImVec2(600, 400), ImGuiCond_Once);
 
 		ImGui::Columns(2);
 
-		ImGui::SetColumnWidth(0, 186);
-
-		show_registers();
-		show_breakpoints();
-
+		show_disassembly(io);
 		ImGui::SameLine();
 		ImGui::NextColumn();
-
-		show_disassembly();
-
-		show_memory();
+		show_breakpoints();
+		show_registers(io);
 
 		ImGui::Columns(1);
 
 		ImGui::End();
 
-		ImGui::Begin("FPS", nullptr);
-		ImGui::Text("%s: %f", "FPS", io.Framerate);
+		//show_games();
+
+		ImGui::Begin("Memory Editor");
+		ImGui::SetWindowSize(ImVec2(550, 300));
+		show_memory(io);
+		ImGui::End();
+
+		//Show display
+		ImGui::Begin("Display");
+		ImGui::Image((void*)(intptr_t)gfx.display.texture, ImVec2(256, 240));
 		ImGui::End();
 
 		// Rendering
@@ -98,10 +100,10 @@ void Debugger::update()
 	}
 }
 
-void Debugger::show_disassembly()
+void Debugger::show_disassembly(ImGuiIO io)
 {
 	char text[TEXTSIZE] = { 0 };
-	u16 pc = is_jump ? inputaddr : r.pc;
+	u16 pc = is_jump ? inputaddr : reg.pc;
 
 	vector<string> vdasm;
 	ImU32 tablerowcolor = 0xff00ffff;
@@ -111,10 +113,8 @@ void Debugger::show_disassembly()
 
 	static int item_num = 0;
 
-	ImGuiIO& io = ImGui::GetIO();
-
 	//Show Debugger
-	ImGui::BeginChild("Disassembly", ImVec2(0, ImGui::GetWindowHeight() - 400));
+	ImGui::BeginChild("Disassembly", ImVec2(0, ImGui::GetWindowHeight()));
 
 	if (io.MouseWheel != 0 && (pc + lineoffset < 0x10000))
 	{
@@ -215,7 +215,7 @@ void Debugger::show_disassembly()
 
 		ImVec4 currlinecol = ImVec4(0, 0, 0, 1);
 
-		if (pcaddr == r.pc)
+		if (pcaddr == reg.pc)
 			currlinecol = ImVec4(0, 0, 1, 1);
 
 		ImGui::TextColored(currlinecol, vdentry[0].bytetext.c_str());
@@ -236,13 +236,29 @@ void Debugger::show_disassembly()
 	ImGui::EndChild();
 }
 
-void Debugger::show_memory()
+void Debugger::show_memory(ImGuiIO io)
 {
 	static MemoryEditor mem_edit;
 
-	ImGui::BeginChild("memedit", ImVec2(-1, -1), false, ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
-	mem_edit.DrawContents(mem.ram, 0x10000);
+	ImGui::BeginChild("memedit", ImVec2(-1, -1), false, 0);
+	ImGui::Text("Memory Editor", ImGui::GetScrollMaxY());
+
+	if (ImGui::BeginTabBar("##mem_tabs", ImGuiTabBarFlags_None))
+	{
+		if (ImGui::BeginTabItem("RAM"))
+		{
+			mem_edit.DrawContents(mem.ram, 0x10000);
+			ImGui::EndTabItem();
+		}
+
+		if ((ImGui::BeginTabItem("VRAM")))
+		{
+			mem_edit.DrawContents(mem.vram, 0x4000);
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
 
 	ImGui::EndChild();
 }
@@ -266,6 +282,8 @@ void Debugger::show_breakpoints()
 		checkcolor[1] = ImVec4(0, 95 / 255.0f, 184 / 255.0f, 1);
 	if (bpaddchkbox[2])
 		checkcolor[2] = ImVec4(0, 95 / 255.0f, 184 / 255.0f, 1);
+
+	ImGui::Text("Breakpoints");
 
 	ImGui::Text("Address:");
 	ImGui::SameLine();
@@ -363,7 +381,7 @@ void Debugger::show_breakpoints()
 			ctype[1] = it.type & bp_read ? 'R' : '-';
 			ctype[2] = it.type & bp_write ? 'W' : '-';
 			ctype[3] = it.type & bp_exec ? 'X' : '-';
-			snprintf(temp, sizeof(temp), "%04X %s", it.addr, ctype);
+			snprintf(temp, sizeof(temp), "$%04X %s", it.addr, ctype);
 
 			ImGui::PushID(n);
 
@@ -404,7 +422,7 @@ void Debugger::show_breakpoints()
 //}
 }
 
-void Debugger::show_registers()
+void Debugger::show_registers(ImGuiIO io)
 {
 	ImU32 tablecolcolor = 0xffe0e0e0;
 
@@ -412,20 +430,23 @@ void Debugger::show_registers()
 
 	if (ImGui::BeginTable("Regs", 2))
 	{
-		ImGui::SetWindowPos(ImVec2(0, 400));
+		//ImGui::SetWindowPos(ImVec2(0, 420));
 
 		char flags[7] = { "......" };
 		char text[32] = "";
 
-		flags[5] = r.ps & FC ? 'C' : '.';
-		flags[4] = r.ps & FZ ? 'Z' : '.';
-		flags[3] = r.ps & FI ? 'I' : '.';
-		flags[2] = r.ps & FD ? 'D' : '.';
-		flags[1] = r.ps & FV ? 'V' : '.';
-		flags[0] = r.ps & FN ? 'N' : '.';
+		flags[5] = reg.ps & FC ? 'C' : '.';
+		flags[4] = reg.ps & FZ ? 'Z' : '.';
+		flags[3] = reg.ps & FI ? 'I' : '.';
+		flags[2] = reg.ps & FD ? 'D' : '.';
+		flags[1] = reg.ps & FV ? 'V' : '.';
+		flags[0] = reg.ps & FN ? 'N' : '.';
 
 		ImGui::TableSetupColumn("regnames", ImGuiTableColumnFlags_WidthFixed, 80.0f);
 		ImGui::TableSetupColumn("regvalues", ImGuiTableColumnFlags_WidthFixed, 80);
+
+		ImGui::TableNextColumn(); ImGui::Text("FPS");
+		ImGui::TableNextColumn(); ImGui::Text("%f", io.Framerate);
 
 		ImGui::TableNextColumn(); ImGui::Text("cpu cycles");
 		ImGui::TableNextColumn(); ImGui::Text("%d", cpu.cycles);
@@ -448,38 +469,85 @@ void Debugger::show_registers()
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "PC");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%04X", r.pc);
+		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.pc);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "A");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%02X", r.a);
+		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.a);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "X");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%02X", r.x);
+		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.x);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "Y");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%02X", r.y);
+		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.y);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "P");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%02X", r.ps);
+		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.ps);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "SP");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-		ImGui::TableNextColumn(); ImGui::Text("%04X", r.sp | 0x100);
+		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.sp | 0x100);
 
 		ImGui::EndTable();
 	}
 	ImGui::EndChild();
 }
 
+void Debugger::show_games()
+{
+	std::string path = "tests";
+
+	ImGui::Text("Games");
+
+	if (ImGui::ListBoxHeader("games", ImVec2(-1, 250)))
+	{
+		int n = 0;
+
+		for (const auto& entry : fs::directory_iterator(path))
+		{
+			//std::cout << entry.path() << std::endl;
+
+			//snprintf(temp, sizeof(temp), "%04X %s", it.addr, ctype);
+
+			if (entry.path().extension() == ".nes")
+			{
+				ImGui::PushID(n);
+
+				bool selected = (item_id == n);
+
+				if (ImGui::Selectable(entry.path().filename().u8string().c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick))
+				{
+					item_id = n;
+
+					if (ImGui::IsMouseDoubleClicked(0))
+					{
+						mem.load(entry.path().u8string().c_str());
+						cpu.init();
+						cpu.reset();
+						cpu.state = cstate::debugging;
+					}
+				}
+
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+
+				ImGui::PopID();
+
+				n++;
+			}
+		}
+		ImGui::ListBoxFooter();
+	}
+}
+
 void Debugger::show_buttons(u16& inputaddr, bool& is_jump, ImGuiIO io)
 {
 	static char inputtext[5] = "";
 	static char testtext[2] = "";
-	u16 pc = r.pc;
+	u16 pc = reg.pc;
 
 	if (ImGui::Begin("Buttons", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove))
 	{
@@ -595,7 +663,7 @@ void Debugger::step(bool stepping)
 	{
 		while (ppu.cycles < CYCLES_PER_FRAME)
 		{
-			u16 pc = r.pc;
+			u16 pc = reg.pc;
 
 			for (auto it : bpk.get_breakpoints())
 			{
@@ -660,7 +728,7 @@ void Debugger::step(bool stepping)
 void Debugger::log_to_file()
 {
 	char text[TEXTSIZE] = { 0 };
-	vdentry = get_trace_line(text, r.pc, true);
+	vdentry = get_trace_line(text, reg.pc, true);
 
 	//ofstream outFile("cpu_trace.log", ios_base::app);
 	for (const auto& e : vdentry)
@@ -743,7 +811,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			u8 d1 = mem.rb(pc);
 			u8 d2 = mem.rb(pc + 1);
 			snprintf(data, TEXTSIZE, "%-4s", name);
-			snprintf(data + strlen(data), TEXTSIZE, "$%02X,X @ $%04X = #$%02X", d2, (u8)(d2 + r.x), mem.rb((u8)(d2 + r.x)));
+			snprintf(data + strlen(data), TEXTSIZE, "$%02X,X @ $%04X = #$%02X", d2, (u8)(d2 + reg.x), mem.rb((u8)(d2 + reg.x)));
 			snprintf(bytes, TEXTSIZE, "%02X %-6.02X", d1, d2);
 			break;
 		}
@@ -753,7 +821,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			u8 d1 = mem.rb(pc);
 			u8 d2 = mem.rb(pc + 1);
 			snprintf(data, TEXTSIZE, "%-4s", name);
-			snprintf(data + strlen(data), TEXTSIZE, "$%02X,Y @ $%04X = #$%02X", d2, (u8)(d2 + r.y), mem.rb((u8)(d2 + r.y)));
+			snprintf(data + strlen(data), TEXTSIZE, "$%02X,Y @ $%04X = #$%02X", d2, (u8)(d2 + reg.y), mem.rb((u8)(d2 + reg.y)));
 			snprintf(bytes, TEXTSIZE, "%02X %-6.02X", d1, d2);
 			break;
 		}
@@ -765,8 +833,8 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			if (isjump)
 				snprintf(data + strlen(data), TEXTSIZE, "$%04X", b);
 			else
-				snprintf(data + strlen(data), TEXTSIZE, "$%04X = #$%02X", b, mem.rb(b));
-			snprintf(bytes, TEXTSIZE, "%02X %02X %-3.02X", mem.rb(pc), mem.rb(pc + 1), mem.rb(pc + 2));
+				snprintf(data + strlen(data), TEXTSIZE, "$%04X = #$%02X", b, mem.ram[b]);
+			snprintf(bytes, TEXTSIZE, "%02X %02X %-3.02X", mem.ram[pc], mem.ram[pc + 1], mem.ram[pc + 2]);
 			break;
 		}
 		case addrmode::absx:
@@ -777,7 +845,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			u8 d3 = mem.rb(pc + 2);
 			u16 a = d3 << 8 | d2;
 			snprintf(data, TEXTSIZE, "%-4s", name);
-			snprintf(data + strlen(data), TEXTSIZE, "$%04X,X @ $%04X = #$%02X", a, (u16)a + r.x, mem.rb((u16)(a + r.x)));
+			snprintf(data + strlen(data), TEXTSIZE, "$%04X,X @ $%04X = #$%02X", a, (u16)a + reg.x, mem.rb((u16)(a + reg.x)));
 			snprintf(bytes, TEXTSIZE, "%02X %02X %-3.02X", d1, d2, d3);
 			break;
 		}
@@ -789,15 +857,15 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			u8 d3 = mem.rb(pc + 2);
 			u16 a = d3 << 8 | d2;
 			snprintf(data, TEXTSIZE, "%-4s", name);
-			snprintf(data + strlen(data), TEXTSIZE, "$%04X,Y @ $%04X = #$%02X", a, (u16)(a + r.y), mem.rb(b));
+			snprintf(data + strlen(data), TEXTSIZE, "$%04X,Y @ $%04X = #$%02X", a, (u16)(a + reg.y), mem.rb(b));
 			snprintf(bytes, TEXTSIZE, "%02X %02X %-3.02X", d1, d2, d3);
 			break;
 		}
 		case addrmode::indx:
 		{
 			u16 b = cpu.get_indx(pc + 1, true);
-			u8 d1 = mem.rb((u8)(b + r.x));
-			u8 d2 = mem.rb((u8)(b + 1 + r.x));
+			u8 d1 = mem.rb((u8)(b + reg.x));
+			u8 d2 = mem.rb((u8)(b + 1 + reg.x));
 			u16 a = d2 << 8 | d1;
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			snprintf(data + strlen(data), TEXTSIZE, "($%02X,X) @ $%04X = #$%02X", b, a, mem.rb(a));
@@ -809,7 +877,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 			u16 b = cpu.get_indy(pc + 1, true);
 			u8 d1 = mem.rb((u8)b);
 			u8 d2 = mem.rb((u8)(b + 1));
-			u16 a = (u16)((d2 << 8 | d1) + r.y);
+			u16 a = (u16)((d2 << 8 | d1) + reg.y);
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			snprintf(data + strlen(data), TEXTSIZE, "($%02X),Y @ $%04X = #$%02X", (u8)b, a, mem.rb(a));
 			snprintf(bytes, TEXTSIZE, "%02X %-6.02X", mem.rb(pc), mem.rb(pc + 1));
@@ -847,16 +915,16 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 		char flags[9] = { "........" };
 		char text[32] = "";
 
-		flags[7] = r.ps & FC ? 'C' : 'c';
-		flags[6] = r.ps & FZ ? 'Z' : 'z';
-		flags[5] = r.ps & FI ? 'I' : 'i';
-		flags[4] = r.ps & FD ? 'D' : 'd';
-		flags[3] = r.ps & FB ? 'B' : 'b';
-		flags[2] = r.ps & FU ? 'U' : 'u';
-		flags[1] = r.ps & FV ? 'V' : 'v';
-		flags[0] = r.ps & FN ? 'N' : 'n';
+		flags[7] = reg.ps & FC ? 'C' : 'c';
+		flags[6] = reg.ps & FZ ? 'Z' : 'z';
+		flags[5] = reg.ps & FI ? 'I' : 'i';
+		flags[4] = reg.ps & FD ? 'D' : 'd';
+		flags[3] = reg.ps & FB ? 'B' : 'b';
+		flags[2] = reg.ps & FU ? 'U' : 'u';
+		flags[1] = reg.ps & FV ? 'V' : 'v';
+		flags[0] = reg.ps & FN ? 'N' : 'n';
 
-		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X S:%02X P:%s  $", r.a, r.x, r.y, r.sp, flags);
+		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X S:%02X P:%s  $", reg.a, reg.x, reg.y, reg.sp, flags);
 
 		e.regtext += temp;
 	}

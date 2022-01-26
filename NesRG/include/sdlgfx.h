@@ -8,7 +8,12 @@
 //#include <SDL_image.h>
 //#include <SDL2_framerate.h>
 
-
+struct texture_t
+{
+	int w;
+	int h;
+	SDL_Texture* texture;
+};
 
 struct SDLGfx
 {
@@ -17,6 +22,7 @@ public:
 	void update();
 	void input();
 	void begin_frame();
+	void render_frame();
 	void end_frame();
 	void clean();
 
@@ -24,6 +30,9 @@ public:
 	SDL_Renderer* get_renderer() { return renderer; }
 
 	bool running = 0;
+
+	texture_t display = {};
+	u32 disp_pixels[256 * 240];
 
 private:
 

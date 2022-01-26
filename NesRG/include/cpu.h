@@ -79,7 +79,7 @@ private:
 };
 
 extern Cpu cpu;
-extern Registers r;
+extern Registers reg;
 
 struct amodefuncs
 {

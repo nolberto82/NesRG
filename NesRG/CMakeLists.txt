@@ -61,17 +61,17 @@ if(UNIX)
     target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main)
 endif()
 
-add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${TOP_DIR}/${ROMS_DIR}
-                ${APP_DIR}/${ROMS_DIR})
+#add_custom_command(
+#        TARGET ${PROJECT_NAME} POST_BUILD
+#        COMMAND ${CMAKE_COMMAND} -E copy_directory
+#                ${TOP_DIR}/${ROMS_DIR}
+#                ${APP_DIR}/${ROMS_DIR})
 
-add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${TOP_DIR}/${TEST_DIR}
-                ${APP_DIR}/${TEST_DIR})
+#add_custom_command(
+#        TARGET ${PROJECT_NAME} POST_BUILD
+#        COMMAND ${CMAKE_COMMAND} -E copy_directory
+#                ${TOP_DIR}/${TEST_DIR}
+#                ${APP_DIR}/${TEST_DIR})
 
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD

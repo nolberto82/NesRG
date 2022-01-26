@@ -18,12 +18,12 @@ void Cpu::execute()
 
 int Cpu::step()
 {
-	u8 op = mem.rb(r.pc);
+	u8 op = mem.rb(reg.pc);
 	u8 b1 = 0;
 	u16 b2 = 0;
 
 	int mode = disasm[op].mode;
-	u16 addr = (this->*func[mode].modefuncs)(r.pc + 1, false);
+	u16 addr = (this->*func[mode].modefuncs)(reg.pc + 1, false);
 
 	if (state == cstate::crashed)
 		return 0;
@@ -33,22 +33,22 @@ int Cpu::step()
 		case opcid::ADC:
 		{
 			u8 v = mem.rb(addr);
-			u16 b = r.a + v + (r.ps & FC);
+			u16 b = reg.a + v + (reg.ps & FC);
 
 			set_flag((b & 0xff) == 0, FZ);
 			set_flag(b & 0x80, FN);
-			set_flag(~(r.a ^ v) & (r.a ^ b) & 0x80, FV);
+			set_flag(~(reg.a ^ v) & (reg.a ^ b) & 0x80, FV);
 			set_flag(b > 0xff, FC);
 
-			r.a = b;
+			reg.a = b;
 			break;
 		}
 		case opcid::AND:
 		{
-			r.a &= mem.rb(addr);
+			reg.a &= mem.rb(addr);
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::ASL:
@@ -56,8 +56,8 @@ int Cpu::step()
 			u8 b = 0;
 			if (mode == addrmode::accu)
 			{
-				set_flag(r.a & 0x80, FC);
-				r.a = b = (r.a << 1) & 0xfe;
+				set_flag(reg.a & 0x80, FC);
+				reg.a = b = (reg.a << 1) & 0xfe;
 			}
 			else
 			{
@@ -73,23 +73,23 @@ int Cpu::step()
 		}
 		case opcid::BCC:
 		{
-			op_bra(addr, !(r.ps & FC));
+			op_bra(addr, !(reg.ps & FC));
 			break;
 		}
 		case opcid::BCS:
 		{
-			op_bra(addr, (r.ps & FC));
+			op_bra(addr, (reg.ps & FC));
 			break;
 		}
 		case opcid::BEQ:
 		{
-			op_bra(addr, (r.ps & FZ));
+			op_bra(addr, (reg.ps & FZ));
 			break;
 		}
 		case opcid::BIT:
 		{
 			u8 v = mem.rb(addr);
-			u8 b = r.a & v;
+			u8 b = reg.a & v;
 
 			set_flag(b == 0, FZ);
 			set_flag(v & 0x80, FN);
@@ -98,17 +98,17 @@ int Cpu::step()
 		}
 		case opcid::BMI:
 		{
-			op_bra(addr, (r.ps & FN));
+			op_bra(addr, (reg.ps & FN));
 			break;
 		}
 		case opcid::BNE:
 		{
-			op_bra(addr, !(r.ps & FZ));
+			op_bra(addr, !(reg.ps & FZ));
 			break;
 		}
 		case opcid::BPL:
 		{
-			op_bra(addr, !(r.ps & FN));
+			op_bra(addr, !(reg.ps & FN));
 			break;
 		}
 		case opcid::BRK:
@@ -117,12 +117,12 @@ int Cpu::step()
 		}
 		case opcid::BVC:
 		{
-			op_bra(addr, !(r.ps & FV));
+			op_bra(addr, !(reg.ps & FV));
 			break;
 		}
 		case opcid::BVS:
 		{
-			op_bra(addr, (r.ps & FV));
+			op_bra(addr, (reg.ps & FV));
 			break;
 		}
 		case opcid::CLC:
@@ -148,30 +148,30 @@ int Cpu::step()
 		case opcid::CMP:
 		{
 			u8 v = mem.rb(addr);
-			s8 t = r.a - v;
+			s8 t = reg.a - v;
 
-			set_flag(r.a >= v, FC);
-			set_flag(r.a == v, FZ);
+			set_flag(reg.a >= v, FC);
+			set_flag(reg.a == v, FZ);
 			set_flag(t & 0x80, FN);
 			break;
 		}
 		case opcid::CPX:
 		{
 			u8 v = mem.rb(addr);
-			s8 t = r.x - v;
+			s8 t = reg.x - v;
 
-			set_flag(r.x >= v, FC);
-			set_flag(r.x == v, FZ);
+			set_flag(reg.x >= v, FC);
+			set_flag(reg.x == v, FZ);
 			set_flag(t & 0x80, FN);
 			break;
 		}
 		case opcid::CPY:
 		{
 			u8 v = mem.rb(addr);
-			s8 t = r.y - v;
+			s8 t = reg.y - v;
 
-			set_flag(r.y >= v, FC);
-			set_flag(r.y == v, FZ);
+			set_flag(reg.y >= v, FC);
+			set_flag(reg.y == v, FZ);
 			set_flag(t & 0x80, FN);
 			break;
 		}
@@ -186,26 +186,26 @@ int Cpu::step()
 		}
 		case opcid::DEX:
 		{
-			r.x--;
+			reg.x--;
 
-			set_flag(r.x == 0, FZ);
-			set_flag(r.x & 0x80, FN);
+			set_flag(reg.x == 0, FZ);
+			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::DEY:
 		{
-			r.y--;
+			reg.y--;
 
-			set_flag(r.y == 0, FZ);
-			set_flag(r.y & 0x80, FN);
+			set_flag(reg.y == 0, FZ);
+			set_flag(reg.y & 0x80, FN);
 			break;
 		}
 		case opcid::EOR:
 		{
-			r.a ^= mem.rb(addr);
+			reg.a ^= mem.rb(addr);
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::INC:
@@ -219,55 +219,55 @@ int Cpu::step()
 		}
 		case opcid::INX:
 		{
-			r.x++;
+			reg.x++;
 
-			set_flag(r.x == 0, FZ);
-			set_flag(r.x & 0x80, FN);
+			set_flag(reg.x == 0, FZ);
+			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::INY:
 		{
-			r.y++;
+			reg.y++;
 
-			set_flag(r.y == 0, FZ);
-			set_flag(r.y & 0x80, FN);
+			set_flag(reg.y == 0, FZ);
+			set_flag(reg.y & 0x80, FN);
 			break;
 		}
 		case opcid::JMP:
 		{
-			r.pc = addr - 3;
+			reg.pc = addr - 3;
 			break;
 		}
 		case opcid::JSR:
 		{
-			u16 pc = r.pc + 2;
-			op_push(r.sp--, pc >> 8);
-			op_push(r.sp--, pc & 0xff);
-			r.pc = addr - 3;
+			u16 pc = reg.pc + 2;
+			op_push(reg.sp--, pc >> 8);
+			op_push(reg.sp--, pc & 0xff);
+			reg.pc = addr - 3;
 			break;
 		}
 		case opcid::LDA:
 		{
-			r.a = mem.rb(addr);
+			reg.a = mem.rb(addr);
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::LDX:
 		{
-			r.x = mem.rb(addr);
+			reg.x = mem.rb(addr);
 
-			set_flag(r.x == 0, FZ);
-			set_flag(r.x & 0x80, FN);
+			set_flag(reg.x == 0, FZ);
+			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::LDY:
 		{
-			r.y = mem.rb(addr);
+			reg.y = mem.rb(addr);
 
-			set_flag(r.y == 0, FZ);
-			set_flag(r.y & 0x80, FN);
+			set_flag(reg.y == 0, FZ);
+			set_flag(reg.y & 0x80, FN);
 			break;
 		}
 		case opcid::LSR:
@@ -275,8 +275,8 @@ int Cpu::step()
 			u8 b = 0;
 			if (mode == addrmode::accu)
 			{
-				set_flag(r.a & 0x01, FC);
-				r.a = b = (r.a >> 1) & 0x7f;
+				set_flag(reg.a & 0x01, FC);
+				reg.a = b = (reg.a >> 1) & 0x7f;
 			}
 			else
 			{
@@ -296,33 +296,33 @@ int Cpu::step()
 		}
 		case opcid::ORA:
 		{
-			r.a |= mem.rb(addr);
+			reg.a |= mem.rb(addr);
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::PHA:
 		{
-			op_push(r.sp--, r.a);
+			op_push(reg.sp--, reg.a);
 			break;
 		}
 		case opcid::PHP:
 		{
-			op_push(r.sp--, r.ps | 0x30);
+			op_push(reg.sp--, reg.ps | 0x30);
 			break;
 		}
 		case opcid::PLA:
 		{
-			r.a = op_pop();
+			reg.a = op_pop();
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::PLP:
 		{
-			r.ps = op_pop();
+			reg.ps = op_pop();
 			break;
 		}
 		case opcid::ROL:
@@ -332,18 +332,18 @@ int Cpu::step()
 
 			if (mode == addrmode::accu)
 			{
-				bit7 = r.a & 0x80 ? 1 : 0;
-				r.a = r.a << 1;
-				if (r.ps & FC)
-					r.a |= 0x01;
-				b = r.a;
+				bit7 = reg.a & 0x80 ? 1 : 0;
+				reg.a = reg.a << 1;
+				if (reg.ps & FC)
+					reg.a |= 0x01;
+				b = reg.a;
 			}
 			else
 			{
 				b = mem.rb(addr);
-				bit7 = r.a & 0x80 ? 1 : 0;
+				bit7 = reg.a & 0x80 ? 1 : 0;
 				b = b << 1;
-				if (r.ps & FC)
+				if (reg.ps & FC)
 					b |= 0x01;
 
 				mem.wb(addr, b);
@@ -361,18 +361,18 @@ int Cpu::step()
 
 			if (mode == addrmode::accu)
 			{
-				bit0 = r.a & 0x01 ? 1 : 0;
-				r.a = r.a >> 1;
-				if (r.ps & FC)
-					r.a |= 0x80;
-				b = r.a;
+				bit0 = reg.a & 0x01 ? 1 : 0;
+				reg.a = reg.a >> 1;
+				if (reg.ps & FC)
+					reg.a |= 0x80;
+				b = reg.a;
 			}
 			else
 			{
 				b = mem.rb(addr);
-				bit0 = r.a & 0x01 ? 1 : 0;
+				bit0 = reg.a & 0x01 ? 1 : 0;
 				b = b >> 1;
-				if (r.ps & FC)
+				if (reg.ps & FC)
 					b |= 0x80;
 
 				mem.wb(addr, b);
@@ -385,26 +385,26 @@ int Cpu::step()
 		}
 		case opcid::RTI:
 		{
-			r.ps = op_pop();
-			r.pc = (op_pop() | op_pop() << 8) - 1;
+			reg.ps = op_pop();
+			reg.pc = (op_pop() | op_pop() << 8) - 1;
 			break;
 		}
 		case opcid::RTS:
 		{
-			r.pc = op_pop() | op_pop() << 8;
+			reg.pc = op_pop() | op_pop() << 8;
 			break;
 		}
 		case opcid::SBC:
 		{
 			u8 b = mem.rb(addr);
-			u16 t = r.a + ~b + (r.ps & FC ? 1 : 0);
+			u16 t = reg.a + ~b + (reg.ps & FC ? 1 : 0);
 
 			set_flag((t & 0xff) == 0, FZ);
 			set_flag(t & 0x80, FN);
-			set_flag((r.a ^ b) & (r.a ^ t) & 0x80, FV);
+			set_flag((reg.a ^ b) & (reg.a ^ t) & 0x80, FV);
 			set_flag((t & 0xff00) == 0, FC);
 
-			r.a = t;
+			reg.a = t;
 			break;
 		}
 		case opcid::SEC:
@@ -425,64 +425,64 @@ int Cpu::step()
 		case opcid::STA:
 		{
 			pagecrossed = false;
-			mem.wb(addr, r.a);
+			mem.wb(addr, reg.a);
 			break;
 		}
 		case opcid::STX:
 		{
 			pagecrossed = false;
-			mem.wb(addr, r.x);
+			mem.wb(addr, reg.x);
 			break;
 		}
 		case opcid::STY:
 		{
 			pagecrossed = false;
-			mem.wb(addr, r.y);
+			mem.wb(addr, reg.y);
 			break;
 		}
 		case opcid::TAX:
 		{
-			r.x = r.a;
+			reg.x = reg.a;
 
-			set_flag(r.x == 0, FZ);
-			set_flag(r.x & 0x80, FN);
+			set_flag(reg.x == 0, FZ);
+			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::TAY:
 		{
-			r.y = r.a;
+			reg.y = reg.a;
 
-			set_flag(r.y == 0, FZ);
-			set_flag(r.y & 0x80, FN);
+			set_flag(reg.y == 0, FZ);
+			set_flag(reg.y & 0x80, FN);
 			break;
 		}
 		case opcid::TSX:
 		{
-			r.x = r.sp;
+			reg.x = reg.sp;
 
-			set_flag(r.x == 0, FZ);
-			set_flag(r.x & 0x80, FN);
+			set_flag(reg.x == 0, FZ);
+			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::TXA:
 		{
-			r.a = r.x;
+			reg.a = reg.x;
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::TXS:
 		{
-			r.sp = r.x;
+			reg.sp = reg.x;
 			break;
 		}
 		case opcid::TYA:
 		{
-			r.a = r.y;
+			reg.a = reg.y;
 
-			set_flag(r.a == 0, FZ);
-			set_flag(r.a & 0x80, FN);
+			set_flag(reg.a == 0, FZ);
+			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::ERR:
@@ -492,7 +492,7 @@ int Cpu::step()
 		}
 	}
 
-	r.pc += disasm[op].size;
+	reg.pc += disasm[op].size;
 
 	if (ppu.nmi)
 	{
@@ -525,19 +525,19 @@ void Cpu::init()
 		{ &c::get_erro },
 	};
 
-	//r.ps = 0x36;
-	//r.x = 0x80;
+	//reg.ps = 0x36;
+	//reg.x = 0x80;
 }
 
 void Cpu::reset()
 {
-	r.pc = mem.rw(0xfffc);
-	//r.pc = 0xc000;
-	r.sp = 0xfd;
-	r.ps = 0x04;
-	r.x = 0x00;
-	r.a = 0x00;
-	r.y = 0x00;
+	reg.pc = mem.rw(0xfffc);
+	//reg.pc = 0xc000;
+	reg.sp = 0xfd;
+	reg.ps = 0x04;
+	reg.x = 0x00;
+	reg.a = 0x00;
+	reg.y = 0x00;
 
 	for (int i = 0; i < 0x800; i++)
 	{
@@ -552,17 +552,17 @@ void Cpu::reset()
 
 void Cpu::op_nmi()
 {
-	op_push(r.sp--, r.pc >> 8);
-	op_push(r.sp--, r.pc & 0xff);
-	op_push(r.sp--, r.ps);
-	r.pc = mem.rw(0xfffa);
+	op_push(reg.sp--, reg.pc >> 8);
+	op_push(reg.sp--, reg.pc & 0xff);
+	op_push(reg.sp--, reg.ps);
+	reg.pc = mem.rw(0xfffa);
 	ppu.nmi = false;
 	cycles += 7;
 }
 
 u8 Cpu::op_pop()
 {
-	return mem.rb(++r.sp | 0x100);
+	return mem.rb(++reg.sp | 0x100);
 }
 
 void Cpu::op_push(u16 addr, u8 v)
@@ -574,16 +574,16 @@ void Cpu::op_bra(u16 addr, bool flag)
 {
 	if (flag)
 	{
-		r.pc = addr - 2;
+		reg.pc = addr - 2;
 	}
 }
 
 void Cpu::set_flag(bool flag, u8 v)
 {
 	if (flag)
-		r.ps |= v;
+		reg.ps |= v;
 	else
-		r.ps &= ~v;
+		reg.ps &= ~v;
 }
 
 u16 Cpu::get_imme(u16 pc, bool trace)
@@ -598,12 +598,12 @@ u16 Cpu::get_zerp(u16 pc, bool trace)
 
 u16 Cpu::get_zerx(u16 pc, bool trace)
 {
-	return (u8)(mem.rb(pc) + r.x);
+	return (u8)(mem.rb(pc) + reg.x);
 }
 
 u16 Cpu::get_zery(u16 pc, bool trace)
 {
-	return (u8)(mem.rb(pc) + r.y);
+	return (u8)(mem.rb(pc) + reg.y);
 }
 
 u16 Cpu::get_abso(u16 pc, bool trace)
@@ -614,7 +614,7 @@ u16 Cpu::get_abso(u16 pc, bool trace)
 u16 Cpu::get_absx(u16 pc, bool trace)
 {
 	u16 oldaddr = mem.rw(pc);
-	u32 newaddr = oldaddr + r.x;
+	u32 newaddr = oldaddr + reg.x;
 	pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
 	return newaddr & 0xffff;
 }
@@ -622,7 +622,7 @@ u16 Cpu::get_absx(u16 pc, bool trace)
 u16 Cpu::get_absy(u16 pc, bool trace)
 {
 	u16 oldaddr = mem.rw(pc);
-	u32 newaddr = oldaddr + r.y;
+	u32 newaddr = oldaddr + reg.y;
 	pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
 	return newaddr & 0xffff;
 }
@@ -630,8 +630,8 @@ u16 Cpu::get_absy(u16 pc, bool trace)
 u16 Cpu::get_indx(u16 pc, bool trace)
 {
 	u8 b1 = mem.rb(pc);
-	u8 lo = mem.rb(b1 + r.x & 0xff);
-	u8 hi = mem.rb(b1 + 1 + r.x & 0xff);
+	u8 lo = mem.rb(b1 + reg.x & 0xff);
+	u8 hi = mem.rb(b1 + 1 + reg.x & 0xff);
 
 	if (trace)
 		return b1;
@@ -645,13 +645,13 @@ u16 Cpu::get_indy(u16 pc, bool trace)
 	u8 lo = mem.rb((b1 & 0xff));
 	u8 hi = mem.rb(b1 + 1 & 0xff);
 	u16 oldaddr = (hi << 8 | lo);
-	u32 newaddr = oldaddr + r.y;
+	u32 newaddr = oldaddr + reg.y;
 	pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
 
 	if (trace)
 		return b1;
 	else
-		return (hi << 8 | lo) + r.y;
+		return (hi << 8 | lo) + reg.y;
 }
 
 u16 Cpu::get_indi(u16 pc, bool trace)

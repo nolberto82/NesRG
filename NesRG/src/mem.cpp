@@ -79,7 +79,7 @@ void Memory::set_mapper()
 u8 Memory::rb(u16 addr)
 {
 	if (addr == 0x2002)
-		return ppu.ppu_2002_rb(ram[0x2002]);
+		return ppu.ppustatus();
 
 	return ram[addr];
 }
@@ -96,7 +96,19 @@ u16 Memory::rw(u16 addr)
 void Memory::wb(u16 addr, u8 val)
 {
 	if (addr == 0x2000)
-		ppu.ppu_2000_wb(val);
+		ppu.ppuctrl(val);
+	else if (addr == 0x2001)
+		ppu.ppumask(val);
+	else if (addr == 0x2003)
+		ppu.oamaddrwrite(val);
+	else if (addr == 0x2004)
+		ppu.oamdatawrite(val);
+	else if (addr == 0x2005)
+		ppu.scrollwrite(val);
+	else if (addr == 0x2006)
+		ppu.addrwrite(val);
+	else if (addr == 0x2007)
+		ppu.datawrite(val);
 
 	ram[addr] = val;
 }
@@ -105,6 +117,16 @@ void Memory::ww(u16 addr, u16 val)
 {
 	wb(addr, val & 0xff);
 	wb(addr, val >> 8);
+}
+
+u8 Memory::ppurb(u16 addr)
+{
+	return vram[addr];
+}
+
+void Memory::ppuwb(u16 addr, u8 val)
+{
+	vram[addr & 0x3fff] = val;
 }
 
 void Memory::reset()

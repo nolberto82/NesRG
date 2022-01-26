@@ -29,6 +29,11 @@ bool SDLGfx::init()
 	//SDL_initFramerate(&fpsman);
 	//SDL_setFramerate(&fpsman, 60);
 
+	//create textures
+	display.w = 256; display.h = 240;
+
+	display.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
+
 	return true;
 }
 
@@ -52,6 +57,12 @@ void SDLGfx::begin_frame()
 
 	SDL_SetRenderDrawColor(renderer, 114, 144, 154, 255);
 	SDL_RenderClear(renderer);
+}
+
+void SDLGfx::render_frame()
+{
+	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned char) * 4);
+	SDL_RenderCopy(renderer, display.texture, NULL, NULL);
 }
 
 void SDLGfx::end_frame()

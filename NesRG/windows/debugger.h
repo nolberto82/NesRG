@@ -40,8 +40,8 @@ struct Debugger
 public:
 	bool init();
 	void update();
-	void show_disassembly();
-	void show_memory();
+	void show_disassembly(ImGuiIO io);
+	void show_memory(ImGuiIO io);
 	void show_breakpoints();
 	void clean();
 
@@ -58,7 +58,8 @@ private:
 
 	vector<disasmentry> vdentry;
 
-	void show_registers();
+	void show_registers(ImGuiIO io);
+	void show_games();
 	void show_buttons(u16& inputaddr, bool& is_jump, ImGuiIO io);
 	void input(ImGuiIO io);
 	void step(bool stepping = false);

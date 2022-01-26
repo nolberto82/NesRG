@@ -19,6 +19,8 @@ public:
 	u16 rw(u16 addr);
 	void wb(u16 addr, u8 val);
 	void ww(u16 addr, u16 val);
+	u8 ppurb(u16 addr);
+	void ppuwb(u16 addr, u8 val);
 	void reset();
 
 	Memory()

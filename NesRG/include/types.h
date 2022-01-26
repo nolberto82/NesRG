@@ -15,10 +15,12 @@
 #include <map>
 #include <iomanip>
 #include <memory>
+#include <filesystem>
 
 #include "opcodes.h"
 
 using namespace std;
+namespace fs = std::filesystem;
 
 typedef unsigned char u8;
 typedef unsigned short u16;
