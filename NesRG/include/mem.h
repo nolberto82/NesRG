@@ -7,11 +7,13 @@
 struct Memory
 {
 public:
-	u8* ram;
-	u8* vram;
-	u8* rom;
+	u8* ram = nullptr;
+	u8* vram = nullptr;
+	u8* rom = nullptr;
 
 	int mirrornametable = 0;
+
+	bool rom_loaded = false;
 
 	bool load(const char* filename);
 	void set_mapper();

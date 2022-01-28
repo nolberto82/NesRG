@@ -31,8 +31,10 @@ bool SDLGfx::init()
 
 	//create textures
 	display.w = 256; display.h = 240;
+	tile.w = 8; tile.h = 8;
 
-	display.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
+	display.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
+	tile.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
 
 	return true;
 }

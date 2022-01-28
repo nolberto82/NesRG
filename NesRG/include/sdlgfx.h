@@ -32,7 +32,9 @@ public:
 	bool running = 0;
 
 	texture_t display = {};
-	u32 disp_pixels[256 * 240];
+	texture_t tile = {};
+	u8 disp_pixels[256 * 240 * 4];
+	u32 tile_pixels[8 * 8];
 
 private:
 

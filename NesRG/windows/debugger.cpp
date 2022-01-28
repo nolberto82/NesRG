@@ -61,21 +61,27 @@ void Debugger::update()
 		//Debugger UI
 		ImGui::Begin("Debugger", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-		ImGui::SetWindowSize(ImVec2(600, 400), ImGuiCond_Once);
+		ImGui::SetWindowSize(ImVec2(600, 550), 0);
 
 		ImGui::Columns(2);
+
+		ImGui::SetColumnWidth(0, 350);
 
 		show_disassembly(io);
 		ImGui::SameLine();
 		ImGui::NextColumn();
+		ImGui::BeginChild("Breakpoints", ImVec2(-1, 250), ImGuiWindowFlags_NoScrollbar);
 		show_breakpoints();
+		ImGui::EndChild();
 		show_registers(io);
 
 		ImGui::Columns(1);
 
 		ImGui::End();
 
-		//show_games();
+		ImGui::Begin("Games");
+		show_games();
+		ImGui::End();
 
 		ImGui::Begin("Memory Editor");
 		ImGui::SetWindowSize(ImVec2(550, 300));
@@ -93,10 +99,6 @@ void Debugger::update()
 		SDL_RenderClear(gfx.get_renderer());
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
 		SDL_RenderPresent(gfx.get_renderer());
-
-		//SDL_framerateDelay(&fpsman);
-		//SDL_RenderPresent(gfx.get_renderer());
-		//gfx.end_frame();
 	}
 }
 
@@ -134,23 +136,29 @@ void Debugger::show_disassembly(ImGuiIO io)
 
 	if (ImGui::Button("Run", ImVec2(80, 0)))
 	{
-		cpu.state = cstate::running;
+		if (mem.rom_loaded)
+		{
+			cpu.state = cstate::running;
 
-		if (logging)
-			log_to_file();
+			if (logging)
+				log_to_file();
 
-		cpu.step();
-		is_jump = false;
+			cpu.step();
+			is_jump = false;
+		}
 	}
 
 	ImGui::SameLine();
 
 	if (ImGui::Button("Step Into", ImVec2(80, 0)))
 	{
-		cpu.state = cstate::debugging;
-		lineoffset = 0;
-		step(true);
-		is_jump = false;
+		if (mem.rom_loaded)
+		{
+			cpu.state = cstate::debugging;
+			lineoffset = 0;
+			step(true);
+			is_jump = false;
+		}
 	}
 
 	ImGui::SameLine();
@@ -241,7 +249,7 @@ void Debugger::show_memory(ImGuiIO io)
 	static MemoryEditor mem_edit;
 
 
-	ImGui::BeginChild("memedit", ImVec2(-1, -1), false, 0);
+	//ImGui::BeginChild("memedit", ImVec2(-1, -1), false, 0);
 	ImGui::Text("Memory Editor", ImGui::GetScrollMaxY());
 
 	if (ImGui::BeginTabBar("##mem_tabs", ImGuiTabBarFlags_None))
@@ -260,7 +268,7 @@ void Debugger::show_memory(ImGuiIO io)
 		ImGui::EndTabBar();
 	}
 
-	ImGui::EndChild();
+	//ImGui::EndChild();
 }
 
 void Debugger::show_breakpoints()
@@ -369,7 +377,7 @@ void Debugger::show_breakpoints()
 	if (disable_buttons)
 		ImGui::EndDisabled();
 
-	if (ImGui::ListBoxHeader("##bps", ImVec2(-1, 225)))
+	if (ImGui::ListBoxHeader("##bps", ImVec2(-1, -1)))
 	{
 		int n = 0;
 
@@ -381,7 +389,7 @@ void Debugger::show_breakpoints()
 			ctype[1] = it.type & bp_read ? 'R' : '-';
 			ctype[2] = it.type & bp_write ? 'W' : '-';
 			ctype[3] = it.type & bp_exec ? 'X' : '-';
-			snprintf(temp, sizeof(temp), "$%04X %s", it.addr, ctype);
+			snprintf(temp, sizeof(temp), "$%04X:%s", it.addr, ctype);
 
 			ImGui::PushID(n);
 
@@ -415,20 +423,18 @@ void Debugger::show_breakpoints()
 
 			n++;
 		}
+
 		ImGui::ListBoxFooter();
 	}
-
-	//ImGui::EndChild();
-//}
 }
 
 void Debugger::show_registers(ImGuiIO io)
 {
 	ImU32 tablecolcolor = 0xffe0e0e0;
 
-	ImGui::BeginChild("Registers", ImVec2(0, 200));
+	ImGui::BeginChild("Registers", ImVec2(0, 250), ImGuiWindowFlags_NoScrollbar);
 
-	if (ImGui::BeginTable("Regs", 2))
+	if (ImGui::BeginTable("Regs", 2, ImGuiTableFlags_None, ImVec2(-1, -1)))
 	{
 		//ImGui::SetWindowPos(ImVec2(0, 420));
 
@@ -456,6 +462,9 @@ void Debugger::show_registers(ImGuiIO io)
 
 		ImGui::TableNextColumn(); ImGui::Text("scanline");
 		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.scanline);
+
+		ImGui::TableNextColumn(); ImGui::Text("ppuaddr");
+		ImGui::TableNextColumn(); ImGui::Text("%04X", preg.v);
 
 		ImGui::TableNextColumn(); ImGui::Text("flags");
 		ImGui::TableNextColumn(); ImGui::Text("%s", flags);
@@ -500,148 +509,43 @@ void Debugger::show_games()
 {
 	std::string path = "tests";
 
-	ImGui::Text("Games");
+	ImGui::BeginListBox("Games", ImVec2(-1, 250));
+	int n = 0;
 
-	if (ImGui::ListBoxHeader("games", ImVec2(-1, 250)))
+	for (const auto& entry : fs::directory_iterator(path))
 	{
-		int n = 0;
+		//std::cout << entry.path() << std::endl;
 
-		for (const auto& entry : fs::directory_iterator(path))
+		//snprintf(temp, sizeof(temp), "%04X %s", it.addr, ctype);
+
+		if (entry.path().extension() == ".nes")
 		{
-			//std::cout << entry.path() << std::endl;
+			ImGui::PushID(n);
 
-			//snprintf(temp, sizeof(temp), "%04X %s", it.addr, ctype);
+			bool selected = (item_id == n);
 
-			if (entry.path().extension() == ".nes")
+			if (ImGui::Selectable(entry.path().filename().u8string().c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick))
 			{
-				ImGui::PushID(n);
+				item_id = n;
 
-				bool selected = (item_id == n);
-
-				if (ImGui::Selectable(entry.path().filename().u8string().c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick))
+				if (ImGui::IsMouseDoubleClicked(0))
 				{
-					item_id = n;
-
-					if (ImGui::IsMouseDoubleClicked(0))
-					{
-						mem.load(entry.path().u8string().c_str());
-						cpu.init();
-						cpu.reset();
-						cpu.state = cstate::debugging;
-					}
-				}
-
-				if (selected)
-					ImGui::SetItemDefaultFocus();
-
-				ImGui::PopID();
-
-				n++;
-			}
-		}
-		ImGui::ListBoxFooter();
-	}
-}
-
-void Debugger::show_buttons(u16& inputaddr, bool& is_jump, ImGuiIO io)
-{
-	static char inputtext[5] = "";
-	static char testtext[2] = "";
-	u16 pc = reg.pc;
-
-	if (ImGui::Begin("Buttons", NULL, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove))
-	{
-		ImGui::SetWindowPos(ImVec2(0, 0));
-		ImGui::SetWindowSize(ImVec2(APP_WIDTH, 60));
-
-
-
-		ImGui::SameLine();
-
-
-		if (ImGui::Button("Step Over", ImVec2(80, 0)))
-		{
-			u8 op = mem.rb(pc);
-			u8 b1 = mem.rb(pc + 1);
-			disasmdata dasm = get_disasm_entry(op, pc);
-
-			if (strstr(dasm.name, "djnz") || strstr(dasm.name, "call") || strstr(dasm.name, "rst"))
-			{
-				u16 prevpc = pc;
-				if (op == 0xc3)
-					cpu.step();
-				else
-				{
-					u16 retpc = pc + dasm.size;
-					cpu.state = cstate::running;
-
-					while (pc != retpc)
-					{
-						cpu.step();
-
-						//gui(io);
-
-						if (cpu.state != cstate::running)
-							break;
-					}
+					mem.load(entry.path().u8string().c_str());
+					cpu.init();
+					cpu.reset();
+					cpu.state = cstate::debugging;
 				}
 			}
-			else
-				cpu.step();
 
-			cpu.state = cstate::debugging;
-			stepping = true;
-			lineoffset = 0;
-			is_jump = false;
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+
+			ImGui::PopID();
+
+			n++;
 		}
-
-		ImGui::SameLine();
-
-		string log = logging ? "Logging: On" : "Logging: Off";
-
-		if (ImGui::Button(log.c_str(), ImVec2(100, 0)))
-		{
-			logging = !logging;
-
-			//if (logging)
-			//	outFile.open("cpu_trace.log");
-			//else
-			//	outFile.close();
-		}
-
-		ImGui::SameLine();
-
-		if (ImGui::Button("Dump Memory", ImVec2(100, 0)))
-		{
-			ofstream outFile("ram.bin", ios::binary);
-			outFile.write((char*)mem.ram, sizeof(mem.ram));
-			outFile.close();
-		}
-
-		ImGui::SameLine();
-
-		ImGui::PushItemWidth(40);
-
-		if (ImGui::InputText("Jump To Address", inputtext, IM_ARRAYSIZE(inputtext), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue))
-		{
-			istringstream ss(inputtext);
-			ss >> hex >> inputaddr;
-			is_jump = true;
-			lineoffset = 0;
-		}
-
-		ImGui::PopItemWidth();
-
-		ImGui::SameLine(0, 5);
-
-		//ImGui::Checkbox("Show Tiles/Sprites", &showtiles);
-
-		ImGui::SameLine(0, 50);
-
-		ImGui::Text("%s: %f", "FPS", io.Framerate);
-
-		ImGui::End();
 	}
+	ImGui::EndListBox();
 }
 
 void Debugger::input(ImGuiIO io)

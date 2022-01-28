@@ -30,11 +30,20 @@ struct Ppu
 
 private:
 	void do_scanline();
-	void render_background(u16 ntaddr, u16 ataddr);
+	void render_background_new();
+	int get_attr_index(int x, int y, int attrib);
+	void render_background();
+	void render_tile();
 	void x_increment();
 	void y_increment();
 
 	int pixel = 0;
+
+	u8 fine_x = 0;
+	u8 fine_y = 0;
+
+	u8 scroll_x = 0;
+	u8 scroll_y = 0;
 
 	u16 nametableaddr = 0;
 	u16 patternaddr = 0;
@@ -54,7 +63,9 @@ private:
 	u8 ppu2006 = 0;
 	u8 ppu2007 = 0;
 
-	u8 palettes[192] =
+	u32 palettes[192 / 3];
+
+	u8 palbuffer[192] =
 	{
 		0x61,0x61,0x61,0x00,0x00,0x88,0x1F,0x0D,0x99,0x37,0x13,0x79,0x56,0x12,0x60,0x5D,
 		0x00,0x10,0x52,0x0E,0x00,0x3A,0x23,0x08,0x21,0x35,0x0C,0x0D,0x41,0x0E,0x17,0x44,

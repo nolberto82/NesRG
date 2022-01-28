@@ -36,7 +36,7 @@ bool Memory::load(const char* filename)
 
 	set_mapper();
 
-	return true;
+	return rom_loaded = true;
 }
 
 void Memory::set_mapper()
@@ -86,7 +86,7 @@ u8 Memory::rb(u16 addr)
 
 u16 Memory::rw(u16 addr)
 {
-	
+
 	//if (addr == 0x2002)
 	//	return ppu.ppu_2002_rb(ram[0x2002]);
 

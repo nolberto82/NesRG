@@ -60,7 +60,6 @@ private:
 
 	void show_registers(ImGuiIO io);
 	void show_games();
-	void show_buttons(u16& inputaddr, bool& is_jump, ImGuiIO io);
 	void input(ImGuiIO io);
 	void step(bool stepping = false);
 	void log_to_file();
