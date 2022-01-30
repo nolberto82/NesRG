@@ -9,6 +9,7 @@ struct Memory
 public:
 	u8* ram = nullptr;
 	u8* vram = nullptr;
+	u8* oam = nullptr;
 	u8* rom = nullptr;
 
 	int mirrornametable = 0;
@@ -29,11 +30,13 @@ public:
 	{
 		ram = new u8[0x10000];
 		vram = new u8[0x4000];
+		oam = new u8[0x0100];
 	}
 
 	~Memory()
 	{
 		delete ram;
+		delete oam;
 		delete vram;
 		delete rom;
 	}

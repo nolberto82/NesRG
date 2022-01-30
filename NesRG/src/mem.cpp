@@ -80,6 +80,8 @@ u8 Memory::rb(u16 addr)
 {
 	if (addr == 0x2002)
 		return ppu.ppustatus();
+	if (addr == 0x2007)
+		return ppu.dataread();
 
 	return ram[addr];
 }
@@ -109,6 +111,14 @@ void Memory::wb(u16 addr, u8 val)
 		ppu.addrwrite(val);
 	else if (addr == 0x2007)
 		ppu.datawrite(val);
+	else if(addr == 0x4014)
+	{
+		ppu.ppuoamdma = val;
+		int oamaddr = val << 8;
+		for (int i = 0; i < 256; i++)
+			oam[i] = ram[oamaddr + i];
+		ppu.cycles += 513;
+	}
 
 	ram[addr] = val;
 }
@@ -126,6 +136,10 @@ u8 Memory::ppurb(u16 addr)
 
 void Memory::ppuwb(u16 addr, u8 val)
 {
+	if (addr > 0x3fff)
+	{
+		int yu = 0;
+	}
 	vram[addr & 0x3fff] = val;
 }
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.h"
-#include "debugger.h"
 
 struct bplist
 {
@@ -22,13 +21,11 @@ public:
 	bool check(u16 addr, u8 type, bool enabled);
 	bool check_access(u16 addr, u8 type, bool enabled = false);
 	std::vector<bplist>::iterator find(u16 addr);
-	std::vector<bplist> get_breakpoints();
 
 	u16 addr = 0;
 	bool enabled = false;
 	u8 type = 0;
 
-private:
 	std::vector<bplist> breakpoints;
 };
 

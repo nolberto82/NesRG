@@ -14,8 +14,11 @@ struct Ppu
 {
 	int scanline = 0;
 	int cycles = 0;
+	int pixel = 0;
+	int totalcycles = 0;
 
 	bool nmi = false;
+	bool frame_ready = false;
 
 	void step(int num);
 	void ppuctrl(u8 v);
@@ -26,19 +29,24 @@ struct Ppu
 	void scrollwrite(u8 v);
 	void addrwrite(u8 v);
 	void datawrite(u8 v);
+	u8 dataread();
 	void reset();
 
+	u8 ppuoamdma = 0;
+
 private:
-	void do_scanline();
 	void render_background_new();
+	void render_sprites(u8 frontback);
+	void set_sprite_zero();
+	void clear_sprite_zero();
 	int get_attr_index(int x, int y, int attrib);
 	void render_background();
 	void render_tile();
 	void x_increment();
 	void y_increment();
 
-	int pixel = 0;
 
+	u8 ppu_dummy2007 = 0;
 	u8 fine_x = 0;
 	u8 fine_y = 0;
 
@@ -62,6 +70,8 @@ private:
 	u8 ppu2005 = 0;
 	u8 ppu2006 = 0;
 	u8 ppu2007 = 0;
+
+	u8 sp0data[256 * 256 * 4];
 
 	u32 palettes[192 / 3];
 

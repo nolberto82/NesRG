@@ -12,7 +12,8 @@
 #define FV 0x40
 #define FN 0x80
 
-const int CYCLES_PER_FRAME = 341;
+const int CYCLES_PER_FRAME = 262 * 341;
+const int CYCLES_PER_LINE = 341;
 
 enum cstate
 {
@@ -30,15 +31,9 @@ struct Registers
 struct Cpu
 {
 public:
-	void execute();
 	int step();
 	void init();
 	void reset();
-
-	//int* get_cycles() { return &cycles; }
-	//int* set_cycles(int v) { cycles = v; }
-	//int* get_state() { return &cycles; }
-	//int* set_state(int v) { cycles = v; }
 
 	u16 get_imme(u16 pc, bool trace = false);
 	u16 get_zerp(u16 pc, bool trace = false);
@@ -55,25 +50,17 @@ public:
 	u16 get_accu(u16 pc, bool trace = false);
 	u16 get_erro(u16 pc, bool trace = false);
 
-	int cycles = 0;
 	int state = cstate::running;
 
 private:
 	bool pagecrossed = false;
+	u8 branchtaken = 0;
 
 private:
 	void op_nmi();
 	u8 op_pop();
 	void op_push(u16 addr, u8 v);
 	void op_bra(u16 addr, bool flag);
-	void op_dey();
-	void op_dex();
-	void op_iny();
-	void op_inx();
-	void op_tay();
-	void op_tax();
-	void op_tya();
-	void op_txa();
 
 	void set_flag(bool flag, u8 v);
 };

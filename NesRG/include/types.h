@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <memory>
 #include <filesystem>
+#include <functional>
 
 #include "opcodes.h"
 
@@ -31,5 +32,7 @@ typedef char s8;
 typedef short s16;
 typedef int s32;
 
-const int APP_WIDTH = 1200;
-const int APP_HEIGHT = 950;
+const int APP_WIDTH = 1300;
+const int APP_HEIGHT = 900;
+//const int APP_WIDTH = 512;
+//const int APP_HEIGHT = 480;

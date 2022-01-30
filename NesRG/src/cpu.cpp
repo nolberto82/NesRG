@@ -3,19 +3,6 @@
 
 vector<amodefuncs> func;
 
-void Cpu::execute()
-{
-	while (cycles < CYCLES_PER_FRAME)
-	{
-		cpu.step();
-	}
-
-	cycles -= CYCLES_PER_FRAME;
-
-	//ppu.set_scanline();
-	//ppu.step();
-}
-
 int Cpu::step()
 {
 	u8 op = mem.rb(reg.pc);
@@ -113,6 +100,11 @@ int Cpu::step()
 		}
 		case opcid::BRK:
 		{
+			u8 pb = mem.rb(reg.pc + 1);
+			op_push(reg.sp--, reg.pc >> 8);
+			op_push(reg.sp--, reg.pc & 0xff);
+			op_push(reg.sp--, reg.ps);
+			reg.pc = mem.rw(0xfffe);
 			break;
 		}
 		case opcid::BVC:
@@ -177,8 +169,8 @@ int Cpu::step()
 		}
 		case opcid::DEC:
 		{
-			u8 b = mem.rb(addr) - 1;
-			mem.wb(addr, b);
+			u8 b = mem.ram[addr] - 1;
+			mem.ram[addr] = b;
 
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
@@ -210,8 +202,8 @@ int Cpu::step()
 		}
 		case opcid::INC:
 		{
-			u8 b = mem.rb(addr) + 1;
-			mem.wb(addr, b);
+			u8 b = mem.ram[addr] + 1;
+			mem.ram[addr] = b;
 
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
@@ -386,12 +378,15 @@ int Cpu::step()
 		case opcid::RTI:
 		{
 			reg.ps = op_pop();
-			reg.pc = (op_pop() | op_pop() << 8) - 1;
+			reg.pc = op_pop();
+			reg.pc |= op_pop() << 8;
+			reg.pc--;
 			break;
 		}
 		case opcid::RTS:
 		{
-			reg.pc = op_pop() | op_pop() << 8;
+			reg.pc = op_pop();
+			reg.pc |= op_pop() << 8;
 			break;
 		}
 		case opcid::SBC:
@@ -500,8 +495,9 @@ int Cpu::step()
 		return 7;
 	}
 
-	cycles += disasm[op].cycles;
-	return disasm[op].cycles;
+	u8 cyc = disasm[op].cycles + branchtaken;
+	ppu.cycles += cyc;
+	return cyc;
 }
 
 void Cpu::init()
@@ -533,19 +529,11 @@ void Cpu::reset()
 {
 	reg.pc = mem.rw(0xfffc);
 	//reg.pc = 0xc000;
-	reg.sp = 0xfd;
+	reg.sp = 0xfa;
 	reg.ps = 0x04;
 	reg.x = 0x00;
 	reg.a = 0x00;
 	reg.y = 0x00;
-
-	for (int i = 0; i < 0x800; i++)
-	{
-		if (i & 0x04)
-			mem.ram[i] = 0xff;
-	}
-
-	cycles = 0;
 
 	ppu.reset();
 }
@@ -557,7 +545,7 @@ void Cpu::op_nmi()
 	op_push(reg.sp--, reg.ps);
 	reg.pc = mem.rw(0xfffa);
 	ppu.nmi = false;
-	cycles += 7;
+	ppu.cycles += 7;
 }
 
 u8 Cpu::op_pop()
@@ -572,9 +560,11 @@ void Cpu::op_push(u16 addr, u8 v)
 
 void Cpu::op_bra(u16 addr, bool flag)
 {
+	branchtaken = 0;
 	if (flag)
 	{
 		reg.pc = addr - 2;
+		branchtaken = 1;
 	}
 }
 
@@ -671,7 +661,7 @@ u16 Cpu::get_indi(u16 pc, bool trace)
 u16 Cpu::get_rela(u16 pc, bool trace)
 {
 	u8 b1 = mem.rb(pc);
-	return pc + (s8)(b1 + 1);
+	return pc + (s8)(b1)+1;
 }
 
 u16 Cpu::get_impl(u16 pc, bool trace)

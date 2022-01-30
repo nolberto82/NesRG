@@ -55,8 +55,3 @@ std::vector<bplist>::iterator Breakpoint::find(u16 addr)
 
 	return it;
 }
-
-std::vector<bplist> Breakpoint::get_breakpoints()
-{
-	return breakpoints;
-}

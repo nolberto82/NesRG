@@ -1,16 +1,16 @@
 #include "sdlgfx.h"
 
+struct stext otext[MAX_LETTERS];
+
 bool SDLGfx::init()
 {
-	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI);
-
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
 	{
 		printf("Couldn't initialize SDL: %s\n", SDL_GetError());
 		return false;
 	}
 
-	window = SDL_CreateWindow("Z80 Emulator", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, window_flags);
+	window = SDL_CreateWindow("Nes RG", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, 0);
 
 	if (!window)
 	{
@@ -18,13 +18,38 @@ bool SDLGfx::init()
 		return false;
 	}
 
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
 	if (!renderer)
 	{
 		printf("Failed to create renderer: %s\n", SDL_GetError());
 		return false;
 	}
+
+	//SDL_Surface* surface = IMG_Load("assets/emu-font.bmp");
+
+	//if (surface == NULL)
+	//{
+	//	printf("Unable to load image! SDL_image Error: %s\n", IMG_GetError());
+	//	return false;
+	//}
+
+	//int height = surface->h / 8;
+	//int width = surface->w / 8;
+
+	//int n = 0;
+
+	//for (int y = 0; y < height; y++)
+	//{
+	//	for (int x = 0; x < width; x++)
+	//	{
+	//		otext[n].x = x * 8;
+	//		otext[n].y = y * 8;
+	//		otext[n].w = 8;
+	//		otext[n].h = 8;
+	//		n++;
+	//	}
+	//}
 
 	//SDL_initFramerate(&fpsman);
 	//SDL_setFramerate(&fpsman, 60);
@@ -39,45 +64,73 @@ bool SDLGfx::init()
 	return true;
 }
 
+void SDLGfx::set_gui_callback(std::function<void()> function)
+{
+	debug_gui = function;
+}
+
 void SDLGfx::update()
 {
 }
 
 void SDLGfx::input()
 {
-	//memset(keystick1, 0, sizeof(keystick1));
-#if _WIN64
-
-#else
-
-#endif
-
+	SDL_Event event;
+	while (SDL_PollEvent(&event))
+	{
+		switch (event.type)
+		{
+			case SDL_QUIT:
+				running = 0;
+				break;
+		}
+	}
 }
 
-void SDLGfx::begin_frame()
+void SDLGfx::draw_string(const char* text, int x, int y, int size, SDL_Color c)
 {
+	//for (; *text; text++)
+	//{
+	//	u8 ch = *text;
 
-	SDL_SetRenderDrawColor(renderer, 114, 144, 154, 255);
-	SDL_RenderClear(renderer);
+	//	if (ch == '\n')
+	//		break;
+
+
+	//	if (ch == ' ')
+	//	{
+	//		x += size;
+	//		continue;
+	//	}
+
+	//	if (ch >= 0 && ch <= 9)
+	//		continue;
+
+	//	SDL_Rect rsrc = { otext[ch].x,otext[ch].y, 8, 8 };
+	//	SDL_Rect rdst = { x, y, size, size };
+	//	SDL_RendererFlip flip{};
+	//	SDL_SetTextureColorMod(font, c.r, c.g, c.b);
+	//	SDL_RenderCopyEx(renderer, gfx.font, &rsrc, &rdst, 1, NULL, flip);
+	//	//SDL_RenderCopy(gfx.renderer, gfx.font, &rsrc, &rdst);
+	//	x += size;
+	//}
+
+	//SDL_SetRenderTarget(renderer, NULL);
+	//SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 }
 
 void SDLGfx::render_frame()
 {
-	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned char) * 4);
+	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned int));
 	SDL_RenderCopy(renderer, display.texture, NULL, NULL);
-}
-
-void SDLGfx::end_frame()
-{
-	//SDL_framerateDelay(&fpsman);
-	SDL_RenderPresent(renderer);
+	//SDL_RenderPresent(renderer);
 }
 
 void SDLGfx::clean()
 {
-	//SDL_DestroyTexture(tile.texture);
-	//SDL_DestroyTexture(display.texture);
-	//SDL_DestroyTexture(chars.texture);
+	SDL_DestroyTexture(tile.texture);
+	SDL_DestroyTexture(display.texture);
+	SDL_DestroyTexture(font);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 

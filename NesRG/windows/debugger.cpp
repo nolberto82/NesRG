@@ -4,14 +4,16 @@
 #include "cpu.h"
 #include "ppu.h"
 
+#include <nfd.h>
+
 Breakpoint bpk;
 
 bool Debugger::init()
 {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGui_ImplSDL2_InitForSDLRenderer(gfx.get_window());
-	ImGui_ImplSDLRenderer_Init(gfx.get_renderer());
+	ImGui_ImplSDL2_InitForSDLRenderer(gfx.window);
+	ImGui_ImplSDLRenderer_Init(gfx.renderer);
 
 	ImGui::StyleColorsLight();
 
@@ -22,37 +24,40 @@ bool Debugger::init()
 	style->Colors[ImGuiCol_WindowBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	style->Colors[ImGuiCol_FrameBg] = framebgcol;
 	style->ItemSpacing = ImVec2(8, 1);
-	//style->Colors[ImGuiCol_PopupBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	//style->Colors[ImGuiCol_Border] = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-	//ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.25f);
-	//style->Colors[ImGuiCol_FrameBgActive] = ImVec4(0 / 255.0f, 95 / 255.0f, 184 / 255.0f, 1.0f);
-	//style->Colors[ImGuiCol_CheckMark] = ImVec4(0, 0, 0, 1);
-	//style->FrameBorderSize = 1.9f;
-	//style->ScaleAllSizes(0.9f);
 
+	gfx.running = true;
+	cpu.state = cstate::debugging;
+	//get_rom_files();
+
+	NFD_Init();
 
 	return false;
 }
 
 void Debugger::update()
 {
-	gfx.running = true;
-	cpu.state = cstate::debugging;
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
 	while (gfx.running)
 	{
-
+		step(false);
 		input(io);
 
 		ImGui_ImplSDLRenderer_NewFrame();
-		ImGui_ImplSDL2_NewFrame(gfx.get_window());
+		ImGui_ImplSDL2_NewFrame(gfx.window);
 		ImGui::NewFrame();
+		SDL_SetRenderDrawColor(gfx.renderer, 114, 144, 154, 255);
+		SDL_RenderClear(gfx.renderer);
 
-		gfx.begin_frame();
+		if (ImGui::Begin("Display", NULL))
+		{
+			ImVec2 tsize = ImGui::GetContentRegionAvail();
+			ImGui::Image((void*)gfx.display.texture, tsize);
+		}
+		ImGui::End();
 
-		step();
+		//show_menu();
 
 		//ImGui::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
@@ -61,45 +66,51 @@ void Debugger::update()
 		//Debugger UI
 		ImGui::Begin("Debugger", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-		ImGui::SetWindowSize(ImVec2(600, 550), 0);
+		ImGui::SetWindowSize(ImVec2(600, 900), 0);
 
 		ImGui::Columns(2);
 
 		ImGui::SetColumnWidth(0, 350);
 
+		//Show Debugger
+		ImGui::BeginChild("Disassembly", ImVec2(0, 500));
+
+		show_buttons();
+		ImGui::Separator();
 		show_disassembly(io);
+		ImGui::EndChild();
+
 		ImGui::SameLine();
 		ImGui::NextColumn();
-		ImGui::BeginChild("Breakpoints", ImVec2(-1, 250), ImGuiWindowFlags_NoScrollbar);
+
+		ImGui::BeginChild("Breakpoints", ImVec2(-1, 250), false, ImGuiWindowFlags_NoScrollbar);
 		show_breakpoints();
 		ImGui::EndChild();
+
+		ImGui::BeginChild("Registers", ImVec2(0, 250), false, ImGuiWindowFlags_NoScrollbar);
 		show_registers(io);
+		ImGui::EndChild();
 
 		ImGui::Columns(1);
 
+		ImGui::BeginChild("Memory Editor", ImVec2(-1, -1));
+		show_memory();
+		ImGui::EndChild();
+
 		ImGui::End();
 
-		ImGui::Begin("Games");
-		show_games();
-		ImGui::End();
+		//if (ImGui::Button("Refresh", ImVec2(-1, 0)))
+		//	get_rom_files();
 
-		ImGui::Begin("Memory Editor");
-		ImGui::SetWindowSize(ImVec2(550, 300));
-		show_memory(io);
-		ImGui::End();
-
-		//Show display
-		ImGui::Begin("Display");
-		ImGui::Image((void*)(intptr_t)gfx.display.texture, ImVec2(256, 240));
-		ImGui::End();
+		//show_roms();
 
 		// Rendering
 		ImGui::Render();
-		SDL_SetRenderDrawColor(gfx.get_renderer(), (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
-		SDL_RenderClear(gfx.get_renderer());
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-		SDL_RenderPresent(gfx.get_renderer());
+		SDL_RenderPresent(gfx.renderer);
 	}
+
+	NFD_Quit();
 }
 
 void Debugger::show_disassembly(ImGuiIO io)
@@ -115,9 +126,6 @@ void Debugger::show_disassembly(ImGuiIO io)
 
 	static int item_num = 0;
 
-	//Show Debugger
-	ImGui::BeginChild("Disassembly", ImVec2(0, ImGui::GetWindowHeight()));
-
 	if (io.MouseWheel != 0 && (pc + lineoffset < 0x10000))
 	{
 		if (ImGui::IsWindowHovered())
@@ -132,55 +140,7 @@ void Debugger::show_disassembly(ImGuiIO io)
 	if (lineoffset == 0)
 		ImGui::SetScrollHereY(0.5f);
 
-	ImGui::SameLine(-5);
-
-	if (ImGui::Button("Run", ImVec2(80, 0)))
-	{
-		if (mem.rom_loaded)
-		{
-			cpu.state = cstate::running;
-
-			if (logging)
-				log_to_file();
-
-			cpu.step();
-			is_jump = false;
-		}
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Step Into", ImVec2(80, 0)))
-	{
-		if (mem.rom_loaded)
-		{
-			cpu.state = cstate::debugging;
-			lineoffset = 0;
-			step(true);
-			is_jump = false;
-		}
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Reset", ImVec2(80, 0)))
-	{
-		create_close_log(false);
-		cpu.state = cstate::debugging;
-		lineoffset = 0;
-		mem.set_mapper();
-		cpu.reset();
-		is_jump = false;
-	}
-
-	//ImGui::Spacing();
-
-	string log = logging ? "Log: On" : "Log: Off";
-
-	if (ImGui::Button(log.c_str(), ImVec2(75, 0)))
-	{
-		create_close_log(!logging);
-	}
+	//ImGui::SameLine(-5);
 
 	for (int i = 0; i < 23; i++)
 	{
@@ -189,7 +149,7 @@ void Debugger::show_disassembly(ImGuiIO io)
 
 		bool bpcheck = false;
 
-		for (auto& it : bpk.get_breakpoints())
+		for (auto& it : bpk.breakpoints)
 		{
 			if (it.addr == pcaddr)
 			{
@@ -240,17 +200,86 @@ void Debugger::show_disassembly(ImGuiIO io)
 			stepping = false;
 		}
 	}
-
-	ImGui::EndChild();
 }
 
-void Debugger::show_memory(ImGuiIO io)
+void Debugger::show_buttons()
+{
+	if (ImGui::Button("Load Rom", ImVec2(-1, 0)))
+	{
+		nfdchar_t* outPath;
+		nfdfilteritem_t filterItem[2] = { { "Nes Roms", "nes" } };
+		nfdresult_t result = NFD_OpenDialog(&outPath, filterItem, 1, NULL);
+
+		if (result == NFD_OKAY)
+		{
+			mem.load(outPath);
+			cpu.reset();
+			cpu.state = cstate::debugging;
+			NFD_FreePath(outPath);
+		}
+	}
+
+	if (ImGui::Button("Run", ImVec2(80, 0)))
+	{
+		if (mem.rom_loaded)
+		{
+			//if (logging)
+			//	log_to_file(reg.pc);
+
+			step(true);
+			is_jump = false;
+			cpu.state = cstate::running;
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Step Into", ImVec2(80, 0)))
+	{
+		if (mem.rom_loaded)
+		{
+			cpu.state = cstate::debugging;
+			lineoffset = 0;
+			step(true);
+			is_jump = false;
+		}
+	}
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Reset", ImVec2(80, 0)))
+	{
+		if (mem.rom_loaded)
+		{
+			create_close_log(false);
+			cpu.state = cstate::debugging;
+			lineoffset = 0;
+			mem.set_mapper();
+			cpu.reset();
+			is_jump = false;
+		}
+	}
+
+	ImGui::SameLine();
+
+	string log = logging ? "Log: On" : "Log: Off";
+
+	if (ImGui::Button(log.c_str(), ImVec2(80, 0)))
+	{
+		create_close_log(!logging);
+	}
+}
+
+void Debugger::show_memory()
 {
 	static MemoryEditor mem_edit;
 
+	//for (int i = 0; i < 10; i++)
+	ImGui::Spacing();
 
-	//ImGui::BeginChild("memedit", ImVec2(-1, -1), false, 0);
-	ImGui::Text("Memory Editor", ImGui::GetScrollMaxY());
+	ImGui::Separator();
+
+	ImGui::Text("Memory Editor");
 
 	if (ImGui::BeginTabBar("##mem_tabs", ImGuiTabBarFlags_None))
 	{
@@ -267,8 +296,6 @@ void Debugger::show_memory(ImGuiIO io)
 		}
 		ImGui::EndTabBar();
 	}
-
-	//ImGui::EndChild();
 }
 
 void Debugger::show_breakpoints()
@@ -339,14 +366,14 @@ void Debugger::show_breakpoints()
 
 	ImGui::SameLine();
 
-	bool disable_buttons = bpk.get_breakpoints().size() == 0;
+	bool disable_buttons = bpk.breakpoints.size() == 0;
 
 	if (disable_buttons)
 		ImGui::BeginDisabled(true);
 
 	if (ImGui::Button("Delete", ImVec2(50, 0)))
 	{
-		for (auto& it : bpk.get_breakpoints())
+		for (auto& it : bpk.breakpoints)
 		{
 			if (it.addr == bplistaddr)
 			{
@@ -381,7 +408,7 @@ void Debugger::show_breakpoints()
 	{
 		int n = 0;
 
-		for (auto it : bpk.get_breakpoints())
+		for (auto& it : bpk.breakpoints)
 		{
 			char temp[16];
 			char ctype[5] = { 0 };
@@ -432,8 +459,6 @@ void Debugger::show_registers(ImGuiIO io)
 {
 	ImU32 tablecolcolor = 0xffe0e0e0;
 
-	ImGui::BeginChild("Registers", ImVec2(0, 250), ImGuiWindowFlags_NoScrollbar);
-
 	if (ImGui::BeginTable("Regs", 2, ImGuiTableFlags_None, ImVec2(-1, -1)))
 	{
 		//ImGui::SetWindowPos(ImVec2(0, 420));
@@ -454,11 +479,11 @@ void Debugger::show_registers(ImGuiIO io)
 		ImGui::TableNextColumn(); ImGui::Text("FPS");
 		ImGui::TableNextColumn(); ImGui::Text("%f", io.Framerate);
 
-		ImGui::TableNextColumn(); ImGui::Text("cpu cycles");
-		ImGui::TableNextColumn(); ImGui::Text("%d", cpu.cycles);
+		ImGui::TableNextColumn(); ImGui::Text("tot cycles");
+		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.totalcycles);
 
 		ImGui::TableNextColumn(); ImGui::Text("ppu cycles");
-		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.cycles);
+		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.pixel);
 
 		ImGui::TableNextColumn(); ImGui::Text("scanline");
 		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.scanline);
@@ -471,10 +496,6 @@ void Debugger::show_registers(ImGuiIO io)
 
 		ImGui::TableNextColumn(); ImGui::Text("------------");
 		ImGui::TableNextColumn(); ImGui::Text("-----------");
-
-		//ImGui::TableNextColumn(); ImGui::Text("%11s", "PC");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
-
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "PC");
 		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
@@ -502,50 +523,125 @@ void Debugger::show_registers(ImGuiIO io)
 
 		ImGui::EndTable();
 	}
-	ImGui::EndChild();
 }
 
-void Debugger::show_games()
+void Debugger::show_menu()
+{
+
+	if (ImGui::BeginMenuBar())
+	{
+		//if (ImGui::BeginMenu("File"))
+		//{
+		if (ImGui::MenuItem("Load ROM"))
+		{
+			nfdchar_t* outPath;
+			nfdfilteritem_t filterItem[2] = { { "Nes Roms", "nes" } };
+			nfdresult_t result = NFD_OpenDialog(&outPath, filterItem, 2, NULL);
+
+			if (result == NFD_OKAY)
+			{
+				mem.load(outPath);
+				cpu.reset();
+				cpu.state = cstate::debugging;
+				NFD_FreePath(outPath);
+			}
+		}
+		//ImGui::EndMenu();
+	//}
+		ImGui::EndMenuBar();
+	}
+}
+
+void Debugger::show_roms()
 {
 	std::string path = "tests";
 
+	static int n = 0;
+	bool selected = false;
+
 	ImGui::BeginListBox("Games", ImVec2(-1, 250));
-	int n = 0;
 
-	for (const auto& entry : fs::directory_iterator(path))
+	for (const auto& entry : nesfiles)
 	{
-		//std::cout << entry.path() << std::endl;
 
-		//snprintf(temp, sizeof(temp), "%04X %s", it.addr, ctype);
-
-		if (entry.path().extension() == ".nes")
+		if (selected)
 		{
-			ImGui::PushID(n);
-
-			bool selected = (item_id == n);
-
-			if (ImGui::Selectable(entry.path().filename().u8string().c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick))
-			{
-				item_id = n;
-
-				if (ImGui::IsMouseDoubleClicked(0))
-				{
-					mem.load(entry.path().u8string().c_str());
-					cpu.init();
-					cpu.reset();
-					cpu.state = cstate::debugging;
-				}
-			}
-
-			if (selected)
-				ImGui::SetItemDefaultFocus();
-
-			ImGui::PopID();
-
-			n++;
+			mem.load(entry.c_str());
+			cpu.reset();
+			cpu.state = cstate::debugging;
 		}
 	}
+
 	ImGui::EndListBox();
+}
+
+void Debugger::step(bool stepping)
+{
+	ppu.frame_ready = false;
+	if (cpu.state == cstate::running)
+	{
+		while (!ppu.frame_ready)
+		{
+			u16 pc = reg.pc;
+
+			for (auto& it : bpk.breakpoints)
+			{
+				if (it.type == bp_exec && cpu.state == cstate::running)
+				{
+					if (bpk.check(pc, bp_exec, it.enabled))
+					{
+						cpu.state = cstate::debugging;
+						return;
+					}
+				}
+
+				//	//if (bpk->check(pc, it.enabled))
+				//	//{
+				//	//	*state = cstate::debugging;
+				//	//	return;
+				//	//}
+
+				//	//if (bpk.check_access(cpu.get_write_addr(), bp_write, it.enabled))
+				//	//{
+				//	//	//cpu.state = cstate::debugging;
+				//	//	//cpu.set_write_addr(0);
+				//	//	//lineoffset = -6;
+				//	//	return;
+				//	//}
+
+				//	//if (bpk.check_access(cpu.get_read_addr(), bp_read, it.enabled))
+				//	//{
+				//	//	cpu.state = cstate::debugging;
+				//	//	cpu.set_read_addr(0);
+				//	//	return;
+				//	//}
+			}
+
+			if (logging)
+				log_to_file(reg.pc);
+
+			int cyc = cpu.step();
+			ppu.step(cyc);
+			ppu.totalcycles += cyc;
+
+			if (cpu.state == cstate::crashed)
+				return;
+		}
+
+		ppu.cycles -= CYCLES_PER_LINE;
+	}
+	else if (cpu.state == cstate::debugging && stepping)
+	{
+		u16 pc = reg.pc;
+
+		if (logging)
+			log_to_file(pc);
+
+		int cyc = cpu.step();
+		ppu.cycles += cyc;
+		ppu.step(cyc);
+		ppu.totalcycles += cyc;
+	}
 }
 
 void Debugger::input(ImGuiIO io)
@@ -556,83 +652,15 @@ void Debugger::input(ImGuiIO io)
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if (event.type == SDL_QUIT)
 			gfx.running = 0;
-		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(gfx.get_window()))
+		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(gfx.window))
 			gfx.running = 0;
 	}
 }
 
-void Debugger::step(bool stepping)
-{
-	if (cpu.state == cstate::running)
-	{
-		while (ppu.cycles < CYCLES_PER_FRAME)
-		{
-			u16 pc = reg.pc;
-
-			for (auto it : bpk.get_breakpoints())
-			{
-				if (it.type == bp_exec)
-				{
-					if (bpk.check(pc, bp_exec, it.enabled))
-					{
-						cpu.state = cstate::debugging;
-						lineoffset = -3;
-						return;
-					}
-				}
-
-				//if (bpk->check(pc, it.enabled))
-				//{
-				//	*state = cstate::debugging;
-				//	return;
-				//}
-
-				//if (bpk.check_access(cpu.get_write_addr(), bp_write, it.enabled))
-				//{
-				//	//cpu.state = cstate::debugging;
-				//	//cpu.set_write_addr(0);
-				//	//lineoffset = -6;
-				//	return;
-				//}
-
-				//if (bpk.check_access(cpu.get_read_addr(), bp_read, it.enabled))
-				//{
-				//	cpu.state = cstate::debugging;
-				//	cpu.set_read_addr(0);
-				//	return;
-				//}
-			}
-
-			if (logging)
-				log_to_file();
-
-			int num = cpu.step();
-			ppu.cycles += num;
-
-			if (cpu.state == cstate::crashed)
-				return;
-
-			ppu.step(num * 3);
-		}
-		ppu.cycles -= CYCLES_PER_FRAME;
-	}
-	else if (stepping)
-	{
-		if (ppu.cycles < CYCLES_PER_FRAME)
-		{
-			int num = cpu.step();
-			ppu.cycles += num;
-			ppu.step(num * 3);
-		}
-		else
-			ppu.cycles -= CYCLES_PER_FRAME;
-	}
-}
-
-void Debugger::log_to_file()
+void Debugger::log_to_file(u16 pc)
 {
 	char text[TEXTSIZE] = { 0 };
-	vdentry = get_trace_line(text, reg.pc, true);
+	vdentry = get_trace_line(text, pc, true);
 
 	//ofstream outFile("cpu_trace.log", ios_base::app);
 	for (const auto& e : vdentry)
@@ -655,7 +683,7 @@ void Debugger::create_close_log(bool status)
 	if (logging)
 	{
 		outFile.open("cpu_trace.log");
-		outFile << "FCEUX 2.4.0 - Trace Log File\n";
+		outFile << "FCEUX 2.6.1 - Trace Log File\n";
 	}
 	else
 	{
@@ -671,6 +699,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 	int size = 0;
 	int asize = 0;
 	const char* name;
+	const char* cycles;
 	int mode;
 	char line[TEXTSIZE] = { 0 };
 	char bytes[TEXTSIZE] = { 0 };
@@ -731,7 +760,7 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 		}
 		case addrmode::abso:
 		{
-			u16 b = cpu.get_abso(pc + 1);
+			u16 b = mem.rw(pc + 1);
 			bool isjump = op == 0x4c || op == 0x20;
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			if (isjump)
@@ -800,7 +829,8 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 		}
 		case addrmode::rela:
 		{
-			u16 b = cpu.get_rela(pc + 1);
+			u8 b1 = mem.rb(pc + 1);
+			u16 b = pc + (s8)(b1)+2;
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			snprintf(data + strlen(data), TEXTSIZE, "$%04X", b);
 			snprintf(bytes, TEXTSIZE, "%02X %-6.02X", mem.rb(pc), mem.rb(pc + 1));
@@ -828,6 +858,9 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 		flags[1] = reg.ps & FV ? 'V' : 'v';
 		flags[0] = reg.ps & FN ? 'N' : 'n';
 
+		snprintf(temp, TEXTSIZE, "c%-12d", ppu.totalcycles);
+		e.regtext += temp;
+
 		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X S:%02X P:%s  $", reg.a, reg.x, reg.y, reg.sp, flags);
 
 		e.regtext += temp;
@@ -838,14 +871,28 @@ vector<disasmentry> Debugger::get_trace_line(const char* text, u16 pc, bool get_
 	e.size = size;
 	e.dtext = data;
 	e.bytetext = bytes;
+	//e.cycles = cycles;
 	entry.push_back(e);
 
 	return entry;
 }
 
-disasmdata Debugger::get_disasm_entry(u8 op, u16 pc)
+void Debugger::get_rom_files()
 {
-	return disasmdata();
+	std::string path = "tests";
+
+	if (!fs::is_directory(path))
+		fs::create_directory(path);
+
+	nesfiles.clear();
+
+	for (const auto& entry : fs::directory_iterator(path))
+	{
+		if (entry.path().extension() == ".nes" || entry.path().extension() == ".NES")
+		{
+			nesfiles.push_back(entry.path().u8string());
+		}
+	}
 }
 
 void Debugger::clean()
