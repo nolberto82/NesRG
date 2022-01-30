@@ -29,6 +29,7 @@ void Ppu::step(int num)
 			if (ppu2000 & 0x80)
 				nmi = true;
 
+			mem.ram[0x2002] = ppu2002 &= 0xbf;
 			//pixel = 1;
 			//frame_ready = true;
 		}
@@ -39,7 +40,7 @@ void Ppu::step(int num)
 				gfx.render_frame();
 			}
 
-			mem.ram[0x2002] = ppu2002 &= 0x7f;
+
 			nmi = false;
 			frame_ready = true;
 			//pixel = 0;
@@ -168,7 +169,7 @@ void Ppu::reset()
 	}
 
 	memset(gfx.disp_pixels, 0x00, sizeof(gfx.disp_pixels));
-	//gfx.render_frame();
+	gfx.render_frame();
 }
 
 void Ppu::render_background_new()
@@ -250,7 +251,7 @@ void Ppu::render_background_new()
 			gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 1] = (u8)(color >> 16);
 			gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 0] = (u8)(color >> 24);
 
-			//sp0data[(yp * 256 * 4) + (xp * 4) + 0] = (u8)palindex;
+			sp0data[(yp * 256 * 4) + (xp * 4) + 0] = (u8)palindex;
 
 			//DrawFrame();
 		}

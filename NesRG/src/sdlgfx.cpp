@@ -121,6 +121,7 @@ void SDLGfx::draw_string(const char* text, int x, int y, int size, SDL_Color c)
 
 void SDLGfx::render_frame()
 {
+	//SDL_Rect rect = { 0, -24, 256, 240 };
 	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned int));
 	SDL_RenderCopy(renderer, display.texture, NULL, NULL);
 	//SDL_RenderPresent(renderer);
