@@ -1,6 +1,11 @@
+import glob
 
 lines = []
-with open("nestest.log", "r") as rfile:
+files = []
+
+files = glob.glob('./*.log')
+
+with open(files[0], "r") as rfile:
 	for s in rfile:
 		if "RTS" in s:
 			i = s.index("RTS")

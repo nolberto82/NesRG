@@ -21,7 +21,13 @@ int main(int argc, char* argv[])
 	{
 		cpu.init();
 		dbg.init();
-		dbg.update();
+
+		if (mem.load_rom("D:\\Emulators+Hacking\\NES\\Mapper0Games\\nestest.nes"))
+		{
+			cpu.reset();
+			dbg.update();
+		}
+
 		dbg.clean();
 		gfx.clean();
 	}

@@ -35,20 +35,21 @@ struct Ppu
 	u8 ppuoamdma = 0;
 
 private:
-	void render_background_new();
+	void render_pixels();
 	void render_sprites(u8 frontback);
+	void set_vblank();
+	void clear_vblank();
 	void set_sprite_zero();
 	void clear_sprite_zero();
 	int get_attr_index(int x, int y, int attrib);
-	void render_background();
-	void render_tile();
 	void x_increment();
 	void y_increment();
-
 
 	u8 ppu_dummy2007 = 0;
 	u8 fine_x = 0;
 	u8 fine_y = 0;
+
+	u8 tile_shift = 0;
 
 	u8 scroll_x = 0;
 	u8 scroll_y = 0;
@@ -59,7 +60,7 @@ private:
 	bool spritesize = false;
 	u8 vramaddrincrease = 1;
 
-	bool background_render = false;
+	bool background_on = false;
 	bool sprite_render = false;
 
 	u8 ppu2000 = 0;
@@ -71,7 +72,12 @@ private:
 	u8 ppu2006 = 0;
 	u8 ppu2007 = 0;
 
-	u8 sp0data[256 * 256 * 4];
+	u8 tile_id = 0;
+	u8 tile_att = 0;
+	u8 tile_lo = 0;
+	u8 tile_hi = 0;
+
+	u8 sp0data[256 * 240 * 4];
 
 	u32 palettes[192 / 3];
 

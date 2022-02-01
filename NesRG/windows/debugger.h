@@ -37,6 +37,7 @@ typedef struct
 
 struct Debugger
 {
+public:
 	int lineoffset = 0;
 	int item_id = 0;
 	u16 inputaddr = 0;
@@ -53,7 +54,7 @@ struct Debugger
 	bool init();
 	void update();
 	void show_disassembly(ImGuiIO io);
-	void show_buttons();
+	void show_buttons(ImGuiIO io);
 	void show_memory();
 	void show_breakpoints();
 	void show_registers(ImGuiIO io);
@@ -64,6 +65,5 @@ struct Debugger
 	void log_to_file(u16 pc);
 	void create_close_log(bool status);
 	vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false);
-	void get_rom_files();
 	void clean();
 };

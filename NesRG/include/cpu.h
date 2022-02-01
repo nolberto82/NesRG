@@ -17,9 +17,11 @@ const int CYCLES_PER_LINE = 341;
 
 enum cstate
 {
-	running = 1,
-	debugging = 2,
-	crashed = 4
+	running,
+	debugging,
+	scanline,
+	crashed
+
 };
 
 struct Registers
@@ -51,6 +53,8 @@ public:
 	u16 get_erro(u16 pc, bool trace = false);
 
 	int state = cstate::running;
+	u16 write_addr = 0;
+	u16 read_addr = 0;
 
 private:
 	bool pagecrossed = false;

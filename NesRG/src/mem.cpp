@@ -1,7 +1,7 @@
 #include "mem.h"
 #include "ppu.h"
 
-bool Memory::load(const char* filename)
+bool Memory::load_rom(const char* filename)
 {
 	if (filename == NULL)
 		return 0;
@@ -54,7 +54,7 @@ void Memory::set_mapper()
 	}
 	else if (rom[6] & 0x01)
 	{
-		mirrornametable = 1;
+		mirrornametable = mirrortype::vertical;
 	}
 
 	reset();
@@ -78,6 +78,8 @@ void Memory::set_mapper()
 
 u8 Memory::rb(u16 addr)
 {
+	cpu.read_addr = addr;
+
 	if (addr == 0x2002)
 		return ppu.ppustatus();
 	if (addr == 0x2007)
@@ -88,15 +90,13 @@ u8 Memory::rb(u16 addr)
 
 u16 Memory::rw(u16 addr)
 {
-
-	//if (addr == 0x2002)
-	//	return ppu.ppu_2002_rb(ram[0x2002]);
-
 	return rb(addr + 0) | rb(addr + 1) << 8;
 }
 
 void Memory::wb(u16 addr, u8 val)
 {
+	cpu.write_addr = addr;
+
 	if (addr == 0x2000)
 		ppu.ppuctrl(val);
 	else if (addr == 0x2001)
@@ -111,7 +111,7 @@ void Memory::wb(u16 addr, u8 val)
 		ppu.addrwrite(val);
 	else if (addr == 0x2007)
 		ppu.datawrite(val);
-	else if(addr == 0x4014)
+	else if (addr == 0x4014)
 	{
 		ppu.ppuoamdma = val;
 		int oamaddr = val << 8;
@@ -131,15 +131,82 @@ void Memory::ww(u16 addr, u16 val)
 
 u8 Memory::ppurb(u16 addr)
 {
-	return vram[addr];
+	u8 v = 0;
+
+	if (mem.mirrornametable == mirrortype::horizontal)
+	{
+		if (addr >= 0x2000 && addr < 0x2400)
+		{
+			v = vram[addr + 0x400 & 0x3fff];
+		}
+		else if (addr >= 0x2800 && addr < 0x2c00)
+		{
+			v = vram[addr + 0xc00 & 0x3fff];
+		}
+		else
+			v = vram[addr & 0x3fff];
+	}
+	else if (mem.mirrornametable == mirrortype::vertical)
+	{
+		if (addr >= 0x2000 && addr < 0x2400)
+		{
+			v = vram[addr + 0x1000 & 0x3fff];
+			v = vram[addr + 0x800 & 0x3fff];
+		}
+		else if (addr >= 0x2400 && addr < 0x2800)
+		{
+			//vram[addr + 0x1000 & 0x3fff] = val;
+			v = vram[addr + 0x800 & 0x3fff];
+		}
+		else if (addr >= 0x2800 && addr < 0x2c00)
+		{
+			v = vram[addr + 0xc00 & 0x3fff];
+			v = vram[addr & 0x3fff];
+		}
+		else
+			v = vram[addr & 0x3fff];
+	}
+
+	return v;
 }
 
 void Memory::ppuwb(u16 addr, u8 val)
 {
-	if (addr > 0x3fff)
+	if (addr > 0x2400 && addr < 0x27ff)
 	{
 		int yu = 0;
 	}
+
+	if (mem.mirrornametable == mirrortype::horizontal)
+	{
+		if (addr >= 0x2000 && addr < 0x2400)
+		{
+			vram[addr + 0x400 & 0x3fff] = val;
+		}
+		if (addr >= 0x2800 && addr < 0x2c00)
+		{
+			vram[addr + 0xc00 & 0x3fff] = val;
+		}
+	}
+	else if (mem.mirrornametable == mirrortype::vertical)
+	{
+		if (addr >= 0x2000 && addr < 0x2400)
+		{
+			vram[addr + 0x1000 & 0x3fff] = val;
+			vram[addr + 0x800 & 0x3fff] = val;
+		}
+		if (addr >= 0x2400 && addr < 0x2800)
+		{
+			//vram[addr + 0x1000 & 0x3fff] = val;
+			vram[addr + 0x800 & 0x3fff] = val;
+		}
+		if (addr >= 0x2800 && addr < 0x2c00)
+		{
+			vram[addr + 0xc00 & 0x3fff] = val;
+			vram[addr & 0x3fff] = val;
+		}
+	}
+
 	vram[addr & 0x3fff] = val;
 }
 

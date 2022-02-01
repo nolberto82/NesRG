@@ -8,6 +8,7 @@ int Cpu::step()
 	u8 op = mem.rb(reg.pc);
 	u8 b1 = 0;
 	u16 b2 = 0;
+	branchtaken = 0;
 
 	int mode = disasm[op].mode;
 	u16 addr = (this->*func[mode].modefuncs)(reg.pc + 1, false);
@@ -169,8 +170,8 @@ int Cpu::step()
 		}
 		case opcid::DEC:
 		{
-			u8 b = mem.ram[addr] - 1;
-			mem.ram[addr] = b;
+			u8 b = mem.rb(addr) - 1;
+			mem.wb(addr, b);
 
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
@@ -202,8 +203,8 @@ int Cpu::step()
 		}
 		case opcid::INC:
 		{
-			u8 b = mem.ram[addr] + 1;
-			mem.ram[addr] = b;
+			u8 b = mem.rb(addr) + 1;
+			mem.wb(addr, b);
 
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
@@ -492,12 +493,10 @@ int Cpu::step()
 	if (ppu.nmi)
 	{
 		op_nmi();
-		return 7;
+		return 7 * 3;
 	}
 
-	u8 cyc = disasm[op].cycles + branchtaken;
-	ppu.cycles += cyc;
-	return cyc;
+	return (disasm[op].cycles + branchtaken) * 3;
 }
 
 void Cpu::init()

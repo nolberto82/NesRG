@@ -4,6 +4,16 @@
 
 #include "cpu.h"
 
+const int RAMSIZE = 0x10000;
+const int VRAMSIZE = 0x4000;
+const int OAMSIZE = 0x100;
+
+enum mirrortype
+{
+	horizontal,
+	vertical
+};
+
 struct Memory
 {
 public:
@@ -16,7 +26,7 @@ public:
 
 	bool rom_loaded = false;
 
-	bool load(const char* filename);
+	bool load_rom(const char* filename);
 	void set_mapper();
 	u8 rb(u16 addr);
 	u16 rw(u16 addr);
@@ -28,9 +38,9 @@ public:
 
 	Memory()
 	{
-		ram = new u8[0x10000];
-		vram = new u8[0x4000];
-		oam = new u8[0x0100];
+		ram = new u8[RAMSIZE];
+		vram = new u8[VRAMSIZE];
+		oam = new u8[OAMSIZE];
 	}
 
 	~Memory()
