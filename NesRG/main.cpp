@@ -3,7 +3,7 @@
 #include "sdlgfx.h"
 #include "cpu.h"
 #include "ppu.h"
-#include "debugger.h"
+#include "gui.h"
 
 SDLGfx gfx;
 Cpu cpu;
@@ -15,20 +15,20 @@ PpuRegisters preg;
 int main(int argc, char* argv[])
 {
 	printf("Starting NesRG");
-	Debugger dbg;
+	Gui gui;
 
 	if (gfx.init())
 	{
 		cpu.init();
-		dbg.init();
+		gui.init();
 
 		if (mem.load_rom("D:\\Emulators+Hacking\\NES\\Mapper0Games\\nestest.nes"))
 		{
 			cpu.reset();
-			dbg.update();
+			gui.update();
 		}
 
-		dbg.clean();
+		gui.clean();
 		gfx.clean();
 	}
 

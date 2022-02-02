@@ -34,7 +34,7 @@ ${SRC_DIR}/src/sdlgfx.cpp)
 
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
-	${SRC_DIR}/windows/debugger.cpp
+	${SRC_DIR}/windows/gui.cpp
 	${SRC_DIR}/windows/breakpoints.cpp
 	${SRC_DIR}/imgui/imgui.cpp
 	${SRC_DIR}/imgui/imgui_demo.cpp

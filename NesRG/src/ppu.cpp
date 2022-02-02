@@ -5,6 +5,7 @@
 void Ppu::step(int num)
 {
 	//pixel += num * 3;
+	num = 3;
 
 	if (scanline == -1)
 	{
@@ -14,44 +15,48 @@ void Ppu::step(int num)
 
 	while (num-- > 0)
 	{
-		pixel++;
-		if (pixel > 340)
+		cycle++;
+		if (cycle > 340)
 		{
-			pixel -= CYCLES_PER_LINE;
+			cycle -= CYCLES_PER_LINE;
 			scanline++;
+		}
 
-			if (scanline > -1 && scanline < 240)
-			{
+		if (scanline > -1 && scanline < 240)
+		{
+			if (cycle > 1 && cycle < 258)
 				render_pixels();
-			}
-			else if (scanline == 241)
+
+			if ((background_on || sprite_on) && cycle == 257)
+				y_increment();
+		}
+		else if (scanline == 241 && cycle == 1)
+		{
+			set_vblank();
+
+			if (ppu2000 & 0x80)
+				nmi = true;
+		}
+		else if (scanline > 260)
+		{
+			if (background_on || sprite_on)
 			{
-				set_vblank();
-
-				if (ppu2000 & 0x80)
-					nmi = true;
+				gfx.render_frame();
 			}
-			else if (scanline > 260)
-			{
-				if (background_on || sprite_render)
-				{
-					gfx.render_frame();
-				}
 
-				clear_vblank();
-				clear_sprite_zero();
+			clear_vblank();
+			clear_sprite_zero();
 
-				nmi = false;
-				frame_ready = true;
-				scanline = -1;
-			}
+			nmi = false;
+			frame_ready = true;
+			scanline = -1;
 		}
 	}
 }
 
 void Ppu::ppuctrl(u8 v) //2000
 {
-	//preg.t = (preg.t & 0x73ff) | (v & 3) << 10;
+	preg.t = (preg.t & 0x73ff) | (v & 3) << 10;
 	//nametableaddr = 0x2000 | (v & 3) << 10;
 
 	if (v & 0x10)
@@ -71,7 +76,7 @@ void Ppu::ppumask(u8 v)
 	ppu2001 = v;
 
 	background_on = (ppu2001 & 0x08) > 0;
-	sprite_render = (ppu2001 & 0x10) > 0;
+	sprite_on = (ppu2001 & 0x10) > 0;
 }
 
 u8 Ppu::ppustatus()
@@ -157,7 +162,7 @@ u8 Ppu::dataread()
 void Ppu::reset()
 {
 	scanline = 0;
-	pixel = 27;
+	cycle = 27;
 	totalcycles = 8;
 	ppu.frame_ready = true;
 	ppu2000 = 0;
@@ -179,8 +184,11 @@ void Ppu::render_pixels()
 	int patternaddr = (ppu2000 & 0x10) > 0 ? 0x1000 : 0x0000;
 	int paladdr = 0x3f00;
 	int left8 = (ppu2000 & 0x02) > 0 ? 1 : 0;
-	int y = (scanline / 8);
-	int x = pixel;
+	int y = scanline;
+	int x = cycle - 1;
+
+	//if (background_on || sprite_on)
+	//	preg.v = (preg.v & 0xfbe0) | (preg.t & 0x41f);
 
 	if (background_on)
 	{
@@ -197,59 +205,63 @@ void Ppu::render_pixels()
 			int yu = 0;
 		}
 
-		for (int x = 0; x < 32; x++)
+		//for (int x = 0; x < 32; x++)
+		//{
+		u8 fx = preg.x;
+		u8 fy = (preg.v & 0x7000) >> 12;
+		u8 cx = (preg.v & 0x1f);
+		u8 cy = (preg.v & 0x3e0) >> 5;
+		u8 nametable = (preg.v & 0xc00) >> 10;
+
+		int offx = x * 8;
+		int offy = y * 8;
+
+		int baseaddr = ppuaddr & 0x2c00;
+
+		int tileid = mem.ppurb(ppuaddr);
+
+		if (ppuaddr == 0x2082 || ppuaddr == 0x2480)
 		{
-
-			u8 fx = preg.x;
-			u8 fy = (preg.v & 0x7000) >> 12;
-			u8 cx = (preg.v & 0x1f);
-			u8 cy = (preg.v & 0x3e0);
-			u8 nametable = (preg.v & 0xc00) >> 10;
-
-			int offx = x * 8;
-			int offy = y * 8;
-
-			int baseaddr = ppuaddr & 0x2c00;
-
-			int tileid = mem.ppurb(ppuaddr + x);
-
-			u8 bit2 = get_attr_index(x, y, mem.ppurb(attaddr));
-			//int row = scanline % 8;
-
-			u8 byte1 = mem.ppurb(patternaddr + tileid * 16 + fy + 0);
-			u8 byte2 = mem.ppurb(patternaddr + tileid * 16 + fy + 8);
-
-			int shift = 0x80;
-
-			for (int col = 0; col < 8; col++)
-			{
-				int bit0 = (byte1 & shift) > 0 ? 1 : 0;
-				int bit1 = (byte2 & shift) > 0 ? 1 : 0;
-
-				shift >>= 1;
-
-				int palindex = bit0 | bit1 * 2;
-
-				int colorindex = bit2 * 4 + palindex;
-
-				int xp = offx + col;
-				int yp = offy + fy;
-
-				if (xp < 0 || xp >= 256 || yp < 0 || yp >= 240)
-					continue;
-
-				int color = palettes[mem.vram[paladdr | colorindex]];
-				gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 3] = (u8)(color >> 0);
-				gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 2] = (u8)(color >> 8);
-				gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 1] = (u8)(color >> 16);
-				gfx.disp_pixels[(yp * 256 * 4) + (xp * 4) + 0] = (u8)(color >> 24);
-
-				sp0data[(yp * 256 * 4) + (xp * 4) + 0] = (u8)palindex;
-			}
-			x_increment();
+			int yu = 0;
 		}
-		y_increment();
+
+		u8 bit2 = get_attr_index(x, y, mem.ppurb(attaddr));
+		//int row = scanline % 8;
+
+		u8 byte1 = mem.ppurb(patternaddr + tileid * 16 + fy + 0);
+		u8 byte2 = mem.ppurb(patternaddr + tileid * 16 + fy + 8);
+
+		//int shift = (preg.v >> 4) & 4 | (preg.v & 2);
+		if (tile_shift == 0)
+			tile_shift = 0x80;
+
+		int bit0 = (byte1 & tile_shift) > 0 ? 1 : 0;
+		int bit1 = (byte2 & tile_shift) > 0 ? 1 : 0;
+
+		tile_shift >>= 1;
+
+		int palindex = bit0 | bit1 * 2;
+
+		int colorindex = bit2 * 4 + palindex;
+
+		int xp = offx + fx;
+		int yp = offy + fy;
+
+		//if (xp < 0 || xp >= 256 || yp < 0 || yp >= 240)
+		//	continue;
+
+		int color = palettes[mem.vram[paladdr | colorindex]];
+		gfx.disp_pixels[y * 256 + x] = color;
+
+		//sp0data[(yp * 256 * 4) + (xp * 4) + 0] = (u8)palindex;
+
+		if ((x + 1) % 8 == 0)
+			x_increment();
 	}
+
+
+	//preg.v = preg.t;
+//}
 }
 
 void Ppu::render_sprites(u8 frontback)

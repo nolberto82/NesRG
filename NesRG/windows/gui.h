@@ -8,6 +8,7 @@
 #include "imgui_memory_editor.h"
 
 #define TEXTSIZE 512
+#define BUTTONSIZE_X 120
 
 enum bptype
 {
@@ -35,9 +36,8 @@ typedef struct
 	int size;
 }disasmentry;
 
-struct Debugger
+struct Gui
 {
-public:
 	int lineoffset = 0;
 	int item_id = 0;
 	u16 inputaddr = 0;
@@ -59,11 +59,10 @@ public:
 	void show_breakpoints();
 	void show_registers(ImGuiIO io);
 	void show_menu();
-	void show_roms();
-	void step(bool stepping);
+	void step(bool stepping, bool over = false);
 	void input(ImGuiIO io);
 	void log_to_file(u16 pc);
 	void create_close_log(bool status);
-	vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false);
+	vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false, bool memory_access = false);
 	void clean();
 };

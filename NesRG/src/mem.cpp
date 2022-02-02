@@ -23,7 +23,7 @@ bool Memory::load_rom(const char* filename)
 		return 0;
 	}
 
-	int romsize = fread(rom, sizeof(u8), fsize, fp);
+	size_t romsize = fread(rom, sizeof(u8), fsize, fp);
 
 	if (romsize == 0)
 	{

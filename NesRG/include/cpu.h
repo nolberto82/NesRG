@@ -20,8 +20,8 @@ enum cstate
 	running,
 	debugging,
 	scanline,
+	cycle,
 	crashed
-
 };
 
 struct Registers

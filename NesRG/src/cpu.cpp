@@ -28,7 +28,7 @@ int Cpu::step()
 			set_flag(~(reg.a ^ v) & (reg.a ^ b) & 0x80, FV);
 			set_flag(b > 0xff, FC);
 
-			reg.a = b;
+			reg.a = (u8)b;
 			break;
 		}
 		case opcid::AND:
@@ -400,7 +400,7 @@ int Cpu::step()
 			set_flag((reg.a ^ b) & (reg.a ^ t) & 0x80, FV);
 			set_flag((t & 0xff00) == 0, FC);
 
-			reg.a = t;
+			reg.a = (u8)t;
 			break;
 		}
 		case opcid::SEC:
@@ -496,7 +496,7 @@ int Cpu::step()
 		return 7 * 3;
 	}
 
-	return (disasm[op].cycles + branchtaken) * 3;
+	return (disasm[op].cycles + branchtaken);
 }
 
 void Cpu::init()
@@ -559,11 +559,14 @@ void Cpu::op_push(u16 addr, u8 v)
 
 void Cpu::op_bra(u16 addr, bool flag)
 {
-	branchtaken = 0;
 	if (flag)
 	{
 		reg.pc = addr - 2;
 		branchtaken = 1;
+	}
+	else
+	{
+		branchtaken = 0;
 	}
 }
 

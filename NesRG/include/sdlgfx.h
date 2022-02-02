@@ -39,7 +39,7 @@ public:
 
 	texture_t display = {};
 	texture_t tile = {};
-	u8 disp_pixels[256 * 240 * 4];
+	u32 disp_pixels[256 * 240];
 	u32 tile_pixels[8 * 8];
 
 	//FPSmanager fpsman;

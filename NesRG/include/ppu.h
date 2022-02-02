@@ -14,7 +14,7 @@ struct Ppu
 {
 	int scanline = 0;
 	int cycles = 0;
-	int pixel = 0;
+	int cycle = 0;
 	int totalcycles = 0;
 
 	bool nmi = false;
@@ -61,7 +61,7 @@ private:
 	u8 vramaddrincrease = 1;
 
 	bool background_on = false;
-	bool sprite_render = false;
+	bool sprite_on = false;
 
 	u8 ppu2000 = 0;
 	u8 ppu2001 = 0;
