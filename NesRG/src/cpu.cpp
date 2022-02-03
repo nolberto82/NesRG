@@ -496,7 +496,7 @@ int Cpu::step()
 		return 7 * 3;
 	}
 
-	return (disasm[op].cycles + branchtaken);
+	return (disasm[op].cycles + branchtaken) * 3;
 }
 
 void Cpu::init()
@@ -528,13 +528,11 @@ void Cpu::reset()
 {
 	reg.pc = mem.rw(0xfffc);
 	//reg.pc = 0xc000;
-	reg.sp = 0xfa;
+	reg.sp = 0xfd;
 	reg.ps = 0x04;
 	reg.x = 0x00;
 	reg.a = 0x00;
 	reg.y = 0x00;
-
-	ppu.reset();
 }
 
 void Cpu::op_nmi()

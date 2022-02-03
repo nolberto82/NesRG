@@ -20,6 +20,8 @@
 
 #include "opcodes.h"
 
+#include <SDL.h>
+
 using namespace std;
 namespace fs = std::filesystem;
 
@@ -32,7 +34,14 @@ typedef char s8;
 typedef short s16;
 typedef int s32;
 
-const int APP_WIDTH = 1500;
-const int APP_HEIGHT = 900;
+const int APP_WIDTH = 1300;
+const int APP_HEIGHT = 920;
 //const int APP_WIDTH = 512;
 //const int APP_HEIGHT = 480;
+
+struct texture_t
+{
+	int w;
+	int h;
+	SDL_Texture* texture;
+};

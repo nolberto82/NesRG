@@ -16,11 +16,14 @@ enum mirrortype
 
 struct Memory
 {
+
+
 public:
-	u8* ram = nullptr;
-	u8* vram = nullptr;
-	u8* oam = nullptr;
-	u8* rom = nullptr;
+	vector<u8> ram;
+	vector<u8> vram;
+	vector<u8> oam;
+	vector<u8> oam2;
+	vector<u8> rom;
 
 	int mirrornametable = 0;
 
@@ -38,17 +41,15 @@ public:
 
 	Memory()
 	{
-		ram = new u8[RAMSIZE];
-		vram = new u8[VRAMSIZE];
-		oam = new u8[OAMSIZE];
+		ram.resize(RAMSIZE);
+		vram.resize(VRAMSIZE);
+		oam.resize(OAMSIZE);
+		oam2.resize(OAMSIZE - 0x80);
 	}
 
 	~Memory()
 	{
-		delete ram;
-		delete oam;
-		delete vram;
-		delete rom;
+
 	}
 };
 

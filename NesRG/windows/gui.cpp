@@ -1,19 +1,45 @@
 #include "gui.h"
 #include "breakpoints.h"
-#include "sdlgfx.h"
 #include "cpu.h"
 #include "ppu.h"
 
-#include <nfd.h>
-
 Breakpoint bpk;
+ImGui::FileBrowser fileDialog;
 
-bool Gui::init()
+bool Gui::init_gui()
 {
+	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
+	{
+		printf("Couldn't initialize SDL: %s\n", SDL_GetError());
+		return false;
+	}
+
+	window = SDL_CreateWindow("Nes RG", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, 0);
+
+	if (!window)
+	{
+		printf("Failed to open %d x %d window: %s\n", APP_WIDTH, APP_HEIGHT, SDL_GetError());
+		return false;
+	}
+
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+
+	if (!renderer)
+	{
+		printf("Failed to create renderer: %s\n", SDL_GetError());
+		return false;
+	}
+
+	//create textures
+	display.w = 256; gui.display.h = 240;
+
+	display.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
+	//tile.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGui_ImplSDL2_InitForSDLRenderer(gfx.window);
-	ImGui_ImplSDLRenderer_Init(gfx.renderer);
+	ImGui_ImplSDL2_InitForSDLRenderer(gui.window);
+	ImGui_ImplSDLRenderer_Init(gui.renderer);
 
 	ImGui::StyleColorsLight();
 
@@ -25,65 +51,68 @@ bool Gui::init()
 	style->Colors[ImGuiCol_FrameBg] = framebgcol;
 	style->ItemSpacing = ImVec2(8, 1);
 
-	gfx.running = true;
+	gui.running = true;
 	cpu.state = cstate::debugging;
-	//get_rom_files();
-
-	NFD_Init();
 
 	return true;
 }
 
-void Gui::update()
+void Gui::update_gui()
 {
 	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-	while (gfx.running)
+	while (gui.running)
 	{
-		step(false);
+		step_gui(false);
 		input(io);
 
 		ImGui_ImplSDLRenderer_NewFrame();
-		ImGui_ImplSDL2_NewFrame(gfx.window);
+		ImGui_ImplSDL2_NewFrame(gui.window);
 		ImGui::NewFrame();
-
-
-		if (ImGui::Begin("Display", NULL))
-		{
-			ImGui::SetWindowSize(ImVec2(512, 448), ImGuiCond_Once);
-			ImVec2 tsize = ImGui::GetContentRegionAvail();
-
-			if (cpu.state == cstate::scanline || cpu.state == cstate::cycle)
-			{
-				gfx.render_frame();
-			}
-
-			ImGui::Image((void*)gfx.display.texture, tsize);
-		}
-		ImGui::End();
-
-		//show_menu();
 
 		//ImGui::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 		//ImGui::ShowStyleSelector("stylesel");
 
+		//Menu
+		show_menu();
+
 		//Debugger UI
 		ImGui::Begin("Debugger", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
-		ImGui::SetWindowSize(ImVec2(600, 900), 0);
+		ImGui::SetWindowSize(ImVec2(900, 900), ImGuiCond_Once);
 
-		ImGui::Columns(2);
+		ImGui::BeginChild("Buttons", ImVec2(-1, 45), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+		show_buttons(io);
+		ImGui::EndChild();
 
-		ImGui::SetColumnWidth(0, 400);
+		ImGui::Columns(3);
+
+		ImGui::SetColumnWidth(0, 390);
+
+		ImGui::Separator();
 
 		//Show Debugger
 		ImGui::BeginChild("Disassembly", ImVec2(0, 500), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-
-		show_buttons(io);
-		ImGui::Separator();
 		show_disassembly(io);
+		ImGui::EndChild();
+
+		ImGui::SameLine();
+		ImGui::NextColumn();
+
+		if (ImGui::BeginChild("Display"))
+		{
+			ImGui::SetWindowSize(ImVec2(256, 240));
+			ImVec2 tsize = ImGui::GetContentRegionAvail();
+
+			if (cpu.state == cstate::scanline || cpu.state == cstate::cycle)
+			{
+				gui.render_frame();
+			}
+
+			ImGui::Image((void*)gui.display.texture, ImVec2(256, 240));
+		}
 		ImGui::EndChild();
 
 		ImGui::SameLine();
@@ -99,7 +128,7 @@ void Gui::update()
 
 		ImGui::Columns(1);
 
-		ImGui::BeginChild("Memory Editor", ImVec2(-1, -1));
+		ImGui::BeginChild("Memory Editor", ImVec2(-1, 310));
 		show_memory();
 		ImGui::EndChild();
 
@@ -107,13 +136,11 @@ void Gui::update()
 
 		// Rendering
 		ImGui::Render();
-		SDL_SetRenderDrawColor(gfx.renderer, 114, 144, 154, 255);
-		SDL_RenderClear(gfx.renderer);
+		SDL_SetRenderDrawColor(gui.renderer, 114, 144, 154, 255);
+		SDL_RenderClear(gui.renderer);
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-		SDL_RenderPresent(gfx.renderer);
+		SDL_RenderPresent(gui.renderer);
 	}
-
-	NFD_Quit();
 }
 
 void Gui::show_disassembly(ImGuiIO io)
@@ -207,18 +234,35 @@ void Gui::show_disassembly(ImGuiIO io)
 
 void Gui::show_buttons(ImGuiIO io)
 {
+	fileDialog.Display();
+
+	if (fileDialog.HasSelected())
+	{
+		ppu.reset();
+		mem.load_rom(fileDialog.GetSelected().u8string().c_str());
+		cpu.reset();
+		cpu.state = cstate::debugging;
+		fileDialog.ClearSelected();
+	}
+
 	if (ImGui::Button("Load Rom", ImVec2(BUTTONSIZE_X, 0)))
 	{
-		nfdchar_t* outPath;
-		nfdfilteritem_t filterItem[2] = { { "Nes Roms", "nes" } };
-		nfdresult_t result = NFD_OpenDialog(&outPath, filterItem, 1, NULL);
+		fs::path game_dir = "D:\\Emulators+Hacking\\NES\\Mapper0Games\\";
+		fileDialog.SetTitle("Load Nes Rom");
+		fileDialog.SetTypeFilters({ ".nes" });
+		fileDialog.SetPwd(game_dir);
+		fileDialog.Open();
+	}
 
-		if (result == NFD_OKAY)
+	ImGui::SameLine();
+
+	if (ImGui::Button("Run", ImVec2(BUTTONSIZE_X, 0)))
+	{
+		if (mem.rom_loaded)
 		{
-			mem.load_rom(outPath);
-			cpu.reset();
-			cpu.state = cstate::debugging;
-			NFD_FreePath(outPath);
+			step_gui(true);
+			is_jump = false;
+			cpu.state = cstate::running;
 		}
 	}
 
@@ -231,38 +275,15 @@ void Gui::show_buttons(ImGuiIO io)
 			create_close_log(false);
 			cpu.state = cstate::debugging;
 			lineoffset = 0;
+			ppu.reset();
 			mem.set_mapper();
 			cpu.reset();
 			is_jump = false;
 		}
 	}
 
-	ImGui::SameLine();
-
-	if (ImGui::Button("Dump VRAM", ImVec2(BUTTONSIZE_X, 0)))
-	{
-		std::ofstream outFile("ram.bin", std::ios::binary);
-		outFile.write((char*)mem.vram, VRAMSIZE);
-		outFile.close();
-	}
-
 	ImGui::Spacing();
 	ImGui::Spacing();
-
-	if (ImGui::Button("Run", ImVec2(BUTTONSIZE_X, 0)))
-	{
-		if (mem.rom_loaded)
-		{
-			//if (logging)
-			//	log_to_file(reg.pc);
-
-			step(true);
-			is_jump = false;
-			cpu.state = cstate::running;
-		}
-	}
-
-	ImGui::SameLine();
 
 	if (ImGui::Button("Step Into", ImVec2(BUTTONSIZE_X, 0)))
 	{
@@ -270,7 +291,7 @@ void Gui::show_buttons(ImGuiIO io)
 		{
 			cpu.state = cstate::debugging;
 			lineoffset = 0;
-			step(true);
+			step_gui(true);
 			is_jump = false;
 		}
 	}
@@ -286,45 +307,20 @@ void Gui::show_buttons(ImGuiIO io)
 
 			u8 op = mem.rb(reg.pc);
 			u16 ret_pc = reg.pc + 3;
-			cpu.state = cstate::running;
+			//cpu.state = cstate::running;
 
 			if (op == 0x20)
 			{
 				while (reg.pc != ret_pc)
 				{
-					step(true);
+					step_gui(true);
 				}
 			}
+			else
+				step_gui(true);
 
-			//step(true);
 			is_jump = false;
 		}
-	}
-
-	ImGui::Spacing();
-	ImGui::Spacing();
-
-	if (ImGui::Button("1 Scanline (F7)", ImVec2(BUTTONSIZE_X, 0)) || ImGui::IsKeyPressed(SDL_SCANCODE_F7))
-	{
-		cpu.state = cstate::scanline;
-		step(true);
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("1 Cycle (F8)", ImVec2(BUTTONSIZE_X, 0)) || ImGui::IsKeyPressed(SDL_SCANCODE_F8))
-	{
-		cpu.state = cstate::scanline;
-		step(true);
-	}
-
-	ImGui::SameLine();
-
-	string log = logging ? "Log: On" : "Log: Off";
-
-	if (ImGui::Button(log.c_str(), ImVec2(BUTTONSIZE_X, 0)))
-	{
-		create_close_log(!logging);
 	}
 
 	ImGui::Spacing();
@@ -346,13 +342,13 @@ void Gui::show_memory()
 	{
 		if (ImGui::BeginTabItem("RAM"))
 		{
-			mem_edit.DrawContents(mem.ram, 0x10000);
+			mem_edit.DrawContents(mem.ram.data(), mem.ram.size());
 			ImGui::EndTabItem();
 		}
 
 		if ((ImGui::BeginTabItem("VRAM")))
 		{
-			mem_edit.DrawContents(mem.vram, 0x4000);
+			mem_edit.DrawContents(mem.vram.data(), mem.vram.size());
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();
@@ -577,10 +573,49 @@ void Gui::show_registers(ImGuiIO io)
 
 void Gui::show_menu()
 {
+	if (ImGui::BeginMainMenuBar())
+	{
+		if (ImGui::BeginMenu("File"))
+		{
 
+
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Debug"))
+		{
+			if (ImGui::MenuItem("Trace To File"))
+			{
+				create_close_log(!logging);
+			}
+
+			if (ImGui::MenuItem("Dump VRAM"))
+			{
+				std::ofstream outFile("vram.bin", std::ios::binary);
+				outFile.write((char*)mem.vram.data(), VRAMSIZE);
+				outFile.close();
+			}
+
+			if (ImGui::MenuItem("Run 1 Cycle (F6)"))
+			{
+				cpu.state = cstate::cycle;
+				ppu.step(1);
+			}
+
+			if (ImGui::MenuItem("Run 1 Scanline (F7)"))
+			{
+				cpu.state = cstate::scanline;
+				step_gui(true);
+			}
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
 }
 
-void Gui::step(bool stepping, bool over)
+void Gui::step_gui(bool stepping, bool over)
 {
 	ppu.frame_ready = false;
 	if (cpu.state == cstate::running)
@@ -667,10 +702,28 @@ void Gui::input(ImGuiIO io)
 	{
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if (event.type == SDL_QUIT)
-			gfx.running = 0;
-		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(gfx.window))
-			gfx.running = 0;
+			gui.running = 0;
+		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+			gui.running = 0;
 	}
+
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6))
+	{
+		cpu.state = cstate::cycle;
+		ppu.step(1);
+	}
+
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F7))
+	{
+		cpu.state = cstate::scanline;
+		step_gui(true);
+	}
+}
+
+void Gui::render_frame()
+{
+	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned int));
+	SDL_RenderCopy(renderer, display.texture, NULL, NULL);
 }
 
 void Gui::log_to_file(u16 pc)
@@ -946,11 +999,4 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 	entry.push_back(e);
 
 	return entry;
-}
-
-void Gui::clean()
-{
-	ImGui_ImplSDLRenderer_Shutdown();
-	ImGui_ImplSDL2_Shutdown();
-	ImGui::DestroyContext();
 }
