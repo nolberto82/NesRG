@@ -2,30 +2,35 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "gui.h"
+#include "renderer.h"
 
-Cpu cpu;
-Memory mem;
-Ppu ppu;
 Registers reg;
 PpuRegisters preg;
-Gui gui;
 
 int main(int argc, char* argv[])
 {
-	printf("Starting NesRG");
+	Cpu* cpu = new Cpu();
+	Memory* mem = new Memory();
+	Ppu* ppu = new Ppu();
+	Gui* gui = new Gui();
+	Gfx* gfx = new Gfx();
 
-	//gfx.init_sdl();
+	cpu->set_obj(mem, ppu);
+	ppu->set_obj(mem, gfx);
+	mem->set_obj(cpu, ppu);
+	gui->set_obj(cpu, mem, ppu, gfx);
 
-	if (gui.init_gui())
+	if (gfx->init() && gui->init())
 	{
-		cpu.init();
-
-		if (mem.load_rom("D:\\Emulators+Hacking\\NES\\Mapper0Games\\nestest.nes"))
-		{
-			cpu.reset();
-			gui.update_gui();
-		}
+		cpu->init();
+		gui->update();
 	}
+
+	delete cpu;
+	delete mem;
+	delete ppu;
+	delete gui;
+	delete gfx;
 
 	return 0;
 }

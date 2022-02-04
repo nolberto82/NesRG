@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "mem.h"
 
 struct PpuRegisters
 {
@@ -10,8 +11,20 @@ struct PpuRegisters
 	u8 w;
 };
 
-struct Ppu
+class Memory;
+class Gfx;
+
+class Ppu
 {
+public:
+	Ppu() {}
+	~Ppu() {}
+
+	void set_obj(Memory* mem, Gfx* gfx)
+	{
+		this->mem = mem; this->ren = gfx;
+	}
+
 	int scanline = 0;
 	int cycles = 0;
 	int cycle = 0;
@@ -32,9 +45,16 @@ struct Ppu
 	u8 dataread();
 	void reset();
 
+	u32* get_screen_pixels() { return &screen_pixels[0]; };
+
 	u8 ppuoamdma = 0;
 
 private:
+	Memory* mem = nullptr;
+	Gfx* ren = nullptr;
+
+	u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+
 	void render_pixels();
 	void render_sprites(u8 frontback);
 	void set_vblank();
@@ -77,9 +97,7 @@ private:
 	u8 tile_lo = 0;
 	u8 tile_hi = 0;
 
-	u8 sp0data[256 * 240 * 4];
-
-	u32 palettes[192 / 3];
+	u32 palettes[192 / 3] = {};
 
 	u8 palbuffer[192] =
 	{
@@ -98,5 +116,4 @@ private:
 	};
 };
 
-extern Ppu ppu;
 extern PpuRegisters preg;

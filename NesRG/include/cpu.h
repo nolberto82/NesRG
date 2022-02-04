@@ -30,9 +30,36 @@ struct Registers
 	u16 pc;
 };
 
-struct Cpu
+class Memory;
+class Ppu;
+
+class Cpu
 {
+private:
+	Memory* mem = nullptr;
+	Ppu* ppu = nullptr;
+
+	bool pagecrossed = false;
+	u8 branchtaken = 0;
+
+private:
+	void op_nmi();
+	u8 op_pop();
+	void op_push(u16 addr, u8 v);
+	void op_bra(u16 addr, bool flag);
+
+	void set_flag(bool flag, u8 v);
+
 public:
+	Cpu() {}
+	~Cpu() {}
+
+	void set_obj(Memory* mem, Ppu* ppu)
+	{
+		this->mem = mem;
+		this->ppu = ppu;
+	}
+
 	int step();
 	void init();
 	void reset();
@@ -53,23 +80,8 @@ public:
 	u16 get_erro(u16 pc, bool trace = false);
 
 	int state = cstate::running;
-	u16 write_addr = 0;
-	u16 read_addr = 0;
-
-private:
-	bool pagecrossed = false;
-	u8 branchtaken = 0;
-
-private:
-	void op_nmi();
-	u8 op_pop();
-	void op_push(u16 addr, u8 v);
-	void op_bra(u16 addr, bool flag);
-
-	void set_flag(bool flag, u8 v);
 };
 
-extern Cpu cpu;
 extern Registers reg;
 
 struct amodefuncs

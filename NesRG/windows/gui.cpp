@@ -2,86 +2,69 @@
 #include "breakpoints.h"
 #include "cpu.h"
 #include "ppu.h"
+#include "renderer.h"
 
 Breakpoint bpk;
 ImGui::FileBrowser fileDialog;
 
-bool Gui::init_gui()
+bool Gui::init()
 {
-	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
-	{
-		printf("Couldn't initialize SDL: %s\n", SDL_GetError());
-		return false;
-	}
-
-	window = SDL_CreateWindow("Nes RG", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, 0);
-
-	if (!window)
-	{
-		printf("Failed to open %d x %d window: %s\n", APP_WIDTH, APP_HEIGHT, SDL_GetError());
-		return false;
-	}
-
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
-	if (!renderer)
-	{
-		printf("Failed to create renderer: %s\n", SDL_GetError());
-		return false;
-	}
-
-	//create textures
-	display.w = 256; gui.display.h = 240;
-
-	display.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
-	//tile.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, display.w, display.h);
-
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGui_ImplSDL2_InitForSDLRenderer(gui.window);
-	ImGui_ImplSDLRenderer_Init(gui.renderer);
+	ImGui_ImplSDL2_InitForSDLRenderer(Gfx::window);
+	ImGui_ImplSDLRenderer_Init(Gfx::renderer);
 
 	ImGui::StyleColorsLight();
+	//ImGui::StyleColorsClassic();
 
 	ImGuiStyle* style = &ImGui::GetStyle();
 
-	ImVec4 framebgcol = ImVec4(230 / 255.0f, 230 / 255.0f, 230 / 255.0f, 1.0f);
+	ImVec4 windowbgcol = ImVec4(0, 0, 0, 180 / 255.0f);
 
-	style->Colors[ImGuiCol_WindowBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	style->Colors[ImGuiCol_FrameBg] = framebgcol;
+	//style->Colors[ImGuiCol_WindowBg] = windowbgcol;
 	style->ItemSpacing = ImVec2(8, 1);
-
-	gui.running = true;
-	cpu.state = cstate::debugging;
 
 	return true;
 }
 
-void Gui::update_gui()
+void Gui::update()
 {
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 
-	while (gui.running)
+	running = 1;
+
+	while (running)
 	{
-		step_gui(false);
+		ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+		step(false);
 		input(io);
 
 		ImGui_ImplSDLRenderer_NewFrame();
-		ImGui_ImplSDL2_NewFrame(gui.window);
+		ImGui_ImplSDL2_NewFrame(Gfx::window);
 		ImGui::NewFrame();
+
 
 		//ImGui::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 		//ImGui::ShowStyleSelector("stylesel");
 
+
 		//Menu
 		show_menu();
 
 		//Debugger UI
+		//ImGui::SetNextWindowBgAlpha(0.25f);
 		ImGui::Begin("Debugger", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 		ImGui::SetWindowSize(ImVec2(900, 900), ImGuiCond_Once);
+
+		float ypos = ImGui::GetWindowPos().y;
+		float xpos = ImGui::GetWindowPos().x;
+
+		if (ypos < 20)
+		{
+			ImGui::SetWindowPos(ImVec2(xpos, 20));
+		}
 
 		ImGui::BeginChild("Buttons", ImVec2(-1, 45), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 		show_buttons(io);
@@ -106,12 +89,12 @@ void Gui::update_gui()
 			ImGui::SetWindowSize(ImVec2(256, 240));
 			ImVec2 tsize = ImGui::GetContentRegionAvail();
 
-			if (cpu.state == cstate::scanline || cpu.state == cstate::cycle)
+			if (cpu->state == cstate::scanline || cpu->state == cstate::cycle)
 			{
-				gui.render_frame();
+				gfx->render_frame(ppu->get_screen_pixels());
 			}
 
-			ImGui::Image((void*)gui.display.texture, ImVec2(256, 240));
+			ImGui::Image((void*)Gfx::screen, ImVec2(256, 240));
 		}
 		ImGui::EndChild();
 
@@ -136,10 +119,10 @@ void Gui::update_gui()
 
 		// Rendering
 		ImGui::Render();
-		SDL_SetRenderDrawColor(gui.renderer, 114, 144, 154, 255);
-		SDL_RenderClear(gui.renderer);
+		SDL_SetRenderDrawColor(Gfx::renderer, (u8)(clear_color.x * 255), (u8)(clear_color.y * 255), (u8)(clear_color.z * 255), (u8)(clear_color.w * 255));
+		SDL_RenderClear(Gfx::renderer);
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-		SDL_RenderPresent(gui.renderer);
+		SDL_RenderPresent(Gfx::renderer);
 	}
 }
 
@@ -149,9 +132,7 @@ void Gui::show_disassembly(ImGuiIO io)
 	u16 pc = is_jump ? inputaddr : reg.pc;
 
 	vector<string> vdasm;
-	ImU32 tablerowcolor = 0xff00ffff;
-	ImU32 tablecolcolor = 0xffe0e0e0;
-	ImVec4 bpsetcolor = { 0x00, 0xff, 0x00, 0xff };
+	ImVec4 bpsetcolor = { 0xff, 0x00, 0x00, 0xff };
 	ImVec4 bpunsetcolor = { 0xe0 / 255.0f, 0xe0 / 255.0f, 0xe0 / 255.0f ,0xff };
 
 	static int item_num = 0;
@@ -216,11 +197,11 @@ void Gui::show_disassembly(ImGuiIO io)
 		if (pcaddr == reg.pc)
 			currlinecol = ImVec4(0, 0, 1, 1);
 
-		ImGui::TextColored(currlinecol, vdentry[0].bytetext.c_str());
+		ImGui::Text(vdentry[0].bytetext.c_str());
 
 		ImGui::SameLine();
 
-		ImGui::TextColored(currlinecol, vdentry[0].dtext.c_str());
+		ImGui::Text(vdentry[0].dtext.c_str());
 
 		pc += vdentry[0].size;
 
@@ -238,15 +219,16 @@ void Gui::show_buttons(ImGuiIO io)
 
 	if (fileDialog.HasSelected())
 	{
-		ppu.reset();
-		mem.load_rom(fileDialog.GetSelected().u8string().c_str());
-		cpu.reset();
-		cpu.state = cstate::debugging;
+		ppu->reset();
+		mem->load_rom(fileDialog.GetSelected().u8string().c_str());
+		cpu->reset();
+		cpu->state = cstate::debugging;
 		fileDialog.ClearSelected();
 	}
 
 	if (ImGui::Button("Load Rom", ImVec2(BUTTONSIZE_X, 0)))
 	{
+		cpu->state = cstate::debugging;
 		fs::path game_dir = "D:\\Emulators+Hacking\\NES\\Mapper0Games\\";
 		fileDialog.SetTitle("Load Nes Rom");
 		fileDialog.SetTypeFilters({ ".nes" });
@@ -258,11 +240,11 @@ void Gui::show_buttons(ImGuiIO io)
 
 	if (ImGui::Button("Run", ImVec2(BUTTONSIZE_X, 0)))
 	{
-		if (mem.rom_loaded)
+		if (mem->rom_loaded)
 		{
-			step_gui(true);
+			step(true);
 			is_jump = false;
-			cpu.state = cstate::running;
+			cpu->state = cstate::running;
 		}
 	}
 
@@ -270,14 +252,14 @@ void Gui::show_buttons(ImGuiIO io)
 
 	if (ImGui::Button("Reset", ImVec2(BUTTONSIZE_X, 0)))
 	{
-		if (mem.rom_loaded)
+		if (mem->rom_loaded)
 		{
 			create_close_log(false);
-			cpu.state = cstate::debugging;
+			cpu->state = cstate::debugging;
 			lineoffset = 0;
-			ppu.reset();
-			mem.set_mapper();
-			cpu.reset();
+			ppu->reset();
+			mem->set_mapper();
+			cpu->reset();
 			is_jump = false;
 		}
 	}
@@ -287,11 +269,11 @@ void Gui::show_buttons(ImGuiIO io)
 
 	if (ImGui::Button("Step Into", ImVec2(BUTTONSIZE_X, 0)))
 	{
-		if (mem.rom_loaded)
+		if (mem->rom_loaded)
 		{
-			cpu.state = cstate::debugging;
+			cpu->state = cstate::debugging;
 			lineoffset = 0;
-			step_gui(true);
+			step(true);
 			is_jump = false;
 		}
 	}
@@ -300,24 +282,24 @@ void Gui::show_buttons(ImGuiIO io)
 
 	if (ImGui::Button("Step Over", ImVec2(BUTTONSIZE_X, 0)))
 	{
-		if (mem.rom_loaded)
+		if (mem->rom_loaded)
 		{
-			cpu.state = cstate::debugging;
+			cpu->state = cstate::debugging;
 			lineoffset = 0;
 
-			u8 op = mem.rb(reg.pc);
+			u8 op = mem->rb(reg.pc);
 			u16 ret_pc = reg.pc + 3;
-			//cpu.state = cstate::running;
+			//cpu->state = cstate::running;
 
 			if (op == 0x20)
 			{
 				while (reg.pc != ret_pc)
 				{
-					step_gui(true);
+					step(true);
 				}
 			}
 			else
-				step_gui(true);
+				step(true);
 
 			is_jump = false;
 		}
@@ -330,6 +312,7 @@ void Gui::show_buttons(ImGuiIO io)
 void Gui::show_memory()
 {
 	static MemoryEditor mem_edit;
+	//mem_edit.OptGreyOutZeroes = false;
 
 	//for (int i = 0; i < 10; i++)
 	ImGui::Spacing();
@@ -342,13 +325,17 @@ void Gui::show_memory()
 	{
 		if (ImGui::BeginTabItem("RAM"))
 		{
-			mem_edit.DrawContents(mem.ram.data(), mem.ram.size());
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			mem_edit.DrawContents(mem->ram.data(), mem->ram.size());
+			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
 		}
 
 		if ((ImGui::BeginTabItem("VRAM")))
 		{
-			mem_edit.DrawContents(mem.vram.data(), mem.vram.size());
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			mem_edit.DrawContents(mem->vram.data(), mem->vram.size());
+			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
 		}
 		ImGui::EndTabBar();
@@ -386,9 +373,6 @@ void Gui::show_breakpoints()
 
 	ImGui::Checkbox("X", &bpaddchkbox[2]);
 
-	if (strlen(bpaddrtext) == 0)
-		ImGui::BeginDisabled(true);
-
 	if (ImGui::Button("Add", ImVec2(50, 0)))
 	{
 		u8 bptype = 0;
@@ -400,12 +384,12 @@ void Gui::show_breakpoints()
 			}
 		}
 
-		bplistaddr = stoi(bpaddrtext, nullptr, 16);
-		bpk.add(bplistaddr, bptype);
+		if (strcmp(bpaddrtext, "") != 0)
+		{
+			bplistaddr = stoi(bpaddrtext, nullptr, 16);
+			bpk.add(bplistaddr, bptype);
+		}
 	}
-
-	if (strlen(bpaddrtext) == 0)
-		ImGui::EndDisabled();
 
 	ImGui::SameLine();
 
@@ -430,7 +414,7 @@ void Gui::show_breakpoints()
 	if (ImGui::Button("Edit", ImVec2(50, 0)))
 	{
 		u8 bptype = 0;
-		s16 newaddr = -1;
+		u16 newaddr = 0;
 
 		for (int i = 0; i < 3; i++)
 		{
@@ -523,13 +507,13 @@ void Gui::show_registers(ImGuiIO io)
 		ImGui::TableNextColumn(); ImGui::Text("%f", io.Framerate);
 
 		ImGui::TableNextColumn(); ImGui::Text("tot cycles");
-		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.totalcycles);
+		ImGui::TableNextColumn(); ImGui::Text("%d", ppu->totalcycles);
 
 		ImGui::TableNextColumn(); ImGui::Text("ppu cycles");
-		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.cycle);
+		ImGui::TableNextColumn(); ImGui::Text("%d", ppu->cycle);
 
 		ImGui::TableNextColumn(); ImGui::Text("scanline");
-		ImGui::TableNextColumn(); ImGui::Text("%d", ppu.scanline);
+		ImGui::TableNextColumn(); ImGui::Text("%d", ppu->scanline);
 
 		ImGui::TableNextColumn(); ImGui::Text("ppuaddr");
 		ImGui::TableNextColumn(); ImGui::Text("%04X", preg.v);
@@ -544,27 +528,27 @@ void Gui::show_registers(ImGuiIO io)
 		ImGui::TableNextColumn(); ImGui::Text("-----------");
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "PC");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.pc);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "A");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.a);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "X");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.x);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "Y");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.y);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "P");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.ps);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "SP");
-		ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
+		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.sp | 0x100);
 
 		ImGui::EndTable();
@@ -573,11 +557,19 @@ void Gui::show_registers(ImGuiIO io)
 
 void Gui::show_menu()
 {
+	static bool show_style_editor = false;
+
+	if (show_style_editor)
+		ImGui::ShowStyleEditor();
+
 	if (ImGui::BeginMainMenuBar())
 	{
 		if (ImGui::BeginMenu("File"))
 		{
-
+			if (ImGui::MenuItem("Show Styles Editor"))
+			{
+				show_style_editor = !show_style_editor;
+			}
 
 			ImGui::EndMenu();
 		}
@@ -592,20 +584,20 @@ void Gui::show_menu()
 			if (ImGui::MenuItem("Dump VRAM"))
 			{
 				std::ofstream outFile("vram.bin", std::ios::binary);
-				outFile.write((char*)mem.vram.data(), VRAMSIZE);
+				outFile.write((char*)mem->vram.data(), VRAMSIZE);
 				outFile.close();
 			}
 
 			if (ImGui::MenuItem("Run 1 Cycle (F6)"))
 			{
-				cpu.state = cstate::cycle;
-				ppu.step(1);
+				cpu->state = cstate::cycle;
+				ppu->step(1);
 			}
 
 			if (ImGui::MenuItem("Run 1 Scanline (F7)"))
 			{
-				cpu.state = cstate::scanline;
-				step_gui(true);
+				cpu->state = cstate::scanline;
+				step(true);
 			}
 
 			ImGui::EndMenu();
@@ -615,82 +607,90 @@ void Gui::show_menu()
 	}
 }
 
-void Gui::step_gui(bool stepping, bool over)
+void Gui::step(bool stepping, bool over)
 {
-	ppu.frame_ready = false;
-	if (cpu.state == cstate::running)
+	ppu->frame_ready = false;
+	if (cpu->state == cstate::running)
 	{
-		while (!ppu.frame_ready)
+		while (!ppu->frame_ready)
 		{
 			u16 pc = reg.pc;
 
 			for (auto& it : bpk.breakpoints)
 			{
-				if (it.type == bp_exec && cpu.state == cstate::running)
+				if (it.type == bp_exec && cpu->state == cstate::running)
 				{
 					if (bpk.check(pc, bp_exec, it.enabled))
 					{
-						cpu.state = cstate::debugging;
+						cpu->state = cstate::debugging;
 						return;
 					}
 				}
 
-				if (bpk.check_access(cpu.write_addr, bp_write, it.enabled))
+				if (bpk.check_access(mem->write_addr, bp_write, it.enabled))
 				{
-					cpu.state = cstate::debugging;
-					cpu.write_addr = 0;
+					cpu->state = cstate::debugging;
+					mem->write_addr = 0;
 					lineoffset = -6;
 					return;
 				}
 
-				if (bpk.check_access(cpu.read_addr, bp_read, it.enabled))
+				if (bpk.check_access(mem->ppu_write_addr, bp_write, it.enabled))
 				{
-					cpu.state = cstate::debugging;
-					cpu.read_addr = 0;
+					cpu->state = cstate::debugging;
+					mem->ppu_write_addr = 0;
+					lineoffset = -6;
+					return;
+				}
+
+				if (bpk.check_access(mem->read_addr, bp_read, it.enabled))
+				{
+					cpu->state = cstate::debugging;
+					mem->read_addr = 0;
 					lineoffset = -6;
 					return;
 				}
 			}
 
-			int cyc = cpu.step();
-			ppu.step(cyc);
-			ppu.totalcycles += cyc / 3;
+			int cyc = cpu->step();
+			ppu->step(cyc);
+			ppu->totalcycles += cyc / 3;
 
 			if (logging)
 				log_to_file(reg.pc);
 
-			if (cpu.state == cstate::crashed)
+			if (cpu->state == cstate::crashed)
 				return;
 		}
 
-		ppu.cycles -= CYCLES_PER_LINE;
+		ppu->cycles -= CYCLES_PER_LINE;
 	}
-	else if (cpu.state == cstate::debugging && stepping)
+	else if (cpu->state == cstate::debugging && stepping)
 	{
 		u16 pc = reg.pc;
 
-		int cyc = cpu.step();
-		ppu.step(cyc);
-		ppu.totalcycles += cyc / 3;
+		int cyc = cpu->step();
+		ppu->step(cyc);
+		ppu->totalcycles += cyc / 3;
 
 		if (logging)
 			log_to_file(reg.pc);
 
 	}
-	else if (cpu.state == cstate::scanline && stepping)
+	else if (cpu->state == cstate::scanline && stepping)
 	{
 		u16 pc = reg.pc;
 
 		if (logging)
 			log_to_file(pc);
 
-		int old_scanline = ppu.scanline;
+		int old_scanline = ppu->scanline;
 
-		while (old_scanline == ppu.scanline)
+		while (old_scanline == ppu->scanline)
 		{
-			int cyc = cpu.step();
-			ppu.step(cyc);
-			ppu.totalcycles += cyc / 3;
+			int cyc = cpu->step();
+			ppu->step(cyc);
+			ppu->totalcycles += cyc / 3;
 		}
 	}
 }
@@ -702,28 +702,22 @@ void Gui::input(ImGuiIO io)
 	{
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if (event.type == SDL_QUIT)
-			gui.running = 0;
-		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
-			gui.running = 0;
+			running = 0;
+		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(Gfx::window))
+			running = 0;
 	}
 
-	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6))
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F8))
 	{
-		cpu.state = cstate::cycle;
-		ppu.step(1);
+		cpu->state = cstate::cycle;
+		ppu->step(1);
 	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F7))
 	{
-		cpu.state = cstate::scanline;
-		step_gui(true);
+		cpu->state = cstate::scanline;
+		step(true);
 	}
-}
-
-void Gui::render_frame()
-{
-	SDL_UpdateTexture(display.texture, NULL, disp_pixels, display.w * sizeof(unsigned int));
-	SDL_RenderCopy(renderer, display.texture, NULL, NULL);
 }
 
 void Gui::log_to_file(u16 pc)
@@ -763,7 +757,7 @@ void Gui::create_close_log(bool status)
 
 vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_registers, bool memory_access)
 {
-	u8 op = mem.rb(pc);
+	u8 op = mem->rb(pc);
 
 	int size = 0;
 	int asize = 0;
@@ -787,38 +781,38 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		case addrmode::accu:
 		{
 			snprintf(data, TEXTSIZE, "%s", name);
-			snprintf(bytes, TEXTSIZE, "$%-10.02X", mem.rb(pc));
+			snprintf(bytes, TEXTSIZE, "$%-10.02X", mem->rb(pc));
 			break;
 		}
 		case addrmode::imme:
 		{
-			u16 b = cpu.get_zerp(pc + 1);
+			u16 b = cpu->get_zerp(pc + 1);
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			snprintf(data + strlen(data), TEXTSIZE, "#$%02X", b);
-			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem.rb(pc), mem.rb(pc + 1));
+			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem->rb(pc), mem->rb(pc + 1));
 			break;
 		}
 		case addrmode::zerp:
 		{
-			u16 b = cpu.get_zerp(pc + 1);
+			u16 b = cpu->get_zerp(pc + 1);
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "$%02X = #$%02X", b, mem.rb(b));
+				snprintf(data + strlen(data), TEXTSIZE, "$%02X = #$%02X", b, mem->rb(b));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "$%02X", b);
-			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem.rb(pc), mem.rb(pc + 1));
+			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem->rb(pc), mem->rb(pc + 1));
 			break;
 		}
 		case addrmode::zerx:
 		{
-			u16 b = cpu.get_zerx(pc + 1);
-			u8 d1 = mem.rb(pc);
-			u8 d2 = mem.rb(pc + 1);
+			u16 b = cpu->get_zerx(pc + 1);
+			u8 d1 = mem->rb(pc);
+			u8 d2 = mem->rb(pc + 1);
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "$%02X,X @ $%04X = #$%02X", d2, (u8)(d2 + reg.x), mem.rb((u8)(d2 + reg.x)));
+				snprintf(data + strlen(data), TEXTSIZE, "$%02X,X @ $%04X = #$%02X", d2, (u8)(d2 + reg.x), mem->rb((u8)(d2 + reg.x)));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "$%02X,X", b);
 
@@ -827,13 +821,13 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		}
 		case addrmode::zery:
 		{
-			u16 b = cpu.get_zery(pc + 1);
-			u8 d1 = mem.rb(pc);
-			u8 d2 = mem.rb(pc + 1);
+			u16 b = cpu->get_zery(pc + 1);
+			u8 d1 = mem->rb(pc);
+			u8 d2 = mem->rb(pc + 1);
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "$%02X,Y @ $%04X = #$%02X", d2, (u8)(d2 + reg.y), mem.rb((u8)(d2 + reg.y)));
+				snprintf(data + strlen(data), TEXTSIZE, "$%02X,Y @ $%04X = #$%02X", d2, (u8)(d2 + reg.y), mem->rb((u8)(d2 + reg.y)));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "$%02X,Y", d2);
 
@@ -842,7 +836,7 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		}
 		case addrmode::abso:
 		{
-			u16 b = mem.rw(pc + 1);
+			u16 b = mem->rw(pc + 1);
 			bool isjump = op == 0x4c || op == 0x20;
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
@@ -852,26 +846,26 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 			else
 			{
 				if (memory_access)
-					snprintf(data + strlen(data), TEXTSIZE, "$%04X = #$%02X", b, mem.ram[b]);
+					snprintf(data + strlen(data), TEXTSIZE, "$%04X = #$%02X", b, mem->ram[b]);
 				else
 					snprintf(data + strlen(data), TEXTSIZE, "$%04X", b);
 			}
 
-			snprintf(bytes, TEXTSIZE, "$%02X $%02X $%-2.02X", mem.ram[pc], mem.ram[pc + 1], mem.ram[pc + 2]);
+			snprintf(bytes, TEXTSIZE, "$%02X $%02X $%-2.02X", mem->ram[pc], mem->ram[pc + 1], mem->ram[pc + 2]);
 			break;
 		}
 		case addrmode::absx:
 		{
-			u16 b = cpu.get_absx(pc + 1);
-			u8 d1 = mem.rb(pc);
-			u8 d2 = mem.rb(pc + 1);
-			u8 d3 = mem.rb(pc + 2);
+			u16 b = cpu->get_absx(pc + 1);
+			u8 d1 = mem->rb(pc);
+			u8 d2 = mem->rb(pc + 1);
+			u8 d3 = mem->rb(pc + 2);
 			u16 a = d3 << 8 | d2;
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "$%04X,X @ $%04X = #$%02X", a, (u16)a + reg.x, mem.rb((u16)(a + reg.x)));
+				snprintf(data + strlen(data), TEXTSIZE, "$%04X,X @ $%04X = #$%02X", a, (u16)a + reg.x, mem->rb((u16)(a + reg.x)));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "$%04X,X", a);
 
@@ -880,16 +874,16 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		}
 		case addrmode::absy:
 		{
-			u16 b = cpu.get_absy(pc + 1);
-			u8 d1 = mem.rb(pc);
-			u8 d2 = mem.rb(pc + 1);
-			u8 d3 = mem.rb(pc + 2);
+			u16 b = cpu->get_absy(pc + 1);
+			u8 d1 = mem->rb(pc);
+			u8 d2 = mem->rb(pc + 1);
+			u8 d3 = mem->rb(pc + 2);
 			u16 a = d3 << 8 | d2;
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "$%04X,Y @ $%04X = #$%02X", a, (u16)(a + reg.y), mem.rb(b));
+				snprintf(data + strlen(data), TEXTSIZE, "$%04X,Y @ $%04X = #$%02X", a, (u16)(a + reg.y), mem->rb(b));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "$%04X,Y", a);
 
@@ -898,49 +892,49 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		}
 		case addrmode::indx:
 		{
-			u16 b = cpu.get_indx(pc + 1, true);
-			u8 d1 = mem.rb((u8)(b + reg.x));
-			u8 d2 = mem.rb((u8)(b + 1 + reg.x));
+			u16 b = cpu->get_indx(pc + 1, true);
+			u8 d1 = mem->rb((u8)(b + reg.x));
+			u8 d2 = mem->rb((u8)(b + 1 + reg.x));
 			u16 a = d2 << 8 | d1;
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "($%02X,X) @ $%04X = #$%02X", b, a, mem.rb(a));
+				snprintf(data + strlen(data), TEXTSIZE, "($%02X,X) @ $%04X = #$%02X", b, a, mem->rb(a));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "($%02X,X)", b);
 
-			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem.rb(pc), mem.rb(pc + 1));
+			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem->rb(pc), mem->rb(pc + 1));
 			break;
 		}
 		case addrmode::indy:
 		{
-			u16 b = cpu.get_indy(pc + 1, true);
-			u8 d1 = mem.rb((u8)b);
-			u8 d2 = mem.rb((u8)(b + 1));
+			u16 b = cpu->get_indy(pc + 1, true);
+			u8 d1 = mem->rb((u8)b);
+			u8 d2 = mem->rb((u8)(b + 1));
 			u16 a = (u16)((d2 << 8 | d1) + reg.y);
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "($%02X),Y @ $%04X = #$%02X", (u8)b, a, mem.rb(a));
+				snprintf(data + strlen(data), TEXTSIZE, "($%02X),Y @ $%04X = #$%02X", (u8)b, a, mem->rb(a));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "($%02X),Y", b);
 
-			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem.rb(pc), mem.rb(pc + 1));
+			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem->rb(pc), mem->rb(pc + 1));
 			break;
 		}
 		case addrmode::indi:
 		{
-			u16 b = mem.rw(pc + 1);
-			u8 d1 = mem.rb(pc);
-			u8 d2 = mem.rb(pc + 1);
-			u8 d3 = mem.rb(pc + 2);
+			u16 b = mem->rw(pc + 1);
+			u8 d1 = mem->rb(pc);
+			u8 d2 = mem->rb(pc + 1);
+			u8 d3 = mem->rb(pc + 2);
 
 			snprintf(data, TEXTSIZE, "%-4s", name);
 
 			if (memory_access)
-				snprintf(data + strlen(data), TEXTSIZE, "($%04X) = $%04X", b, mem.rw(b));
+				snprintf(data + strlen(data), TEXTSIZE, "($%04X) = $%04X", b, mem->rw(b));
 			else
 				snprintf(data + strlen(data), TEXTSIZE, "($%04X)", b);
 
@@ -949,11 +943,11 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		}
 		case addrmode::rela:
 		{
-			u8 b1 = mem.rb(pc + 1);
+			u8 b1 = mem->rb(pc + 1);
 			u16 b = pc + (s8)(b1)+2;
 			snprintf(data, TEXTSIZE, "%-4s", name);
 			snprintf(data + strlen(data), TEXTSIZE, "$%04X", b);
-			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem.rb(pc), mem.rb(pc + 1));
+			snprintf(bytes, TEXTSIZE, "$%02X $%-6.02X", mem->rb(pc), mem->rb(pc + 1));
 			break;
 		}
 		default:
@@ -981,11 +975,11 @@ vector<disasmentry> Gui::get_trace_line(const char* text, u16 pc, bool get_regis
 		flags[1] = reg.ps & FV ? 'V' : 'v';
 		flags[0] = reg.ps & FN ? 'N' : 'n';
 
-		//snprintf(temp, TEXTSIZE, "c%-12d", ppu.totalcycles);
+		//snprintf(temp, TEXTSIZE, "c%-12d", ppu->totalcycles);
 		//e.regtext += temp;
 
 		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d",
-			reg.a, reg.x, reg.y, reg.ps, reg.sp, ppu.cycle, ppu.scanline);
+			reg.a, reg.x, reg.y, reg.ps, reg.sp, ppu->cycle, ppu->scanline);
 
 		e.regtext += temp;
 	}

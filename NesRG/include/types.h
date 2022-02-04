@@ -21,6 +21,7 @@
 #include "opcodes.h"
 
 #include <SDL.h>
+#include <SDL2_framerate.h>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -36,12 +37,6 @@ typedef int s32;
 
 const int APP_WIDTH = 1300;
 const int APP_HEIGHT = 920;
-//const int APP_WIDTH = 512;
-//const int APP_HEIGHT = 480;
 
-struct texture_t
-{
-	int w;
-	int h;
-	SDL_Texture* texture;
-};
+const int NES_SCREEN_WIDTH = 256;
+const int NES_SCREEN_HEIGHT = 240;

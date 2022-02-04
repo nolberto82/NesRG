@@ -4,28 +4,11 @@
 bool Memory::load_rom(const char* filename)
 {
 	if (filename == NULL)
-		return 0;
-
-	ifstream file(filename, ios::binary);
-
-	if (!file)
-	{
-		cout << "couldn't open file";
 		return rom_loaded = false;
-	}
 
-	file.seekg(0, ios::end);
-	int filesize = file.tellg();
-	file.seekg(0, ios::beg);
-
-	file.unsetf(ios::skipws);
-	vector<u8>().swap(rom);
-	rom.reserve(filesize);
-	rom.insert(rom.begin(), istream_iterator<u8>(file), istream_iterator<u8>());
+	load_file(filename, rom, 0);
 
 	set_mapper();
-
-	file.close();
 
 	return rom_loaded = true;
 }
@@ -55,26 +38,61 @@ void Memory::set_mapper()
 		case 0:
 			if (prgbanks == 1)
 			{
-				copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0xc000);
-				copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
+				//copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0xc000);
+				//copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
+				memcpy(&ram[0xc000], rom.data() + 0x10, prgsize);
+				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
 			}
 			else
 			{
-				copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0x8000);
-				copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
+				memcpy(&ram[0x8000], rom.data() + 0x10, prgsize);
+				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
+				//copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0x8000);
+				//copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
 			}
 			break;
 	}
 }
 
+bool Memory::load_file(const char* filename, std::vector<u8>& rom, int offset)
+{
+	int size = 0;
+	bool res = true;
+
+	FILE* fp;
+	fp = fopen(filename, "rb");
+
+	if (fp == NULL)
+	{
+		printf("Couldn't open file");
+		return false;
+	}
+
+	fseek(fp, 0, SEEK_END);
+	size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	if (rom.size())
+		vector<u8>().swap(rom);
+
+	rom.resize(size);
+
+	fread(&rom[offset], 1, size, fp);
+	printf("%08X\n", rom.size());
+
+	fclose(fp);
+
+	return res;
+}
+
 u8 Memory::rb(u16 addr)
 {
-	cpu.read_addr = addr;
+	read_addr = addr;
 
 	if (addr == 0x2002)
-		return ppu.ppustatus();
+		return ppu->ppustatus();
 	if (addr == 0x2007)
-		return ppu.dataread();
+		return ppu->dataread();
 
 	return ram[addr];
 }
@@ -86,32 +104,32 @@ u16 Memory::rw(u16 addr)
 
 void Memory::wb(u16 addr, u8 val)
 {
-	cpu.write_addr = addr;
+	write_addr = addr;
 
-	if (addr >=0x0000 && addr <= 0x1fff)
+	if (addr >= 0x0000 && addr <= 0x1fff)
 		ram[addr & 0x7ff] = val;
 	else if (addr == 0x2000)
-		ppu.ppuctrl(val);
+		ppu->ppuctrl(val);
 	else if (addr == 0x2001)
-		ppu.ppumask(val);
+		ppu->ppumask(val);
 	else if (addr == 0x2003)
-		ppu.oamaddrwrite(val);
+		ppu->oamaddrwrite(val);
 	else if (addr == 0x2004)
-		ppu.oamdatawrite(val);
+		ppu->oamdatawrite(val);
 	else if (addr == 0x2005)
-		ppu.scrollwrite(val);
+		ppu->scrollwrite(val);
 	else if (addr == 0x2006)
-		ppu.addrwrite(val);
+		ppu->addrwrite(val);
 	else if (addr == 0x2007)
-		ppu.datawrite(val);
+		ppu->datawrite(val);
 	else if (addr == 0x4014)
 	{
-		ppu.ppuoamdma = val;
+		ppu->ppuoamdma = val;
 		int oamaddr = val << 8;
 		for (int i = 0; i < 256; i++)
 			oam[i] = ram[oamaddr + i];
-		ppu.cycles += 513;
-	}	
+		ppu->cycles += 513;
+	}
 }
 
 void Memory::ww(u16 addr, u16 val)
@@ -124,7 +142,7 @@ u8 Memory::ppurb(u16 addr)
 {
 	u8 v = 0;
 
-	if (mem.mirrornametable == mirrortype::horizontal)
+	if (mirrornametable == mirrortype::horizontal)
 	{
 		if (addr >= 0x2000 && addr < 0x2400)
 		{
@@ -139,7 +157,7 @@ u8 Memory::ppurb(u16 addr)
 			v = vram[addr & 0x3fff];
 		}
 	}
-	else if (mem.mirrornametable == mirrortype::vertical)
+	else if (mirrornametable == mirrortype::vertical)
 	{
 		if (addr >= 0x2000 && addr < 0x2400)
 		{
@@ -166,12 +184,9 @@ u8 Memory::ppurb(u16 addr)
 
 void Memory::ppuwb(u16 addr, u8 val)
 {
-	if (addr > 0x2400 && addr < 0x27ff)
-	{
-		int yu = 0;
-	}
+	ppu_write_addr = addr;
 
-	if (mem.mirrornametable == mirrortype::horizontal)
+	if (mirrornametable == mirrortype::horizontal)
 	{
 		if (addr >= 0x2000 && addr < 0x2400)
 		{
@@ -181,8 +196,12 @@ void Memory::ppuwb(u16 addr, u8 val)
 		{
 			vram[addr + 0xc00 & 0x3fff] = val;
 		}
+		if (addr >= 0x3000 && addr < 0x3400)
+		{
+			vram[addr - 0x1000 & 0x3fff] = val;
+		}
 	}
-	else if (mem.mirrornametable == mirrortype::vertical)
+	else if (mirrornametable == mirrortype::vertical)
 	{
 		if (addr >= 0x2000 && addr < 0x2400)
 		{

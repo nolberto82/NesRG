@@ -1,22 +1,28 @@
 #include "ppu.h"
 #include "mem.h"
-#include "gui.h"
+#include "renderer.h"
 
 void Ppu::step(int num)
 {
-	//pixel += num * 3;
+	num = 3;
 
 	if (scanline == -1)
 	{
-		frame_ready = false;
-		memset(gui.disp_pixels, 0x00, sizeof(gui.disp_pixels));
+		if ((background_on || sprite_on) && (cycle >= 280 && cycle <= 304))
+			preg.v = (preg.v & ~0x7be0) | (preg.t & 0x7be0);
+
+		if (cycle == 1)
+		{
+			frame_ready = false;
+			memset(screen_pixels, 0x00, sizeof(screen_pixels));
+		}
 	}
 
 	while (num-- > 0)
 	{
 		if (scanline > -1 && scanline < 240)
 		{
-			if (cycle >= 2 && cycle < 258)
+			if (cycle > 1 && cycle < 258)
 				render_pixels();
 		}
 		else if (scanline == 241 && cycle == 1)
@@ -35,28 +41,24 @@ void Ppu::step(int num)
 
 		if ((background_on || sprite_on) && (cycle == 328 || cycle == 336))
 		{
-			x_increment();
+			//x_increment();
 		}
 
 		if (scanline == 260)
 		{
-			if ((background_on || sprite_on) && (cycle >= 280 && cycle <= 304))
-				preg.v = (preg.v & ~0x7be0) | (preg.t & 0x7be0);
-
 			if ((background_on || sprite_on) && cycle == 1)
 			{
-				gui.render_frame();
+				ren->render_frame(screen_pixels);
+				clear_vblank();
+				clear_sprite_zero();
 			}
-
-			clear_vblank();
-			clear_sprite_zero();
 		}
 
 		cycle++;
 		if (cycle > 340)
 		{
 			cycle -= CYCLES_PER_LINE;
-			cycle = 0;
+			//cycle = 0;
 			scanline++;
 			if (scanline > 260)
 			{
@@ -76,7 +78,7 @@ void Ppu::ppuctrl(u8 v) //2000
 	if (v & 0x10)
 	{
 		ppu2002 |= v;
-		mem.ram[0x2002] = ppu2002;
+		mem->ram[0x2002] = ppu2002;
 	}
 
 	vramaddrincrease = (ppu2000 & 0x04) > 0;
@@ -145,8 +147,8 @@ void Ppu::addrwrite(u8 v)
 
 void Ppu::datawrite(u8 v)
 {
-	//mem.ppuwb(preg.v, v);
-	mem.vram[preg.v] = v;
+	mem->ppuwb(preg.v, v);
+	//mem->vram[preg.v] = v;
 
 	if (ppu2000 & 0x04)
 		preg.v += 32;
@@ -158,12 +160,12 @@ u8 Ppu::dataread()
 {
 	u8 v = 0;
 
-	v = mem.ppurb(preg.v);
+	v = mem->ppurb(preg.v);
 
 	if (preg.v < 0x2000)
 	{
 		v = ppu_dummy2007;
-		ppu_dummy2007 = mem.vram[preg.v];
+		ppu_dummy2007 = mem->vram[preg.v];
 	}
 
 	if (ppu2000 & 0x04)
@@ -178,9 +180,9 @@ void Ppu::reset()
 {
 	scanline = 0;
 	cycle = 27;
-	totalcycles = 8;
+	totalcycles = 0;
 	tile_shift = 0;
-	ppu.frame_ready = true;
+	frame_ready = true;
 	ppu2000 = 0;
 	preg.v = 0;
 	preg.t = 0;
@@ -191,16 +193,21 @@ void Ppu::reset()
 		palettes[i / 3] = palbuffer[i] | palbuffer[i + 1] << 8 | palbuffer[i + 2] << 16 | 0xff000000;
 	}
 
-	memset(gui.disp_pixels, 0x00, sizeof(gui.disp_pixels));
-	gui.render_frame();
-	fill(mem.vram.begin(), mem.vram.end(), 0x00);
+	//memset(gui.disp_pixels, 0x00, sizeof(gui.disp_pixels));
+	//gui.render_frame();
+	//fill(mem->vram.begin(), mem->vram.end(), 0x00);
 }
 
 void Ppu::render_pixels()
 {
 	int patternaddr = ppu2000 & 0x10 ? 0x1000 : 0x0000;
 	int y = scanline;
-	int x = cycle - 2;
+	int x = cycle - 1;
+
+	if (x < 0)
+	{
+		int yu = 0;
+	}
 
 	if (background_on)
 	{
@@ -213,13 +220,13 @@ void Ppu::render_pixels()
 		u8 cy = (preg.v & 0x3e0) >> 5;
 		u8 nametable = (preg.v & 0xc00) >> 10;
 
-		int tileid = mem.ppurb(ppuaddr);
+		u8 tileid = mem->ppurb(ppuaddr);
 
-		u8 byte1 = mem.ppurb(patternaddr + tileid * 16 + fy + 0);
-		u8 byte2 = mem.ppurb(patternaddr + tileid * 16 + fy + 8);
+		u8 byte1 = mem->ppurb(patternaddr + tileid * 16 + fy + 0);
+		u8 byte2 = mem->ppurb(patternaddr + tileid * 16 + fy + 8);
 
 		int attr_shift = (preg.v >> 4) & 4 | (preg.v & 2);
-		u8 attr = mem.ppurb(attaddr);
+		u8 attr = mem->ppurb(attaddr);
 		u8 bit2 = (attr >> attr_shift) & 3;
 
 		int bit0 = (byte1 >> (7 - fx)) & 1;
@@ -228,8 +235,8 @@ void Ppu::render_pixels()
 		int palindex = bit0 | bit1 * 2;
 		int colorindex = bit2 * 4 + palindex;
 
-		int color = palettes[mem.vram[0x3f00 | colorindex]];
-		gui.disp_pixels[y * 256 + x] = color;
+		int color = palettes[mem->vram[0x3f00 | colorindex]];
+		screen_pixels[y * 256 + x] = color;
 
 		if (fx == 7)
 			x_increment();
@@ -247,10 +254,10 @@ void Ppu::render_pixels()
 		{
 			i = j % 8;
 
-			sy = (u8)(mem.oam[i * 4 + 0] + 1);
-			tileid = mem.oam[i * 4 + 1];
-			attr = mem.oam[i * 4 + 2];
-			sx = mem.oam[i * 4 + 3];;
+			sy = (u8)(mem->oam[i * 4 + 0] + 1);
+			tileid = mem->oam[i * 4 + 1];
+			attr = mem->oam[i * 4 + 2];
+			sx = mem->oam[i * 4 + 3];;
 
 			int size = 8;
 			if (spritesize)
@@ -284,10 +291,10 @@ void Ppu::render_sprites(u8 frontback)
 	{
 		i = j % 64;
 
-		y = (u8)(mem.oam[i * 4 + 0] + 1);
-		tileid = mem.oam[i * 4 + 1];
-		att = mem.oam[i * 4 + 2];
-		x = mem.oam[i * 4 + 3];// & 0xff + left8;
+		y = (u8)(mem->oam[i * 4 + 0] + 1);
+		tileid = mem->oam[i * 4 + 1];
+		att = mem->oam[i * 4 + 2];
+		x = mem->oam[i * 4 + 3];// & 0xff + left8;
 
 		int size = 8;
 		if (spritesize)
@@ -316,13 +323,13 @@ void Ppu::render_sprites(u8 frontback)
 
 				if (r < 8)
 				{
-					byte1 = mem.vram[patternaddr + tileid * 16 + rr + 0];
-					byte2 = mem.vram[patternaddr + tileid * 16 + rr + 8];
+					byte1 = mem->vram[patternaddr + tileid * 16 + rr + 0];
+					byte2 = mem->vram[patternaddr + tileid * 16 + rr + 8];
 				}
 				else
 				{
-					byte1 = mem.vram[patternaddr + (tileid + 1) * 16 + rr + 0];
-					byte2 = mem.vram[patternaddr + (tileid + 1) * 16 + rr + 8];
+					byte1 = mem->vram[patternaddr + (tileid + 1) * 16 + rr + 0];
+					byte2 = mem->vram[patternaddr + (tileid + 1) * 16 + rr + 8];
 				}
 
 				for (int cl = 0; cl < 8; cl++)
@@ -367,7 +374,7 @@ void Ppu::render_sprites(u8 frontback)
 
 						if ((att & frontback) == 0)
 						{
-							int color = palettes[mem.vram[paladdr | colorindex]];
+							int color = palettes[mem->vram[paladdr | colorindex]];
 
 						}
 					}
@@ -379,11 +386,11 @@ void Ppu::render_sprites(u8 frontback)
 		{
 			for (int r = 0; r < 8; r++)
 			{
-				byte1 = mem.vram[patternaddr + tileid * 16 + r + 0];
-				byte2 = mem.vram[patternaddr + tileid * 16 + r + 8];
+				byte1 = mem->vram[patternaddr + tileid * 16 + r + 0];
+				byte2 = mem->vram[patternaddr + tileid * 16 + r + 8];
 
-				//u8 byte1 = mem.PpuRead(patternaddr + tileid * 16 + r + 0);
-				//u8 byte2 = mem.PpuRead(patternaddr + tileid * 16 + r + 8);
+				//u8 byte1 = mem->PpuRead(patternaddr + tileid * 16 + r + 0);
+				//u8 byte2 = mem->PpuRead(patternaddr + tileid * 16 + r + 8);
 
 				for (int cl = 0; cl < 8; cl++)
 				{
@@ -421,13 +428,13 @@ void Ppu::render_sprites(u8 frontback)
 
 					if (palindex != 0)
 					{
-						u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
+						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
 						if (i == 0 && yp == scanline && x < 255)
 							set_sprite_zero();
 
-						if ((att & frontback) == 0 || bgpalindex == 0)
+						if ((att & frontback) == 0)
 						{
-							int color = palettes[mem.vram[paladdr | colorindex]];
+							int color = palettes[mem->vram[paladdr | colorindex]];
 
 						}
 					}
@@ -440,26 +447,26 @@ void Ppu::render_sprites(u8 frontback)
 void Ppu::set_vblank()
 {
 	ppu2002 |= 0x80;
-	mem.ram[0x2002] = ppu2002;
+	mem->ram[0x2002] = ppu2002;
 }
 
 void Ppu::clear_vblank()
 {
 	ppu2002 &= 0x7f;
-	mem.ram[0x2002] = ppu2002;
+	mem->ram[0x2002] = ppu2002;
 }
 
 void Ppu::set_sprite_zero()
 {
 	ppu2002 |= 0x40;
-	mem.ram[0x2002] = ppu2002;
+	mem->ram[0x2002] = ppu2002;
 	//sprite0 = true;
 }
 
 void Ppu::clear_sprite_zero()
 {
 	ppu2002 &= 0xbf;
-	mem.ram[0x2002] = ppu2002;
+	mem->wb(0x2002, ppu2002);
 	//sprite0 = true;
 }
 
