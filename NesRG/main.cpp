@@ -9,28 +9,15 @@ PpuRegisters preg;
 
 int main(int argc, char* argv[])
 {
-	Cpu* cpu = new Cpu();
-	Memory* mem = new Memory();
-	Ppu* ppu = new Ppu();
-	Gui* gui = new Gui();
-	Gfx* gfx = new Gfx();
-
-	cpu->set_obj(mem, ppu);
-	ppu->set_obj(mem, gfx);
-	mem->set_obj(cpu, ppu);
-	gui->set_obj(cpu, mem, ppu, gfx);
-
-	if (gfx->init() && gui->init())
+	if (render_init() && gui_init())
 	{
-		cpu->init();
-		gui->update();
+		mem_init();
+		cpu_init();
+		gui_update();
 	}
 
-	delete cpu;
-	delete mem;
-	delete ppu;
-	delete gui;
-	delete gfx;
+	gui_clean();
+	render_clean();
 
 	return 0;
 }

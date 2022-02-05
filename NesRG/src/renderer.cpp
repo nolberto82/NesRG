@@ -1,10 +1,6 @@
 #include "renderer.h"
 
-SDL_Texture* Gfx::screen;
-SDL_Renderer* Gfx::renderer;
-SDL_Window* Gfx::window;
-
-bool Gfx::init()
+bool render_init()
 {
 	if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
 	{
@@ -31,11 +27,26 @@ bool Gfx::init()
 	//create textures
 	screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT);
 
+	if (!screen)
+	{
+		printf("Failed to create renderer: %s\n", SDL_GetError());
+		return false;
+	}
+
 	return true;
 }
 
-void Gfx::render_frame(u32* screen_pixels)
+void render_frame(u32* screen_pixels)
 {
 	SDL_UpdateTexture(screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
 	SDL_RenderCopy(renderer, screen, NULL, NULL);
+}
+
+void render_clean()
+{
+	SDL_DestroyTexture(screen);
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+
+	SDL_Quit();
 }

@@ -19,8 +19,8 @@ enum cstate
 {
 	running,
 	debugging,
-	scanline,
-	cycle,
+	scanlines,
+	cycles,
 	crashed
 };
 
@@ -30,63 +30,41 @@ struct Registers
 	u16 pc;
 };
 
-class Memory;
-class Ppu;
+inline bool pagecrossed = false;
+inline u8 branchtaken = 0;
+inline int cpu_state = cstate::running;
 
-class Cpu
-{
-private:
-	Memory* mem = nullptr;
-	Ppu* ppu = nullptr;
+void op_nmi();
+u8 op_pop();
+void op_push(u16 addr, u8 v);
+void op_bra(u16 addr, bool flag);
+void set_flag(bool flag, u8 v);
+int cpu_step();
+void cpu_init();
+void cpu_reset();
 
-	bool pagecrossed = false;
-	u8 branchtaken = 0;
+u16 get_imme(u16 pc, bool trace = false);
+u16 get_zerp(u16 pc, bool trace = false);
+u16 get_zerx(u16 pc, bool trace = false);
+u16 get_zery(u16 pc, bool trace = false);
+u16 get_abso(u16 pc, bool trace = false);
+u16 get_absx(u16 pc, bool trace = false);
+u16 get_absy(u16 pc, bool trace = false);
+u16 get_indx(u16 pc, bool trace = false);
+u16 get_indy(u16 pc, bool trace = false);
+u16 get_indi(u16 pc, bool trace = false);
+u16 get_rela(u16 pc, bool trace = false);
+u16 get_impl(u16 pc, bool trace = false);
+u16 get_accu(u16 pc, bool trace = false);
+u16 get_erro(u16 pc, bool trace = false);
 
-private:
-	void op_nmi();
-	u8 op_pop();
-	void op_push(u16 addr, u8 v);
-	void op_bra(u16 addr, bool flag);
 
-	void set_flag(bool flag, u8 v);
-
-public:
-	Cpu() {}
-	~Cpu() {}
-
-	void set_obj(Memory* mem, Ppu* ppu)
-	{
-		this->mem = mem;
-		this->ppu = ppu;
-	}
-
-	int step();
-	void init();
-	void reset();
-
-	u16 get_imme(u16 pc, bool trace = false);
-	u16 get_zerp(u16 pc, bool trace = false);
-	u16 get_zerx(u16 pc, bool trace = false);
-	u16 get_zery(u16 pc, bool trace = false);
-	u16 get_abso(u16 pc, bool trace = false);
-	u16 get_absx(u16 pc, bool trace = false);
-	u16 get_absy(u16 pc, bool trace = false);
-	u16 get_indx(u16 pc, bool trace = false);
-	u16 get_indy(u16 pc, bool trace = false);
-	u16 get_indi(u16 pc, bool trace = false);
-	u16 get_rela(u16 pc, bool trace = false);
-	u16 get_impl(u16 pc, bool trace = false);
-	u16 get_accu(u16 pc, bool trace = false);
-	u16 get_erro(u16 pc, bool trace = false);
-
-	int state = cstate::running;
-};
 
 extern Registers reg;
 
 struct amodefuncs
 {
-	u16(Cpu::* modefuncs)(u16 pc, bool trace);
+	u16(* modefuncs)(u16 pc, bool trace);
 };
 
 extern vector<amodefuncs> func;

@@ -7,6 +7,7 @@ struct bplist
 	u16 addr;
 	u8 enabled;
 	u8 type;
+	u8 hit;
 };
 
 struct Breakpoint

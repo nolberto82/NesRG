@@ -8,8 +8,19 @@
 #include "imgui_memory_editor.h"
 #include "imfilebrowser.h"
 
+//Color defines
 #define TEXTSIZE 512
 #define BUTTONSIZE_X 120
+#define RED ImVec4(1, 0, 0, 1)
+#define GREEN ImVec4(0, 1, 0, 1)
+#define BLUE ImVec4(0, 0, 1, 1)
+#define LIGHTGRAY ImVec4( 0xd0 / 255.0f, 0xd0 / 255.0f, 0xd0 / 255.0f , 1)
+
+//GUI defines
+#define DEBUG_W 400
+#define DEBUG_H 450
+#define DEBUG_X 5
+#define DEBUG_Y 25
 
 enum bptype
 {
@@ -37,58 +48,32 @@ typedef struct
 	int size;
 }disasmentry;
 
-class Cpu;
-class Memory;
-class Ppu;
-class Gfx;
+inline u16 inputaddr;
 
-class Gui
-{
-private:
-	Cpu* cpu = nullptr;
-	Memory* mem = nullptr;
-	Ppu* ppu = nullptr;
-	Gfx* gfx = nullptr;
+inline int lineoffset;
+inline int item_id;
+inline int gui_running;
 
-	int lineoffset = 0;
-	int item_id = 0;
-	u16 inputaddr = 0;
-	int running = 0;
+inline bool logging;
+inline bool stepping;
+inline bool is_jump;
 
-	bool logging = false;
-	bool stepping = false;
-	bool is_jump = false;
+inline ofstream outFile;
 
-	ofstream outFile;
+inline vector<disasmentry> vdentry;
+inline vector<string> nesfiles;
 
-	vector<disasmentry> vdentry;
-	vector<string> nesfiles;
-
-public:
-	Gui() {}
-	~Gui()
-	{
-		ImGui_ImplSDLRenderer_Shutdown();
-		ImGui_ImplSDL2_Shutdown();
-		ImGui::DestroyContext();
-	}
-
-	void set_obj(Cpu* cpu, Memory* mem, Ppu* ppu, Gfx* gfx)
-	{
-		this->cpu = cpu; this->mem = mem; this->ppu = ppu; this->gfx = gfx;
-	}
-
-	bool init();
-	void update();
-	void show_disassembly(ImGuiIO io);
-	void show_buttons(ImGuiIO io);
-	void show_memory();
-	void show_breakpoints();
-	void show_registers(ImGuiIO io);
-	void show_menu();
-	void step(bool stepping, bool over = false);
-	void input(ImGuiIO io);
-	void log_to_file(u16 pc);
-	void create_close_log(bool status);
-	vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false, bool memory_access = false);
-};
+bool gui_init();
+void gui_update();
+void gui_show_disassembly(ImGuiIO io);
+void gui_show_buttons(ImGuiIO io);
+void gui_show_memory();
+void gui_show_breakpoints();
+void gui_show_registers(ImGuiIO io);
+void gui_show_menu();
+void gui_step(bool stepping, bool over = false);
+void gui_input(ImGuiIO io);
+void log_to_file(u16 pc);
+void create_close_log(bool status);
+vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false, bool memory_access = false);
+void gui_clean();
