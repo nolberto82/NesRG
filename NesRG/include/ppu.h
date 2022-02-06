@@ -22,14 +22,14 @@ void ppu_data_wb(u8 v);
 u8 ppu_data_rb();
 void ppu_reset();
 void clear_pixels();
-void render_pixels(bool pre);
+void render_pixels();
 void render_sprites(u8 frontback);
 void set_vblank();
 void clear_vblank();
 void set_sprite_zero();
 void clear_sprite_zero();
-void x_increment();
-void y_increment();
+void x_inc();
+void y_inc();
 
 inline u8 ppu_dummy2007;
 inline u8 ppuoamdma;
@@ -85,4 +85,4 @@ inline u8 palbuffer[192] =
 	0xB8,0xB2,0xEB,0xC8,0xB7,0xE5,0xEB,0xAC,0xAC,0xAC,0x00,0x00,0x00,0x00,0x00,0x00
 };
 
-extern PpuRegisters preg;
+extern PpuRegisters lp;

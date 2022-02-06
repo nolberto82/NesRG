@@ -504,10 +504,10 @@ void gui_show_registers(ImGuiIO io)
 		ImGui::TableNextColumn(); ImGui::Text("%d", scanline);
 
 		ImGui::TableNextColumn(); ImGui::Text("ppuaddr");
-		ImGui::TableNextColumn(); ImGui::Text("%04X", preg.v);
+		ImGui::TableNextColumn(); ImGui::Text("%04X", lp.v);
 
 		ImGui::TableNextColumn(); ImGui::Text("t-addr");
-		ImGui::TableNextColumn(); ImGui::Text("%04X", preg.t);
+		ImGui::TableNextColumn(); ImGui::Text("%04X", lp.t);
 
 		ImGui::TableNextColumn(); ImGui::Text("flags");
 		ImGui::TableNextColumn(); ImGui::Text("%s", flags);

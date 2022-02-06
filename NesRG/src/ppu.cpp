@@ -9,7 +9,7 @@ void ppu_step(int num)
 		if (scanline == -1)
 		{
 			if ((background_on || sprite_on) && (cycle >= 280 && cycle <= 304))
-				preg.v = (preg.v & ~0x7be0) | (preg.t & 0x7be0);
+				lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 			if (cycle == 1)
 			{
@@ -19,14 +19,26 @@ void ppu_step(int num)
 
 			if ((background_on || sprite_on) && (cycle >= 321 && cycle < 338))
 			{
-				render_pixels();
+				//render_pixels();
+
+				u8 fx = (lp.x + cycle - 1) & 7;
+
+				if (fx == 7)
+					x_inc();
 			}
 		}
 
 		if (scanline >= 0 && scanline < 240)
 		{
-			if (cycle > 0 && cycle < 256)
+			if (cycle > 1 && cycle < 256 && (background_on || sprite_on))
+			{
 				render_pixels();
+
+				u8 fx = (lp.x + cycle - 1) & 7;
+
+				if (fx == 7)
+					x_inc();
+			}
 
 			if ((background_on || sprite_on) && (cycle == 337 || cycle == 338))
 			{
@@ -42,10 +54,10 @@ void ppu_step(int num)
 		}
 
 		if ((background_on || sprite_on) && cycle == 256)
-			y_increment();
+			y_inc();
 
 		if ((background_on || sprite_on) && cycle == 257)
-			preg.v = (preg.v & ~0x41f) | (preg.t & 0x41f);
+			lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 
 		if (scanline == 260)
 		{
@@ -68,9 +80,6 @@ void ppu_step(int num)
 				nmi_flag = false;
 				frame_ready = true;
 				scanline = -1;
-
-				//if ((background_on || sprite_on))
-				//	render_frame(screen_pixels);
 			}
 		}
 	}
@@ -78,7 +87,7 @@ void ppu_step(int num)
 
 void ppu_ctrl(u8 v) //2000
 {
-	preg.t = (preg.t & 0x73ff) | (v & 3) << 10;
+	lp.t = (lp.t & 0x73ff) | (v & 3) << 10;
 	//nametableaddr = 0x2000 | (v & 3) << 10;
 
 	if (v & 0x10)
@@ -102,7 +111,7 @@ u8 ppu_status()
 {
 	u8 v = ppu2002 & 0xe0;
 	clear_vblank();
-	preg.w = 0;
+	lp.w = 0;
 
 	return v;
 }
@@ -119,61 +128,61 @@ void ppu_oam_data(u8 v)
 
 void ppu_scroll(u8 v)
 {
-	if (!preg.w)
+	if (!lp.w)
 	{
-		preg.t = (preg.t & 0xc1f) | (v & 0xf8) >> 3;
+		lp.t = (lp.t & 0xc1f) | (v & 0xf8) >> 3;
 	}
 	else
 	{
-		preg.t = (preg.t & ~0x73e0) | (v & 7) << 12 | (v & 0xf8);
-		preg.x = (u8)(v & 0x07);
+		lp.t = (lp.t & ~0x73e0) | (v & 7) << 12 | (v & 0xf8);
+		lp.x = (u8)(v & 0x07);
 	}
 
-	preg.w = !preg.w;
+	lp.w = !lp.w;
 }
 
 void ppu_addr(u8 v)
 {
-	if (!preg.w)
+	if (!lp.w)
 	{
-		preg.t = (u16)((preg.t & 0x80ff) | (v & 0x3f) << 8);
+		lp.t = (u16)((lp.t & 0x80ff) | (v & 0x3f) << 8);
 	}
 	else
 	{
 		ppu2000 &= 0xfe;
-		preg.t = preg.t & 0xff00 | v;
-		preg.v = preg.t;
+		lp.t = lp.t & 0xff00 | v;
+		lp.v = lp.t;
 	}
 
-	preg.w = !preg.w;
+	lp.w = !lp.w;
 }
 
 void ppu_data_wb(u8 v)
 {
-	ppuwb(preg.v, v);
+	ppuwb(lp.v, v);
 
 	if (ppu2000 & 0x04)
-		preg.v += 32;
+		lp.v += 32;
 	else
-		preg.v++;
+		lp.v++;
 }
 
 u8 ppu_data_rb()
 {
 	u8 v = 0;
 
-	v = ppurb(preg.v);
+	v = ppurb(lp.v);
 
-	if (preg.v < 0x2000)
+	if (lp.v < 0x2000)
 	{
 		v = ppu_dummy2007;
-		ppu_dummy2007 = vram[preg.v];
+		ppu_dummy2007 = vram[lp.v];
 	}
 
 	if (ppu2000 & 0x04)
-		preg.v += 32;
+		lp.v += 32;
 	else
-		preg.v++;
+		lp.v++;
 
 	return v;
 }
@@ -186,8 +195,8 @@ void ppu_reset()
 	tile_shift = 0;
 	frame_ready = true;
 	ppu2000 = 0;
-	preg.v = 0;
-	preg.t = 0;
+	lp.v = 0;
+	lp.t = 0;
 	background_on = false;
 
 	for (int i = 0; i < sizeof(palbuffer); i += 3)
@@ -202,7 +211,7 @@ void clear_pixels()
 	render_frame(screen_pixels);
 }
 
-void render_pixels(bool pre)
+void render_pixels()
 {
 	int patternaddr = ppu2000 & 0x10 ? 0x1000 : 0x0000;
 	int y = scanline;
@@ -210,21 +219,21 @@ void render_pixels(bool pre)
 
 	if (background_on)
 	{
-		int ppuaddr = 0x2000 | (preg.v & 0xfff);
-		u16 attaddr = 0x23c0 | (preg.v & 0xc00) | ((preg.v >> 4) & 0x38) | ((preg.v >> 2) & 0x07);
+		int ppuaddr = 0x2000 | (lp.v & 0xfff);
+		u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
 
-		u8 fx = (preg.x + x) & 7;
-		u8 fy = (preg.v & 0x7000) >> 12;
-		u8 cx = (preg.v & 0x1f);
-		u8 cy = (preg.v & 0x3e0) >> 5;
-		u8 nametable = (preg.v & 0xc00) >> 10;
+		u8 fx = (lp.x + x) & 7;
+		u8 fy = (lp.v & 0x7000) >> 12;
+		u8 cx = (lp.v & 0x1f);
+		u8 cy = (lp.v & 0x3e0) >> 5;
+		u8 nametable = (lp.v & 0xc00) >> 10;
 
 		u8 tileid = ppurb(ppuaddr);
 
 		u8 byte1 = ppurb(patternaddr + tileid * 16 + fy + 0);
 		u8 byte2 = ppurb(patternaddr + tileid * 16 + fy + 8);
 
-		int attr_shift = (preg.v >> 4) & 4 | (preg.v & 2);
+		int attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
 		u8 attr = ppurb(attaddr);
 		u8 bit2 = (attr >> attr_shift) & 3;
 
@@ -236,17 +245,7 @@ void render_pixels(bool pre)
 
 		int color = palettes[vram[0x3f00 | colorindex]];
 
-		if (!pre)
-		{
-			screen_pixels[y * 256 + x] = tempcolor[fx];
-		}
-		else
-		{
-			tempcolor[fx] = color;
-		}
-
-		if (fx == 7)
-			x_increment();
+		screen_pixels[y * 256 + x] = color;
 	}
 
 	patternaddr = ppu2000 & 0x08 ? 0x1000 : 0x0000;
@@ -477,29 +476,29 @@ void clear_sprite_zero()
 	//sprite0 = true;
 }
 
-void x_increment()
+void x_inc()
 {
-	if ((preg.v & 0x1f) == 0x1f)
-		preg.v = (preg.v & ~0x1f) | 0x400;
+	if ((lp.v & 0x1f) == 0x1f)
+		lp.v = (lp.v & ~0x1f) | 0x400;
 	else
-		preg.v++;
+		lp.v++;
 }
 
-void y_increment()
+void y_inc()
 {
-	if ((preg.v & 0x7000) != 0x7000)
+	if ((lp.v & 0x7000) != 0x7000)
 	{
-		preg.v += 0x1000;
+		lp.v += 0x1000;
 	}
 	else
 	{
-		preg.v &= ~0x7000;
-		int y = (preg.v & 0x3e0) >> 5;
+		lp.v &= ~0x7000;
+		int y = (lp.v & 0x3e0) >> 5;
 
 		if (y == 29)
 		{
 			y = 0;
-			preg.v ^= 0x800;
+			lp.v ^= 0x800;
 		}
 		else if (y == 31)
 		{
@@ -508,6 +507,6 @@ void y_increment()
 		else
 			y++;
 
-		preg.v = (preg.v & ~0x3e0) | (y << 5);
+		lp.v = (lp.v & ~0x3e0) | (y << 5);
 	}
 }

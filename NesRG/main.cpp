@@ -5,7 +5,7 @@
 #include "renderer.h"
 
 Registers reg;
-PpuRegisters preg;
+PpuRegisters lp;
 
 int main(int argc, char* argv[])
 {
