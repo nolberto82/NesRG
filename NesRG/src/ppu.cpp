@@ -6,43 +6,36 @@ void ppu_step(int num)
 {
 	while (num-- > 0)
 	{
-		if (scanline == -1)
+		if ((scanline >= 0 && scanline < 240) && (background_on || sprite_on))
 		{
-			if ((background_on || sprite_on) && (cycle >= 280 && cycle <= 304))
-				lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
-			if (cycle == 1)
-			{
-				frame_ready = false;
-				memset(screen_pixels, 0x00, sizeof(screen_pixels));
-			}
-
-			if ((background_on || sprite_on) && (cycle >= 321 && cycle < 338))
-			{
-				//render_pixels();
-
-				u8 fx = (lp.x + cycle - 1) & 7;
-
-				if (fx == 7)
-					x_inc();
-			}
-		}
-
-		if (scanline >= 0 && scanline < 240)
-		{
-			if (cycle > 1 && cycle < 256 && (background_on || sprite_on))
+			if (cycle > 1 && cycle < 258)
 			{
 				render_pixels();
+			}
 
-				u8 fx = (lp.x + cycle - 1) & 7;
+			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 255))
+				x_inc();
 
-				if (fx == 7)
-					x_inc();
+			if (cycle == 256)
+				y_inc();
+
+			//copy horizontal bits
+			if (cycle == 257)
+			{
+				lp.v = (lp.v & 0xfbe0) | (lp.t & 0xfbe0);
 			}
 
 			if ((background_on || sprite_on) && (cycle == 337 || cycle == 338))
 			{
 				//cycle++;
+			}
+		}
+		else if (scanline == 240)
+		{
+			if ((background_on || sprite_on) && cycle == 1)
+			{
+				render_frame(screen_pixels);
 			}
 		}
 		else if (scanline == 241 && cycle == 1)
@@ -53,19 +46,27 @@ void ppu_step(int num)
 				nmi_flag = true;
 		}
 
-		if ((background_on || sprite_on) && cycle == 256)
-			y_inc();
-
-		if ((background_on || sprite_on) && cycle == 257)
-			lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
-
 		if (scanline == 260)
 		{
 			if ((background_on || sprite_on) && cycle == 1)
 			{
-				render_frame(screen_pixels);
 				clear_vblank();
 				clear_sprite_zero();
+			}
+		}
+
+		if ((scanline == 261) && (background_on || sprite_on))
+		{
+			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 255) || (cycle >= 321 && cycle <= 336))
+				x_inc();
+
+			if ((cycle >= 280 && cycle <= 304))
+				lp.v = (lp.v & 0x41f) | (lp.t & 0xfbe0);
+
+			if (cycle == 1)
+			{
+				frame_ready = false;
+				memset(screen_pixels, 0x00, sizeof(screen_pixels));
 			}
 		}
 
@@ -75,11 +76,11 @@ void ppu_step(int num)
 			cycle -= CYCLES_PER_LINE;
 			//cycle = 0;
 			scanline++;
-			if (scanline > 260)
+			if (scanline > 261)
 			{
 				nmi_flag = false;
 				frame_ready = true;
-				scanline = -1;
+				scanline = 0;
 			}
 		}
 	}
@@ -190,8 +191,8 @@ u8 ppu_data_rb()
 void ppu_reset()
 {
 	scanline = 0;
-	cycle = 27;
-	totalcycles = 0;
+	cycle = 0;
+	totalcycles = 7;
 	tile_shift = 0;
 	frame_ready = true;
 	ppu2000 = 0;

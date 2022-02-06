@@ -4,6 +4,8 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
+#define TEXTSIZE 512
+
 #include <iostream>
 #include <stdio.h>
 #include <stdbool.h>

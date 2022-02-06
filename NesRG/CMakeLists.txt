@@ -16,8 +16,6 @@ else()
 	set(CMAKE_CXX_STANDARD 17)
 endif(MSVC)
 
-set (ROMS_DIR "roms")
-set (TEST_DIR "tests")
 set (ASSETS_DIR "assets")
 
 set(TOP_DIR ${CMAKE_SOURCE_DIR})
@@ -37,6 +35,7 @@ if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
 	${SRC_DIR}/windows/gui.cpp
 	${SRC_DIR}/windows/breakpoints.cpp
+	${SRC_DIR}/windows/tracer.cpp
 	${SRC_DIR}/imgui/imgui.cpp
 	${SRC_DIR}/imgui/imgui_demo.cpp
 	${SRC_DIR}/imgui/imgui_draw.cpp

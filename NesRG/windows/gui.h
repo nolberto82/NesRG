@@ -9,7 +9,6 @@
 #include "imfilebrowser.h"
 
 //Color defines
-#define TEXTSIZE 512
 #define BUTTONSIZE_X 120
 #define RED ImVec4(1, 0, 0, 1)
 #define GREEN ImVec4(0, 1, 0, 1)
@@ -35,33 +34,14 @@ enum bpaddtype
 	add_edit,
 };
 
-typedef struct
-{
-	u16 offset;
-	std::string name;
-	std::string oper;
-	std::string pctext;
-	std::string regtext;
-	std::string dtext;
-	std::string bytetext;
-	std::string cycles;
-	int size;
-}disasmentry;
-
 inline u16 inputaddr;
 
 inline int lineoffset;
 inline int item_id;
 inline int gui_running;
 
-inline bool logging;
 inline bool stepping;
 inline bool is_jump;
-
-inline ofstream outFile;
-
-inline vector<disasmentry> vdentry;
-inline vector<string> nesfiles;
 
 bool gui_init();
 void gui_update();
@@ -72,8 +52,6 @@ void gui_show_breakpoints();
 void gui_show_registers(ImGuiIO io);
 void gui_show_menu();
 void gui_step(bool stepping, bool over = false);
+void gui_step_over();
 void gui_input(ImGuiIO io);
-void log_to_file(u16 pc);
-void create_close_log(bool status);
-vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers = false, bool memory_access = false);
 void gui_clean();

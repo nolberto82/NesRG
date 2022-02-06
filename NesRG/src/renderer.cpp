@@ -33,6 +33,9 @@ bool render_init()
 		return false;
 	}
 
+	SDL_initFramerate(&fpsman);
+	SDL_setFramerate(&fpsman, 60);
+
 	return true;
 }
 
