@@ -334,7 +334,7 @@ int cpu_step()
 			else
 			{
 				b = rb(addr);
-				bit7 = reg.a & 0x80 ? 1 : 0;
+				bit7 = b & 0x80 ? 1 : 0;
 				b = b << 1;
 				if (reg.ps & FC)
 					b |= 0x01;

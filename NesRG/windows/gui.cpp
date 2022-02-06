@@ -68,7 +68,7 @@ void gui_update()
 
 		if (ImGui::Begin("Registers", nullptr, ImGuiWindowFlags_NoScrollbar))
 		{
-			ImGui::SetWindowSize(ImVec2((DEBUG_W / 2), 300));
+			ImGui::SetWindowSize(ImVec2((DEBUG_W / 2) - 5, 300));
 			ImGui::SetWindowPos(ImVec2(DEBUG_X, DEBUG_H + DEBUG_Y + 5));
 
 			gui_show_registers(io);
