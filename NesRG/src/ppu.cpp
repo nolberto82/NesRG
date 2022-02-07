@@ -9,10 +9,10 @@ void ppu_step(int num)
 		if ((scanline >= 0 && scanline < 240) && (background_on || sprite_on))
 		{
 
-			if (cycle > 1 && cycle < 258)
-			{
-				render_pixels();
-			}
+			//if (cycle > 1 && cycle < 258)
+			//{
+			render_pixels();
+			//}
 
 			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 255))
 				x_inc();
@@ -218,7 +218,7 @@ void render_pixels()
 	int y = scanline;
 	int x = cycle - 1;
 
-	if (background_on)
+	if (background_on && (cycle > 1 && cycle < 258))
 	{
 		int ppuaddr = 0x2000 | (lp.v & 0xfff);
 		u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
@@ -255,33 +255,165 @@ void render_pixels()
 	u8 bgpixel = 0;
 	u8 sppixel = 0;
 
-	if (sprite_on)
+	if (sprite_on && (cycle >= 257 && cycle <= 320))
 	{
-		for (int j = 8; j > 0; j--)
+		u8 x, y;
+		int tileid, att, i;
+
+		i = (cycle % 64) - 1;
+
+		y = (u8)(oam[i * 4 + 0] + 1);
+		tileid = oam[i * 4 + 1];
+		att = oam[i * 4 + 2];
+		x = oam[i * 4 + 3];// & 0xff + left8;
+
+		int size = 8;
+		if (spritesize)
 		{
-			i = j % 8;
+			size = 16;
+		}
 
-			sy = (u8)(oam[i * 4 + 0] + 1);
-			tileid = oam[i * 4 + 1];
-			attr = oam[i * 4 + 2];
-			sx = oam[i * 4 + 3];;
+		bool flipH = (att & 0x40) > 0;
+		bool flipV = (att & 0x80) > 0;
 
-			int size = 8;
-			if (spritesize)
-				size = 16;
+		int byte1 = 0;
+		int byte2 = 0;
 
-			bool flipH = (attr >> 6) & 1;
-			bool flipV = (attr >> 7) & 1;
+		if (size == 16)
+		{
+			if ((tileid & 1) == 0)
+				patternaddr = 0x0000;
+			else
+				patternaddr = 0x1000;
 
-			int byte1 = 0;
-			int byte2 = 0;
+			tileid &= 0xfe;
 
+			for (int r = 0; r < 16; r++)
+			{
+				int rr = r % 8;
 
+				if (r < 8)
+				{
+					byte1 = vram[patternaddr + tileid * 16 + rr + 0];
+					byte2 = vram[patternaddr + tileid * 16 + rr + 8];
+				}
+				else
+				{
+					byte1 = vram[patternaddr + (tileid + 1) * 16 + rr + 0];
+					byte2 = vram[patternaddr + (tileid + 1) * 16 + rr + 8];
+				}
+
+				for (int cl = 0; cl < 8; cl++)
+				{
+					int col = 7 - cl;
+					int row = r;
+
+					if (flipH && flipV)
+					{
+						col = cl;
+						row = 7 - r;
+					}
+					else if (flipV)
+					{
+						row = 7 - r;
+					}
+					else if (flipH)
+					{
+						col = cl;
+					}
+
+					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
+					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
+
+					byte1 >>= 1;
+					byte2 >>= 1;
+
+					int palindex = bit0 | bit1 * 2;
+
+					int colorindex = palindex + (att & 3) * 4;
+
+					int xp = x + col;
+					int yp = y + row;
+					if (x < 0 || x >= 255 || y < 0 || y >= 240)
+						break;
+
+					if (palindex != 0)
+					{
+						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
+						if (i == 0 && yp == scanline && x < 255)
+							set_sprite_zero();
+
+						if ((att) == 0)
+						{
+							int color = palettes[vram[0x3f10 | colorindex]];
+							screen_pixels[y * 256 + x] = color;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			for (int r = 0; r < 8; r++)
+			{
+				byte1 = vram[patternaddr + tileid * 16 + r + 0];
+				byte2 = vram[patternaddr + tileid * 16 + r + 8];
+
+				//u8 byte1 = PpuRead(patternaddr + tileid * 16 + r + 0);
+				//u8 byte2 = PpuRead(patternaddr + tileid * 16 + r + 8);
+
+				for (int cl = 0; cl < 8; cl++)
+				{
+					int col = 7 - cl;
+					int row = r;
+
+					if (flipH && flipV)
+					{
+						col = cl;
+						row = 7 - r;
+					}
+					else if (flipV)
+					{
+						row = 7 - r;
+					}
+					else if (flipH)
+					{
+						col = cl;
+					}
+
+					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
+					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
+
+					byte1 >>= 1;
+					byte2 >>= 1;
+
+					int palindex = bit0 | bit1 * 2;
+
+					int colorindex = palindex + (att & 3) * 4;
+
+					int xp = x + col;
+					int yp = y + row;
+					if (xp < 0 || xp >= 255 || yp < 0 || yp >= 240)
+						break;
+
+					if (palindex != 0)
+					{
+						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
+						if (i == 0 && yp == scanline && x < 255)
+							set_sprite_zero();
+
+						if ((att) == 0)
+						{
+							int color = palettes[vram[0x3f10 | colorindex]];
+							screen_pixels[y * 256 + x] = color;
+						}
+					}
+				}
+			}
 		}
 	}
-	//int color = 
-	//gui.disp_pixels[y * 256 + x] = color;
 }
+
 
 void render_sprites(u8 frontback)
 {

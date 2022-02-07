@@ -5,7 +5,6 @@
 #include "renderer.h"
 #include "tracer.h"
 
-Breakpoint bpk;
 ImGui::FileBrowser fileDialog;
 
 bool gui_init()
@@ -24,6 +23,9 @@ bool gui_init()
 
 	//style->Colors[ImGuiCol_WindowBg] = windowbgcol;
 	style->ItemSpacing = ImVec2(8, 1);
+	style->FrameBorderSize = 1.0f;
+
+	breakpoints.resize(BREAKPOINT_MAX);
 
 	return true;
 }
@@ -59,26 +61,35 @@ void gui_update()
 			gui_show_buttons(io);
 			ImGui::EndChild();
 
+			ImGui::Separator();
+			ImGui::Spacing();
+			ImGui::Spacing();
+
+			ImGui::Columns(2, "##disasm", false);
+
+			ImGui::SetColumnWidth(0, 300);
+
 			//Show Debugger
 			ImGui::BeginChild("Disassembly", ImVec2(0, 400), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 			gui_show_disassembly(io);
 			ImGui::EndChild();
-		}
-		ImGui::End();
 
-		if (ImGui::Begin("Registers", nullptr, ImGuiWindowFlags_NoScrollbar))
-		{
-			ImGui::SetWindowSize(ImVec2((DEBUG_W / 2) - 5, 300));
-			ImGui::SetWindowPos(ImVec2(DEBUG_X, DEBUG_H + DEBUG_Y + 5));
+			ImGui::SameLine();
+			ImGui::NextColumn();
 
+			//Show Registers
+			ImGui::BeginChild("Registers");
 			gui_show_registers(io);
+			ImGui::EndChild();
+
+			ImGui::Columns(1);
 		}
 		ImGui::End();
 
 		if (ImGui::Begin("Breakpoints", nullptr, ImGuiWindowFlags_NoScrollbar))
 		{
-			ImGui::SetWindowSize(ImVec2((DEBUG_W / 2), 300));
-			ImGui::SetWindowPos(ImVec2(DEBUG_X + 200, DEBUG_H + DEBUG_Y + 5));
+			ImGui::SetWindowSize(ImVec2(DEBUG_W, MEM_H));
+			ImGui::SetWindowPos(ImVec2(DEBUG_X, DEBUG_H + DEBUG_Y + 5));
 
 			gui_show_breakpoints();
 		}
@@ -86,8 +97,8 @@ void gui_update()
 
 		if (ImGui::Begin("Display", nullptr, ImGuiWindowFlags_NoScrollbar))
 		{
-			ImGui::SetWindowSize(ImVec2(DEBUG_W + 150, DEBUG_H));
-			ImGui::SetWindowPos(ImVec2(DEBUG_X + 400 + 5, DEBUG_Y));
+			ImGui::SetWindowSize(ImVec2(MEM_W, DEBUG_H));
+			ImGui::SetWindowPos(ImVec2(DEBUG_X + DEBUG_W + 5, DEBUG_Y));
 
 			if (cpu_state == cstate::scanlines || cpu_state == cstate::cycles)
 				render_frame(screen_pixels);
@@ -98,8 +109,8 @@ void gui_update()
 
 		if (ImGui::Begin("Memory Editor", nullptr))
 		{
-			ImGui::SetWindowSize(ImVec2(550, 300));
-			ImGui::SetWindowPos(ImVec2(DEBUG_X + 400 + 5, DEBUG_Y + DEBUG_H + 5));
+			ImGui::SetWindowSize(ImVec2(MEM_W, MEM_H));
+			ImGui::SetWindowPos(ImVec2(DEBUG_X + DEBUG_W + 5, DEBUG_Y + DEBUG_H + 5));
 
 			gui_show_memory();
 		}
@@ -145,7 +156,7 @@ void gui_show_disassembly(ImGuiIO io)
 
 		bool bpcheck = false;
 
-		for (auto& it : bpk.breakpoints)
+		for (auto& it : breakpoints)
 		{
 			if (it.addr == pcaddr)
 			{
@@ -162,10 +173,7 @@ void gui_show_disassembly(ImGuiIO io)
 
 		if (ImGui::Button(pctext, ImVec2(40, 19)))
 		{
-			if (!bpcheck)
-				bpk.add(pcaddr, bp_exec);
-			else
-				bpk.remove(pcaddr);
+			//bp_edit(pcaddr, bp_exec);
 		}
 
 		ImGui::PopID();
@@ -197,6 +205,7 @@ void gui_show_disassembly(ImGuiIO io)
 void gui_show_buttons(ImGuiIO io)
 {
 	fileDialog.Display();
+	fileDialog.SetWindowSize(500, 800);
 
 	if (fileDialog.HasSelected())
 	{
@@ -208,7 +217,7 @@ void gui_show_buttons(ImGuiIO io)
 		fileDialog.ClearSelected();
 	}
 
-	if (ImGui::Button("Load Rom", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Load Rom", ImVec2(BUTTON_W, 0)))
 	{
 		cpu_state = cstate::debugging;
 		fs::path game_dir = "D:\\Emulators+Hacking\\NES\\Mapper0Games\\";
@@ -220,7 +229,7 @@ void gui_show_buttons(ImGuiIO io)
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Run", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
 		{
@@ -232,7 +241,7 @@ void gui_show_buttons(ImGuiIO io)
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Reset", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Reset", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
 		{
@@ -250,7 +259,7 @@ void gui_show_buttons(ImGuiIO io)
 	ImGui::Spacing();
 	ImGui::Spacing();
 
-	if (ImGui::Button("Step Into", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Step Into", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
 		{
@@ -263,7 +272,7 @@ void gui_show_buttons(ImGuiIO io)
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Step Over", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Step Over", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
 		{
@@ -278,7 +287,7 @@ void gui_show_buttons(ImGuiIO io)
 	ImGui::SameLine();
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? GREEN : RED));
-	if (ImGui::Button("Trace Log", ImVec2(BUTTONSIZE_X, 0)))
+	if (ImGui::Button("Trace Log", ImVec2(BUTTON_W, 0)))
 	{
 		create_close_log(!logging);
 	}
@@ -317,141 +326,107 @@ void gui_show_memory()
 			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
 		}
+
+		if ((ImGui::BeginTabItem("OAM")))
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			mem_edit.DrawContents(oam.data(), oam.size());
+			ImGui::PopStyleColor(1);
+			ImGui::EndTabItem();
+		}
+
 		ImGui::EndTabBar();
 	}
 }
 
 void gui_show_breakpoints()
 {
-	static u16 bplistaddr = 0;
-	static bool bpaddchkbox[3] = { false };
-	static char bpaddrtext[5] = { 0 };
+	static u16 bplistaddr = { 0 };
+	static bool bpaddchk[5] = { false };
+	static char bpaddrtext[BREAKPOINT_MAX][5] = { 0 };
+	static int item_id = 0;
 
-	ImGui::Text("Address/GoTo");
-	ImGui::SameLine(124);
-	ImGui::PushItemWidth(75);
-	if (ImGui::InputText("##bpadd", bpaddrtext, IM_ARRAYSIZE(bpaddrtext), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue))
-	{
-		std::istringstream ss(bpaddrtext);
-		ss >> std::hex >> inputaddr;
-		is_jump = true;
-		lineoffset = 0;
-	}
+	ImGui::BeginGroup();
 
-	ImGui::PopItemWidth();
-
-	ImGui::Checkbox("R", &bpaddchkbox[0]);
-
-	ImGui::SameLine(0, 28);
-
-	ImGui::Checkbox("W", &bpaddchkbox[1]);
-
-	ImGui::SameLine(0, 28);
-
-	ImGui::Checkbox("X", &bpaddchkbox[2]);
-
-	if (ImGui::Button("Add", ImVec2(50, 0)))
-	{
-		u8 bptype = 0;
-		for (int i = 0; i < 3; i++)
-		{
-			if (bpaddchkbox[i])
-			{
-				bptype |= 1 << i;
-			}
-		}
-
-		if (bptype != 0)
-		{
-			if (strcmp(bpaddrtext, "") != 0)
-			{
-				bplistaddr = stoi(bpaddrtext, nullptr, 16);
-				bpk.add(bplistaddr, bptype);
-			}
-		}
-	}
+	ImGui::Spacing();
+	ImGui::Spacing();
+	ImGui::Separator();
+	ImGui::Spacing();
+	ImGui::Spacing();
 
 	ImGui::SameLine();
 
-	bool disable_buttons = bpk.breakpoints.size() == 0;
+	ImGui::EndGroup();
 
-	if (disable_buttons)
-		ImGui::BeginDisabled(true);
-
-	if (ImGui::Button("Delete", ImVec2(50, 0)))
-	{
-		for (auto& it : bpk.breakpoints)
-		{
-			if (it.addr == bplistaddr)
-			{
-				bpk.remove(bplistaddr);
-			}
-		}
-	}
-
-	ImGui::SameLine();
-
-	if (ImGui::Button("Edit", ImVec2(50, 0)))
-	{
-		u8 bptype = 0;
-		u16 newaddr = 0;
-
-		for (int i = 0; i < 3; i++)
-		{
-			if (bpaddchkbox[i])
-				bptype |= 1 << i;
-		}
-
-		stringstream str(bpaddrtext);
-		str >> hex >> newaddr;
-
-		bpk.edit(bplistaddr, bptype, newaddr);
-	}
-
-	if (disable_buttons)
-		ImGui::EndDisabled();
+	ImGui::Spacing();
+	ImGui::Spacing();
+	ImGui::Separator();
 
 	if (ImGui::ListBoxHeader("##bps", ImVec2(-1, -1)))
 	{
 		int n = 0;
 
-		for (auto& it : bpk.breakpoints)
+		for (auto& it : breakpoints)
 		{
-			char temp[16];
-			char ctype[5] = { 0 };
-			ctype[0] = it.enabled ? 'E' : '-';
-			ctype[1] = it.type & bp_read ? 'R' : '-';
-			ctype[2] = it.type & bp_write ? 'W' : '-';
-			ctype[3] = it.type & bp_exec ? 'X' : '-';
-			snprintf(temp, sizeof(temp), "$%04X:%s", it.addr, ctype);
+			u8 bptype = it.type;
 
 			ImGui::PushID(n);
 
-			bool selected = (item_id == n);
+			ImGui::PushItemWidth(40);
 
-			if (ImGui::Selectable(temp, selected, ImGuiSelectableFlags_AllowDoubleClick))
+			if (ImGui::InputText("##bpadd", (char*)bpaddrtext[n], IM_ARRAYSIZE((char*)bpaddrtext[n]), INPUT_FLAGS))
 			{
-				bplistaddr = it.addr;
-				item_id = n;
-
-				for (int i = 0; i < 3; i++)
-				{
-					if (it.type & (1 << i))
-						bpaddchkbox[i] = true;
-					else
-						bpaddchkbox[i] = false;
-				}
-
-				snprintf(bpaddrtext, 5, "%04X", bplistaddr);
-
-				if (ImGui::IsMouseDoubleClicked(0))
-				{
-					bpk.remove(it.addr);
-				}
+				std::istringstream ss(bpaddrtext[n]);
+				ss >> std::hex >> inputaddr;
+				//is_jump = true;
+				lineoffset = 0;
 			}
+			ImGui::PopItemWidth();
 
-			if (selected)
-				ImGui::SetItemDefaultFocus();
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? GREEN : RED);
+			if (ImGui::Button("CR", ImVec2(BUTTON_W - 90, 0)))
+			{
+				bp_edit(inputaddr, it.type ^= bp_read, n, it.enabled ^= 1);
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? GREEN : RED);
+			if (ImGui::Button("CW", ImVec2(BUTTON_W - 90, 0)))
+			{
+				bp_edit(inputaddr, it.type ^= bp_write, n, it.enabled ^= 1);
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? GREEN : RED);
+			if (ImGui::Button("CX", ImVec2(BUTTON_W - 90, 0)))
+			{
+				bp_edit(inputaddr, it.type ^= bp_exec, n, it.enabled ^= 1);
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vread ? GREEN : RED);
+			if (ImGui::Button("VR", ImVec2(BUTTON_W - 90, 0)))
+			{
+				bp_edit(inputaddr, it.type ^= bp_vread, n, it.enabled ^= 1);
+			}
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vwrite ? GREEN : RED);
+			if (ImGui::Button("VW", ImVec2(BUTTON_W - 90, 0)))
+			{
+				bp_edit(inputaddr, it.type ^= bp_vwrite, n, it.enabled ^= 1);
+			}
+			ImGui::PopStyleColor();
 
 			ImGui::PopID();
 
@@ -468,8 +443,6 @@ void gui_show_registers(ImGuiIO io)
 
 	if (ImGui::BeginTable("Regs", 2, ImGuiTableFlags_None, ImVec2(-1, -1)))
 	{
-		//ImGui::SetWindowPos(ImVec2(0, 420));
-
 		char flags[7] = { "......" };
 		char text[32] = "";
 
@@ -508,27 +481,21 @@ void gui_show_registers(ImGuiIO io)
 		ImGui::TableNextColumn(); ImGui::Text("-----------");
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "PC");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.pc);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "A");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.a);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "X");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.x);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "Y");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.y);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "P");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%02X", reg.ps);
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "SP");
-		//ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, tablecolcolor);
 		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.sp | 0x100);
 
 		ImGui::EndTable();
@@ -604,39 +571,50 @@ void gui_step(bool stepping, bool over)
 		{
 			u16 pc = reg.pc;
 
-			for (auto& it : bpk.breakpoints)
+			for (auto& it : breakpoints)
 			{
-				if (it.type == bp_exec)
+				if (it.type == bp_exec && it.enabled)
 				{
-					if (bpk.check(pc, bp_exec, it.enabled))
+					if (bp_check(pc, bp_exec, it.enabled))
 					{
 						cpu_state = cstate::debugging;
 						return;
 					}
 				}
 
-				if (bpk.check_access(write_addr, bp_write, it.enabled))
+				if (it.enabled && it.type > 0)
 				{
-					cpu_state = cstate::debugging;
-					write_addr = 0;
-					lineoffset = -6;
-					return;
-				}
+					if (bp_check_access(read_addr, bp_read, it.enabled))
+					{
+						cpu_state = cstate::debugging;
+						read_addr = -1;
+						lineoffset = -9;
+						return;
+					}
 
-				if (bpk.check_access(ppu_write_addr, bp_write, it.enabled))
-				{
-					cpu_state = cstate::debugging;
-					ppu_write_addr = 0;
-					lineoffset = -6;
-					return;
-				}
+					if (bp_check_access(write_addr, bp_write, it.enabled))
+					{
+						cpu_state = cstate::debugging;
+						write_addr = -1;
+						lineoffset = -9;
+						return;
+					}
 
-				if (bpk.check_access(read_addr, bp_read, it.enabled))
-				{
-					cpu_state = cstate::debugging;
-					read_addr = 0;
-					lineoffset = -6;
-					return;
+					if (bp_check_access(ppu_read_addr, bp_vread, it.enabled))
+					{
+						cpu_state = cstate::debugging;
+						ppu_read_addr = -1;
+						lineoffset = -9;
+						return;
+					}
+
+					if (bp_check_access(ppu_write_addr, bp_vwrite, it.enabled))
+					{
+						cpu_state = cstate::debugging;
+						ppu_write_addr = -1;
+						lineoffset = -9;
+						return;
+					}
 				}
 			}
 
@@ -710,6 +688,8 @@ void gui_input(ImGuiIO io)
 		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
 			gui_running = 0;
 	}
+
+	render_input();
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F7)) //run one scanline
 	{

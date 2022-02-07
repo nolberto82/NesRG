@@ -9,23 +9,31 @@
 #include "imfilebrowser.h"
 
 //Color defines
-#define BUTTONSIZE_X 120
+#define BUTTON_W 120
+#define BUTTON_H 35
 #define RED ImVec4(1, 0, 0, 1)
 #define GREEN ImVec4(0, 1, 0, 1)
 #define BLUE ImVec4(0, 0, 1, 1)
 #define LIGHTGRAY ImVec4( 0xd0 / 255.0f, 0xd0 / 255.0f, 0xd0 / 255.0f , 1)
 
-//GUI defines
-#define DEBUG_W 400
+//Gui defines
+#define DEBUG_W 500
 #define DEBUG_H 450
 #define DEBUG_X 5
 #define DEBUG_Y 25
+#define MEM_W 550
+#define MEM_H 350
+
+//ImGui flags
+#define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 
 enum bptype
 {
 	bp_read = 1,
 	bp_write = 2,
-	bp_exec = 4
+	bp_exec = 4,
+	bp_vread = 8,
+	bp_vwrite = 16,
 };
 
 enum bpaddtype
@@ -37,7 +45,6 @@ enum bpaddtype
 inline u16 inputaddr;
 
 inline int lineoffset;
-inline int item_id;
 inline int gui_running;
 
 inline bool stepping;

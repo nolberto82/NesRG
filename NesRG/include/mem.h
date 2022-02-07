@@ -24,10 +24,10 @@ inline int mirrornametable = 0;
 
 inline bool rom_loaded = false;
 
-inline u16 write_addr = 0;
-inline u16 read_addr = 0;
-inline u16 ppu_write_addr = 0;
-inline u16 ppu_read_addr = 0;
+inline s16 write_addr = -1;
+inline s16 read_addr = -1;
+inline s16 ppu_write_addr = -1;
+inline s16 ppu_read_addr = -1;
 
 void mem_init();
 bool load_rom(const char* filename);

@@ -37,7 +37,7 @@ typedef char s8;
 typedef short s16;
 typedef int s32;
 
-const int APP_WIDTH = 1000;
+const int APP_WIDTH = 1200;
 const int APP_HEIGHT = 900;
 
 const int NES_SCREEN_WIDTH = 256;

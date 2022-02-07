@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "controls.h"
 
 bool render_init()
 {
@@ -43,6 +44,11 @@ void render_frame(u32* screen_pixels)
 {
 	SDL_UpdateTexture(screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
 	SDL_RenderCopy(renderer, screen, NULL, NULL);
+}
+
+void render_input()
+{
+	ctrl_keys = SDL_GetKeyboardState(NULL);
 }
 
 void render_clean()

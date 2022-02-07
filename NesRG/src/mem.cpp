@@ -1,5 +1,6 @@
 #include "mem.h"
 #include "ppu.h"
+#include "controls.h"
 
 void mem_init()
 {
@@ -98,8 +99,10 @@ u8 rb(u16 addr)
 
 	if (addr == 0x2002)
 		return ppu_status();
-	if (addr == 0x2007)
+	else if (addr == 0x2007)
 		return ppu_data_rb();
+	else if (addr == 0x4016)
+		return controls_read();
 
 	return ram[addr];
 }
@@ -153,6 +156,7 @@ void ww(u16 addr, u16 val)
 u8 ppurb(u16 addr)
 {
 	u8 v = 0;
+	ppu_read_addr = addr;
 
 	if (mirrornametable == mirrortype::horizontal)
 	{

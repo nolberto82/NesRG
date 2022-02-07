@@ -29,6 +29,7 @@ ${SRC_DIR}/src/cpu.cpp
 ${SRC_DIR}/src/mem.cpp
 ${SRC_DIR}/src/ppu.cpp
 ${SRC_DIR}/src/renderer.cpp
+${SRC_DIR}/src/controls.cpp
 )
 
 if(WIN32)
