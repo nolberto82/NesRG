@@ -519,7 +519,7 @@ void cpu_init()
 		{ &get_erro },
 	};
 
-	cpu_state = cstate::debugging;
+	cpu_state = cstate::running;
 }
 
 void cpu_reset()

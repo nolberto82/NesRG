@@ -9,12 +9,10 @@ void ppu_step(int num)
 		if ((scanline >= 0 && scanline < 240) && (background_on || sprite_on))
 		{
 
-			//if (cycle > 1 && cycle < 258)
-			//{
-			render_pixels();
-			//}
+			if (cycle > 1 && cycle < 320)
+				render_pixels();
 
-			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 255))
+			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 256))// || (cycle == 328 || cycle == 336))
 				x_inc();
 
 			if (cycle == 256)
@@ -22,14 +20,8 @@ void ppu_step(int num)
 
 			//copy horizontal bits
 			if (cycle == 257)
-			{
-				lp.v = (lp.v & 0xfbe0) | (lp.t & 0xfbe0);
-			}
+				lp.v = (lp.v & 0xfbe0) | (lp.t & 0x41f);
 
-			if ((background_on || sprite_on) && (cycle == 337 || cycle == 338))
-			{
-				//cycle++;
-			}
 		}
 		else if (scanline == 240)
 		{
@@ -57,11 +49,11 @@ void ppu_step(int num)
 
 		if ((scanline == 261) && (background_on || sprite_on))
 		{
-			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 255) || (cycle >= 321 && cycle <= 336))
-				x_inc();
+			//if ((cycle % 8 == 0) && (cycle > 1 && cycle < 256))// || (cycle >= 321 && cycle <= 336))
+			//	x_inc();
 
 			if ((cycle >= 280 && cycle <= 304))
-				lp.v = (lp.v & 0x41f) | (lp.t & 0xfbe0);
+				lp.v = (lp.v & 0x841f) | (lp.t & 0x7be0);
 
 			if (cycle == 1)
 			{
@@ -88,7 +80,7 @@ void ppu_step(int num)
 
 void ppu_ctrl(u8 v) //2000
 {
-	lp.t = (lp.t & 0x73ff) | (v & 3) << 10;
+	lp.t = (lp.t & 0xf3ff) | (v & 3) << 10;
 	//nametableaddr = 0x2000 | (v & 3) << 10;
 
 	if (v & 0x10)
@@ -131,12 +123,12 @@ void ppu_scroll(u8 v)
 {
 	if (!lp.w)
 	{
-		lp.t = (lp.t & 0xc1f) | (v & 0xf8) >> 3;
+		lp.t = (lp.t & 0x7fe0) | (v >> 3);
+		lp.x = (u8)(v & 0x07);
 	}
 	else
 	{
-		lp.t = (lp.t & ~0x73e0) | (v & 7) << 12 | (v & 0xf8);
-		lp.x = (u8)(v & 0x07);
+		lp.t = (lp.t & 0xc1f) | (v & 0xf8) << 2 | (v & 7) << 12;
 	}
 
 	lp.w = !lp.w;
@@ -150,7 +142,7 @@ void ppu_addr(u8 v)
 	}
 	else
 	{
-		ppu2000 &= 0xfe;
+		ppu2000 &= 0xfc;
 		lp.t = lp.t & 0xff00 | v;
 		lp.v = lp.t;
 	}
@@ -174,7 +166,7 @@ u8 ppu_data_rb()
 
 	v = ppurb(lp.v);
 
-	if (lp.v < 0x2000)
+	if (ppu_dummy2007 < 0x2000)
 	{
 		v = ppu_dummy2007;
 		ppu_dummy2007 = vram[lp.v];
@@ -199,6 +191,7 @@ void ppu_reset()
 	lp.v = 0;
 	lp.t = 0;
 	background_on = false;
+	ppu_dummy2007 = 0;
 
 	for (int i = 0; i < sizeof(palbuffer); i += 3)
 	{
@@ -262,6 +255,11 @@ void render_pixels()
 
 		i = (cycle % 64) - 1;
 
+		if (i == 20)
+		{
+			int yu = 0;
+		}
+
 		y = (u8)(oam[i * 4 + 0] + 1);
 		tileid = oam[i * 4 + 1];
 		att = oam[i * 4 + 2];
@@ -269,9 +267,7 @@ void render_pixels()
 
 		int size = 8;
 		if (spritesize)
-		{
 			size = 16;
-		}
 
 		bool flipH = (att & 0x40) > 0;
 		bool flipV = (att & 0x80) > 0;
@@ -279,134 +275,72 @@ void render_pixels()
 		int byte1 = 0;
 		int byte2 = 0;
 
-		if (size == 16)
-		{
-			if ((tileid & 1) == 0)
-				patternaddr = 0x0000;
-			else
-				patternaddr = 0x1000;
-
-			tileid &= 0xfe;
-
-			for (int r = 0; r < 16; r++)
-			{
-				int rr = r % 8;
-
-				if (r < 8)
-				{
-					byte1 = vram[patternaddr + tileid * 16 + rr + 0];
-					byte2 = vram[patternaddr + tileid * 16 + rr + 8];
-				}
-				else
-				{
-					byte1 = vram[patternaddr + (tileid + 1) * 16 + rr + 0];
-					byte2 = vram[patternaddr + (tileid + 1) * 16 + rr + 8];
-				}
-
-				for (int cl = 0; cl < 8; cl++)
-				{
-					int col = 7 - cl;
-					int row = r;
-
-					if (flipH && flipV)
-					{
-						col = cl;
-						row = 7 - r;
-					}
-					else if (flipV)
-					{
-						row = 7 - r;
-					}
-					else if (flipH)
-					{
-						col = cl;
-					}
-
-					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
-
-					byte1 >>= 1;
-					byte2 >>= 1;
-
-					int palindex = bit0 | bit1 * 2;
-
-					int colorindex = palindex + (att & 3) * 4;
-
-					int xp = x + col;
-					int yp = y + row;
-					if (x < 0 || x >= 255 || y < 0 || y >= 240)
-						break;
-
-					if (palindex != 0)
-					{
-						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
-						if (i == 0 && yp == scanline && x < 255)
-							set_sprite_zero();
-
-						if ((att) == 0)
-						{
-							int color = palettes[vram[0x3f10 | colorindex]];
-							screen_pixels[y * 256 + x] = color;
-						}
-					}
-				}
-			}
-		}
+		if ((tileid & 1) == 0)
+			patternaddr = 0x0000;
 		else
+			patternaddr = 0x1000;
+
+		tileid &= 0xfe;
+
+		int shift = 0x80;
+
+		for (int r = 0; r < size; r++)
 		{
-			for (int r = 0; r < 8; r++)
+			int rr = r % 8;
+
+			if (r < 8)
 			{
-				byte1 = vram[patternaddr + tileid * 16 + r + 0];
-				byte2 = vram[patternaddr + tileid * 16 + r + 8];
+				byte1 = vram[patternaddr + tileid * 16 + rr + 0];
+				byte2 = vram[patternaddr + tileid * 16 + rr + 8];
+			}
+			else
+			{
+				byte1 = vram[patternaddr + (tileid + 1) * 16 + rr + 0];
+				byte2 = vram[patternaddr + (tileid + 1) * 16 + rr + 8];
+			}
 
-				//u8 byte1 = PpuRead(patternaddr + tileid * 16 + r + 0);
-				//u8 byte2 = PpuRead(patternaddr + tileid * 16 + r + 8);
+			for (int cl = 0; cl < 8; cl++)
+			{
+				int col = 7 - cl;
+				int row = r;
 
-				for (int cl = 0; cl < 8; cl++)
+				if (flipH && flipV)
 				{
-					int col = 7 - cl;
-					int row = r;
+					col = cl;
+					row = 7 - r;
+				}
+				else if (flipV)
+				{
+					row = 7 - r;
+				}
+				else if (flipH)
+				{
+					col = cl;
+				}
 
-					if (flipH && flipV)
+				int bit0 = (byte1 >> (7 - shift)) & 1;
+				int bit1 = (byte2 >> (7 - shift)) & 1;
+
+				shift >>= 1;
+
+				int palindex = bit0 | bit1 * 2;
+				int colorindex = palindex + (att & 3) * 4;
+
+				int xp = x + col;
+				int yp = y + row;
+				if (xp < 0 || xp >= 255 || yp < 0 || yp >= 240)
+					break;
+
+				if (palindex != 0)
+				{
+					//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
+					if (i == 0 && yp == scanline && x < 255)
+						set_sprite_zero();
+
+					if ((att) == 0)
 					{
-						col = cl;
-						row = 7 - r;
-					}
-					else if (flipV)
-					{
-						row = 7 - r;
-					}
-					else if (flipH)
-					{
-						col = cl;
-					}
-
-					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
-
-					byte1 >>= 1;
-					byte2 >>= 1;
-
-					int palindex = bit0 | bit1 * 2;
-
-					int colorindex = palindex + (att & 3) * 4;
-
-					int xp = x + col;
-					int yp = y + row;
-					if (xp < 0 || xp >= 255 || yp < 0 || yp >= 240)
-						break;
-
-					if (palindex != 0)
-					{
-						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
-						if (i == 0 && yp == scanline && x < 255)
-							set_sprite_zero();
-
-						if ((att) == 0)
-						{
-							int color = palettes[vram[0x3f10 | colorindex]];
-							screen_pixels[y * 256 + x] = color;
-						}
+						int color = palettes[vram[0x3f10 | colorindex]];
+						screen_pixels[yp * 256 + xp] = color;
 					}
 				}
 			}

@@ -26,6 +26,7 @@
 
 //ImGui flags
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
+#define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
 
 enum bptype
 {
@@ -42,7 +43,7 @@ enum bpaddtype
 	add_edit,
 };
 
-inline u16 inputaddr;
+inline u16 jumpaddr;
 
 inline int lineoffset;
 inline int gui_running;

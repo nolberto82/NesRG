@@ -7,6 +7,8 @@
 
 ImGui::FileBrowser fileDialog;
 
+void gui_create_button(bplist it, const char* text, u8 n, u16 inputaddr, u8 bptype);
+
 bool gui_init()
 {
 	IMGUI_CHECKVERSION();
@@ -130,7 +132,7 @@ void gui_show_disassembly(ImGuiIO io)
 {
 	char text[TEXTSIZE] = { 0 };
 	static int item_num = 0;
-	u16 pc = is_jump ? inputaddr : reg.pc;
+	u16 pc = is_jump ? jumpaddr : reg.pc;
 	vector<string> vdasm;
 
 	if (io.MouseWheel != 0 && (pc + lineoffset < 0x10000))
@@ -149,7 +151,7 @@ void gui_show_disassembly(ImGuiIO io)
 
 	//ImGui::SameLine(-5);
 
-	for (int i = 0; i < 19; i++)
+	for (int i = 0; i < 27; i++)
 	{
 		int pcaddr = pc + lineoffset;
 		vector<disasmentry> vdentry = get_trace_line(text, pcaddr, false, true);
@@ -165,31 +167,18 @@ void gui_show_disassembly(ImGuiIO io)
 			}
 		}
 
-		char pctext[5] = "";
-		snprintf(pctext, sizeof(pctext), "%04X", vdentry[0].offset);
-
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(bpcheck ? GREEN : LIGHTGRAY));
-		ImGui::PushID(pcaddr);
-
-		if (ImGui::Button(pctext, ImVec2(40, 19)))
-		{
-			//bp_edit(pcaddr, bp_exec);
-		}
-
-		ImGui::PopID();
-		ImGui::PopStyleColor(1);
-
-		ImGui::SameLine();
-
 		ImVec4 currlinecol = ImVec4(0, 0, 0, 1);
 
 		if (pcaddr == reg.pc)
 			currlinecol = ImVec4(0, 0, 1, 1);
 
-		ImGui::TextColored(currlinecol, vdentry[0].bytetext.c_str());
+		char pctext[5] = "";
+		snprintf(pctext, sizeof(pctext), "%04X", vdentry[0].offset);
 
+		ImGui::TextColored(currlinecol, pctext);
 		ImGui::SameLine();
-
+		ImGui::TextColored(currlinecol, vdentry[0].bytetext.c_str());
+		ImGui::SameLine();
 		ImGui::TextColored(currlinecol, vdentry[0].dtext.c_str());
 
 		pc += vdentry[0].size;
@@ -213,7 +202,7 @@ void gui_show_buttons(ImGuiIO io)
 		clear_pixels();
 		load_rom(fileDialog.GetSelected().u8string().c_str());
 		cpu_reset();
-		cpu_state = cstate::debugging;
+		cpu_state = cstate::running;
 		fileDialog.ClearSelected();
 	}
 
@@ -246,7 +235,7 @@ void gui_show_buttons(ImGuiIO io)
 		if (rom_loaded)
 		{
 			create_close_log(false);
-			cpu_state = cstate::debugging;
+			cpu_state = cstate::running;
 			lineoffset = 0;
 			ppu_reset();
 			set_mapper();
@@ -255,6 +244,10 @@ void gui_show_buttons(ImGuiIO io)
 			clear_pixels();
 		}
 	}
+
+	ImGui::SameLine();
+
+	ImGui::Text("Jump To");
 
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -276,10 +269,7 @@ void gui_show_buttons(ImGuiIO io)
 	{
 		if (rom_loaded)
 		{
-			lineoffset = 0;
-
 			gui_step_over();
-
 			is_jump = false;
 		}
 	}
@@ -292,6 +282,20 @@ void gui_show_buttons(ImGuiIO io)
 		create_close_log(!logging);
 	}
 	ImGui::PopStyleColor(1);
+
+	ImGui::SameLine();
+
+	static char jumpaddrtext[5] = { 0 };
+
+	ImGui::PushItemWidth(40);
+	if (ImGui::InputText("##jumptoaddr", jumpaddrtext, IM_ARRAYSIZE(jumpaddrtext), INPUT_ENTER))
+	{
+		std::istringstream ss(jumpaddrtext);
+		ss >> std::hex >> jumpaddr;
+		is_jump = true;
+		lineoffset = 0;
+	}
+	ImGui::PopItemWidth();
 
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -341,26 +345,10 @@ void gui_show_memory()
 
 void gui_show_breakpoints()
 {
-	static u16 bplistaddr = { 0 };
+	static u16 inputaddr[BREAKPOINT_MAX];
 	static bool bpaddchk[5] = { false };
 	static char bpaddrtext[BREAKPOINT_MAX][5] = { 0 };
 	static int item_id = 0;
-
-	ImGui::BeginGroup();
-
-	ImGui::Spacing();
-	ImGui::Spacing();
-	ImGui::Separator();
-	ImGui::Spacing();
-	ImGui::Spacing();
-
-	ImGui::SameLine();
-
-	ImGui::EndGroup();
-
-	ImGui::Spacing();
-	ImGui::Spacing();
-	ImGui::Separator();
 
 	if (ImGui::ListBoxHeader("##bps", ImVec2(-1, -1)))
 	{
@@ -370,14 +358,18 @@ void gui_show_breakpoints()
 		{
 			u8 bptype = it.type;
 
+			ImGui::Text("Breakpoint %2d", n + 1);
+
+			ImGui::SameLine();
+
 			ImGui::PushID(n);
 
 			ImGui::PushItemWidth(40);
 
-			if (ImGui::InputText("##bpadd", (char*)bpaddrtext[n], IM_ARRAYSIZE((char*)bpaddrtext[n]), INPUT_FLAGS))
+			if (ImGui::InputText("##bpadd", (char*)bpaddrtext[n], IM_ARRAYSIZE(bpaddrtext[n]), INPUT_FLAGS))
 			{
 				std::istringstream ss(bpaddrtext[n]);
-				ss >> std::hex >> inputaddr;
+				ss >> std::hex >> inputaddr[n];
 				//is_jump = true;
 				lineoffset = 0;
 			}
@@ -385,54 +377,20 @@ void gui_show_breakpoints()
 
 			ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? GREEN : RED);
-			if (ImGui::Button("CR", ImVec2(BUTTON_W - 90, 0)))
-			{
-				bp_edit(inputaddr, it.type ^= bp_read, n, it.enabled ^= 1);
-			}
-			ImGui::PopStyleColor();
-
+			gui_create_button(it, "CR", n, inputaddr[n], bp_read);
 			ImGui::SameLine();
-
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? GREEN : RED);
-			if (ImGui::Button("CW", ImVec2(BUTTON_W - 90, 0)))
-			{
-				bp_edit(inputaddr, it.type ^= bp_write, n, it.enabled ^= 1);
-			}
-			ImGui::PopStyleColor();
-
+			gui_create_button(it, "CW", n, inputaddr[n], bp_write);
 			ImGui::SameLine();
-
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? GREEN : RED);
-			if (ImGui::Button("CX", ImVec2(BUTTON_W - 90, 0)))
-			{
-				bp_edit(inputaddr, it.type ^= bp_exec, n, it.enabled ^= 1);
-			}
-			ImGui::PopStyleColor();
-
+			gui_create_button(it, "CX", n, inputaddr[n], bp_exec);
 			ImGui::SameLine();
-
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vread ? GREEN : RED);
-			if (ImGui::Button("VR", ImVec2(BUTTON_W - 90, 0)))
-			{
-				bp_edit(inputaddr, it.type ^= bp_vread, n, it.enabled ^= 1);
-			}
-			ImGui::PopStyleColor();
-
+			gui_create_button(it, "VR", n, inputaddr[n], bp_vread);
 			ImGui::SameLine();
-
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vwrite ? GREEN : RED);
-			if (ImGui::Button("VW", ImVec2(BUTTON_W - 90, 0)))
-			{
-				bp_edit(inputaddr, it.type ^= bp_vwrite, n, it.enabled ^= 1);
-			}
-			ImGui::PopStyleColor();
+			gui_create_button(it, "VW", n, inputaddr[n], bp_vwrite);
 
 			ImGui::PopID();
 
 			n++;
 		}
-
 		ImGui::ListBoxFooter();
 	}
 }
@@ -456,25 +414,25 @@ void gui_show_registers(ImGuiIO io)
 		ImGui::TableSetupColumn("regnames", ImGuiTableColumnFlags_WidthFixed, 80.0f);
 		ImGui::TableSetupColumn("regvalues", ImGuiTableColumnFlags_WidthFixed, 80);
 
-		ImGui::TableNextColumn(); ImGui::Text("FPS");
-		ImGui::TableNextColumn(); ImGui::Text("%f", io.Framerate);
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "FPS");
+		ImGui::TableNextColumn(); ImGui::Text("%d", static_cast<int>(round(io.Framerate)));
 
-		ImGui::TableNextColumn(); ImGui::Text("cycles");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "cycles");
 		ImGui::TableNextColumn(); ImGui::Text("%d", totalcycles);
 
-		ImGui::TableNextColumn(); ImGui::Text("ppu cycles");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "ppu cycles");
 		ImGui::TableNextColumn(); ImGui::Text("%d", cycle);
 
-		ImGui::TableNextColumn(); ImGui::Text("scanline");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "scanline");
 		ImGui::TableNextColumn(); ImGui::Text("%d", scanline);
 
-		ImGui::TableNextColumn(); ImGui::Text("ppuaddr");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "ppuaddr");
 		ImGui::TableNextColumn(); ImGui::Text("%04X", lp.v);
 
-		ImGui::TableNextColumn(); ImGui::Text("t-addr");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "t-addr");
 		ImGui::TableNextColumn(); ImGui::Text("%04X", lp.t);
 
-		ImGui::TableNextColumn(); ImGui::Text("flags");
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "flags");
 		ImGui::TableNextColumn(); ImGui::Text("%s", flags);
 
 		ImGui::TableNextColumn(); ImGui::Text("------------");
@@ -600,6 +558,11 @@ void gui_step(bool stepping, bool over)
 						return;
 					}
 
+					if (ppu_read_addr == 0x27dc)
+					{
+						int yu = 0;
+					}
+
 					if (bp_check_access(ppu_read_addr, bp_vread, it.enabled))
 					{
 						cpu_state = cstate::debugging;
@@ -661,6 +624,8 @@ void gui_step_over()
 	u8 op = rbd(reg.pc);
 	u16 ret_pc = reg.pc + 3;
 
+	lineoffset = 0;
+
 	cpu_state = cstate::debugging;
 
 	if (op == 0x20)
@@ -714,6 +679,16 @@ void gui_input(ImGuiIO io)
 		cpu_state = cstate::debugging;
 		gui_step(true);
 	}
+}
+
+void gui_create_button(bplist it, const char* text, u8 n, u16 inputaddr, u8 bptype)
+{
+	ImGui::PushStyleColor(ImGuiCol_Button, it.type & bptype ? GREEN : RED);
+	if (ImGui::Button(text, ImVec2(BUTTON_W - 62, 0)))
+	{
+		bp_edit(inputaddr, it.type ^= bptype, n, it.enabled ^= 1);
+	}
+	ImGui::PopStyleColor();
 }
 
 void gui_clean()

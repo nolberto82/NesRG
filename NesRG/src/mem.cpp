@@ -28,8 +28,11 @@ void set_mapper()
 	int chrbanks = rom[5];
 	int prgsize = prgbanks * 0x4000;
 	int chrsize = chrbanks * 0x2000;
-	int mappernum = rom[8] & 0x0f;
+	int mappernum = (rom[6] & 0xf0) >> 4;
 	mirrornametable = 0;
+
+	int control = 0;
+	int shift = 0;
 
 	if (rom[6] & 0x08)
 	{
@@ -45,10 +48,9 @@ void set_mapper()
 	switch (mappernum)
 	{
 		case 0:
+		{
 			if (prgbanks == 1)
 			{
-				//copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0xc000);
-				//copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
 				memcpy(&ram[0xc000], rom.data() + 0x10, prgsize);
 				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
 			}
@@ -56,9 +58,18 @@ void set_mapper()
 			{
 				memcpy(&ram[0x8000], rom.data() + 0x10, prgsize);
 				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
-				//copy(rom.begin() + 0x10, rom.begin() + 0x10 + prgsize, ram.begin() + 0x8000);
-				//copy(rom.begin() + 0x10 + prgsize, rom.begin() + 0x10 + prgsize + chrsize, vram.begin());
 			}
+			break;
+		}
+		case 1:
+		{
+			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
+			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
+			memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
+			break;
+		}
+		default:
+			printf("Mapper not supported");
 			break;
 	}
 }
@@ -145,6 +156,8 @@ void wb(u16 addr, u8 val)
 			oam[i] = ram[oamaddr + i];
 		cycle += 513;
 	}
+	else if (addr == 0x4016)
+		return controls_write(val);
 }
 
 void ww(u16 addr, u16 val)
