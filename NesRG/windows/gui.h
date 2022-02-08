@@ -18,7 +18,7 @@
 
 //Gui defines
 #define DEBUG_W 500
-#define DEBUG_H 450
+#define DEBUG_H 540
 #define DEBUG_X 5
 #define DEBUG_Y 25
 #define MEM_W 550

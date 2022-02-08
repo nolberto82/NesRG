@@ -127,7 +127,7 @@ vector<disasmentry> get_trace_line(const char* text, u16 pc, bool get_registers,
 			if (memory_access && !isjump)
 			{
 				if (isspecial)
-					snprintf(data + strlen(data), TEXTSIZE, "$%04X = FF", b, ram[b]);
+					snprintf(data + strlen(data), TEXTSIZE, "$%04X = FF", b);
 				else
 					snprintf(data + strlen(data), TEXTSIZE, "$%04X = %02X", b, ram[b]);
 			}

@@ -183,7 +183,7 @@ u8 ppurb(u16 addr)
 		}
 		else if (addr >= 0x2800 && addr < 0x2c00)
 		{
-			v = vram[addr - 0x800 & 0x3fff];
+			v = vram[addr - 0x000 & 0x3fff];
 		}
 		else if (addr >= 0x2c00 && addr < 0x3000)
 		{

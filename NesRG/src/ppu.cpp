@@ -8,11 +8,12 @@ void ppu_step(int num)
 	{
 		if ((scanline >= 0 && scanline < 240) && (background_on || sprite_on))
 		{
-
-			if (cycle > 1 && cycle < 320)
+			if (cycle > 0 && cycle < 258)
 				render_pixels();
 
-			if ((cycle % 8 == 0) && (cycle > 1 && cycle < 256))// || (cycle == 328 || cycle == 336))
+			u8 fx = (lp.x + (cycle)) & 7;
+
+			if ((cycle > 0 && cycle < 256) && fx == 0)// || (cycle == 328 || cycle == 336))
 				x_inc();
 
 			if (cycle == 256)
@@ -49,11 +50,12 @@ void ppu_step(int num)
 
 		if ((scanline == 261) && (background_on || sprite_on))
 		{
-			//if ((cycle % 8 == 0) && (cycle > 1 && cycle < 256))// || (cycle >= 321 && cycle <= 336))
-			//	x_inc();
+			//copy horizontal bits
+			if (cycle == 257)
+				lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 
 			if ((cycle >= 280 && cycle <= 304))
-				lp.v = (lp.v & 0x841f) | (lp.t & 0x7be0);
+				lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 			if (cycle == 1)
 			{
@@ -65,8 +67,8 @@ void ppu_step(int num)
 		cycle++;
 		if (cycle > 340)
 		{
-			cycle -= CYCLES_PER_LINE;
-			//cycle = 0;
+			//cycle -= CYCLES_PER_LINE;
+			cycle = 0;
 			scanline++;
 			if (scanline > 261)
 			{
@@ -80,7 +82,7 @@ void ppu_step(int num)
 
 void ppu_ctrl(u8 v) //2000
 {
-	lp.t = (lp.t & 0xf3ff) | (v & 3) << 10;
+	lp.t = (lp.t & ~0xc00) | (v & 3) << 10;
 	//nametableaddr = 0x2000 | (v & 3) << 10;
 
 	if (v & 0x10)
@@ -123,12 +125,14 @@ void ppu_scroll(u8 v)
 {
 	if (!lp.w)
 	{
-		lp.t = (lp.t & 0x7fe0) | (v >> 3);
+		lp.t &= 0xffe0;
+		lp.t |= ((v & 0xf8) >> 3);
 		lp.x = (u8)(v & 0x07);
 	}
 	else
 	{
-		lp.t = (lp.t & 0xc1f) | (v & 0xf8) << 2 | (v & 7) << 12;
+		lp.t = (lp.t & 0xfc1f) | (v & 0xf8) << 2;
+		lp.t = (lp.t & 0x8fff) | (v & 7) << 12;
 	}
 
 	lp.w = !lp.w;
@@ -211,32 +215,25 @@ void render_pixels()
 	int y = scanline;
 	int x = cycle - 1;
 
-	if (background_on && (cycle > 1 && cycle < 258))
+	if (background_on)
 	{
 		int ppuaddr = 0x2000 | (lp.v & 0xfff);
 		u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
 
 		u8 fx = (lp.x + x) & 7;
 		u8 fy = (lp.v & 0x7000) >> 12;
-		u8 cx = (lp.v & 0x1f);
-		u8 cy = (lp.v & 0x3e0) >> 5;
-		u8 nametable = (lp.v & 0xc00) >> 10;
 
 		u8 tileid = ppurb(ppuaddr);
 
-		u8 byte1 = ppurb(patternaddr + tileid * 16 + fy + 0);
-		u8 byte2 = ppurb(patternaddr + tileid * 16 + fy + 8);
+		u8 b1 = ppurb(patternaddr + tileid * 16 + fy + 0);
+		u8 b2 = ppurb(patternaddr + tileid * 16 + fy + 8);
 
 		int attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
 		u8 attr = ppurb(attaddr);
-		u8 bit2 = (attr >> attr_shift) & 3;
+		u8 att = (attr >> attr_shift) & 3;
 
-		int bit0 = (byte1 >> (7 - fx)) & 1;
-		int bit1 = (byte2 >> (7 - fx)) & 1;
-
-		int palindex = bit0 | bit1 * 2;
-		int colorindex = bit2 * 4 + palindex;
-
+		int palindex = ((b1 >> (7 - fx)) & 1) | ((b2 >> (7 - fx)) & 1) << 1;
+		int colorindex = att * 4 + palindex;
 		int color = palettes[vram[0x3f00 | colorindex]];
 
 		screen_pixels[y * 256 + x] = color;
@@ -348,6 +345,53 @@ void render_pixels()
 	}
 }
 
+void process_nametables(u16 addrnt, int i, u32* pixels)
+{
+	int x = (addrnt & 0x1f);
+	int y = (addrnt & 0x3e0) >> 5;
+
+	int ppuaddr = 0x2000 | (addrnt + (i * 0x400) & 0xfff);
+	u16 attaddr = 0x23c0 | (addrnt + (i * 0x400) & 0xc00) | (y / 4) * 8 + (x / 4);
+	u16 bgaddr = ppu2000 & 0x10 ? 0x1000 : 0x0000;
+
+	if (ppuaddr == 0x2086)
+	{
+		int yu = 0;
+	}
+
+	int offx = x * 8;
+	int offy = y * 8;
+
+	u16 baseaddr = ppuaddr & 0xc00;
+
+	for (int r = 0; r < 8; r++)
+	{
+		int byte1 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 0];
+		int byte2 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 8];
+
+		for (int cl = 0; cl < 8; cl++)
+		{
+			int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
+			u8 attr = ppurb(attaddr);
+			u8 bit2 = (attr >> attr_shift) & 3;
+
+			int bit0 = (byte1 & 1) > 0 ? 1 : 0;
+			int bit1 = (byte2 & 1) > 0 ? 2 : 0;
+
+			byte1 >>= 1;
+			byte2 >>= 1;
+
+			int colorindex = bit2 * 4 + (bit0 | bit1);
+
+			int color = palettes[vram[0x3f00 | colorindex]];
+
+			int xp = offx + (7 - cl);
+			int yp = offy + r;
+
+			pixels[yp * 256 + xp] = color;
+		}
+	}
+}
 
 void render_sprites(u8 frontback)
 {
@@ -575,5 +619,32 @@ void y_inc()
 			y++;
 
 		lp.v = (lp.v & ~0x3e0) | (y << 5);
+	}
+}
+
+int get_attribute_index(int x, int y, int attrib)
+{
+	//get the right attribute
+	if (y & 2)
+	{
+		if (x & 2)
+		{
+			return (attrib & 0xc0) >> 6;
+		}
+		else
+		{
+			return (attrib & 0x30) >> 4;
+		}
+	}
+	else
+	{
+		if (x & 2)
+		{
+			return (attrib & 0x0c) >> 2;
+		}
+		else
+		{
+			return (attrib & 0x03) >> 0;
+		}
 	}
 }

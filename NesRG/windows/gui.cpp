@@ -97,7 +97,7 @@ void gui_update()
 		}
 		ImGui::End();
 
-		if (ImGui::Begin("Display", nullptr, ImGuiWindowFlags_NoScrollbar))
+		if (ImGui::Begin("Graphics", nullptr, ImGuiWindowFlags_NoScrollbar))
 		{
 			ImGui::SetWindowSize(ImVec2(MEM_W, DEBUG_H));
 			ImGui::SetWindowPos(ImVec2(DEBUG_X + DEBUG_W + 5, DEBUG_Y));
@@ -105,7 +105,43 @@ void gui_update()
 			if (cpu_state == cstate::scanlines || cpu_state == cstate::cycles)
 				render_frame(screen_pixels);
 
-			ImGui::Image((void*)screen, ImGui::GetContentRegionAvail());
+			if (ImGui::BeginTabBar("##gfx_tabs", ImGuiTabBarFlags_None))
+			{
+				if (ImGui::BeginTabItem("Display"))
+				{
+					ImGui::Image((void*)screen, ImGui::GetContentRegionAvail());
+					ImGui::EndTabItem();
+				}
+
+				if ((ImGui::BeginTabItem("Nametables")))
+				{
+					int x = (lp.t & 0x1f);
+					int y = (lp.t & 0x3e0) >> 5;
+
+					for (int i = 0; i < 4; i++)
+					{
+						for (int a = 0; a < 0x400; a++)
+							process_nametables(a, i, ntable_pixels[i]);
+
+						render_nttable(ntable_pixels[i], i, x, y);
+
+						if (i % 2 == 1)
+						{
+							ImGui::SameLine();
+						}
+
+						//ImDrawList* drawlist = ImGui::GetWindowDrawList();
+
+						//drawlist->AddRectFilled(ImVec2(x, y), ImVec2(NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT), 0xffff00ff);
+
+						ImGui::Image((void*)ntscreen[i], ImVec2(256, 240));
+					}
+
+					ImGui::EndTabItem();
+				}
+
+				ImGui::EndTabBar();
+			}
 		}
 		ImGui::End();
 
@@ -455,6 +491,9 @@ void gui_show_registers(ImGuiIO io)
 
 		ImGui::TableNextColumn(); ImGui::Text("%11s", "SP");
 		ImGui::TableNextColumn(); ImGui::Text("%04X", reg.sp | 0x100);
+
+		ImGui::TableNextColumn(); ImGui::Text("%11s", "x");
+		ImGui::TableNextColumn(); ImGui::Text("%02X", (lp.t & 7) * 8);
 
 		ImGui::EndTable();
 	}

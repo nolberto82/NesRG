@@ -23,6 +23,7 @@ u8 ppu_data_rb();
 void ppu_reset();
 void clear_pixels();
 void render_pixels();
+void process_nametables(u16 addrnt,int i, u32* pixels);
 void render_sprites(u8 frontback);
 void set_vblank();
 void clear_vblank();
@@ -30,6 +31,7 @@ void set_sprite_zero();
 void clear_sprite_zero();
 void x_inc();
 void y_inc();
+int get_attribute_index(int x, int y, int attrib);
 
 inline u8 ppu_dummy2007;
 inline u8 ppuoamdma;
@@ -52,7 +54,6 @@ inline u8 bits_lo[8];
 inline u8 bits_hi[8];
 
 inline u16 nametableaddr;
-inline u16 patternaddr;
 
 inline u32 tempcolor[8];
 
@@ -67,6 +68,8 @@ inline bool background_on;
 inline bool sprite_on;
 
 inline u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+inline u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+
 inline u32 palettes[192 / 3] = {};
 
 inline u8 palbuffer[192] =
