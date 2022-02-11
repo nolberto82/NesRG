@@ -12,6 +12,10 @@
 #define FV 0x40
 #define FN 0x80
 
+#define INT_NMI	  0xfffa
+#define INT_RESET 0xfffc
+#define INT_BRK   0xfffe
+
 const int CYCLES_PER_FRAME = 262 * 341;
 const int CYCLES_PER_LINE = 341;
 
@@ -30,14 +34,19 @@ struct Registers
 	u16 pc;
 };
 
-inline bool pagecrossed = false;
-inline u8 branchtaken = 0;
-inline int cpu_state = cstate::running;
+struct Cpu
+{
+	bool pagecrossed = false;
+	u8 branchtaken = 0;
+	int state;
+
+
+};
 
 void op_nmi();
 u8 op_pop();
 void op_push(u16 addr, u8 v);
-void op_bra(u16 addr, bool flag);
+void op_bra(u16 addr, u8 op, bool flag);
 void set_flag(bool flag, u8 v);
 int cpu_step();
 void cpu_init();
@@ -60,11 +69,11 @@ u16 get_erro(u16 pc, bool trace = false);
 
 
 
-extern Registers reg;
-
 struct amodefuncs
 {
-	u16(* modefuncs)(u16 pc, bool trace);
+	u16(*modefuncs)(u16 pc, bool trace);
 };
 
+extern Registers reg;
+extern Cpu cpu;
 extern vector<amodefuncs> func;

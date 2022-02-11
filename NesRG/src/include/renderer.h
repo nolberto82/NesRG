@@ -10,6 +10,8 @@ void render_clean();
 
 inline const u8* ctrl_keys;
 
+inline bool frame_limit = true;
+
 inline FPSmanager fpsman;
 inline SDL_Texture* screen;
 inline SDL_Texture* ntscreen[4];

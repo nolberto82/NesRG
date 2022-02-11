@@ -3,7 +3,7 @@
 #include "types.h"
 
 //Debug defines
-#define BREAKPOINT_MAX 15
+#define BREAKPOINT_MAX 5
 
 struct bplist
 {

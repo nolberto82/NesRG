@@ -14,6 +14,19 @@ enum mirrortype
 	vertical
 };
 
+struct Header
+{
+	string id;
+	u8 prgnum;
+	u8 chrnum;
+	u16 mappernum;
+	u8 mirror;
+	u8 battery;
+	u8 trainer;
+};
+
+extern Header header;
+
 inline vector<u8> ram;
 inline vector<u8> vram;
 inline vector<u8> oam;
@@ -31,7 +44,7 @@ inline s16 ppu_read_addr = -1;
 
 void mem_init();
 bool load_rom(const char* filename);
-void set_mapper();
+bool set_mapper();
 bool load_file(const char* filename, std::vector<u8>& rom, int offset);
 u8 rb(u16 addr);
 u8 rbd(u16 addr);

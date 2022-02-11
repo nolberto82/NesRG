@@ -4,13 +4,12 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#define TEXTSIZE 512
+#define TEXTSIZE 256
 
 #include <iostream>
 #include <stdio.h>
 #include <stdbool.h>
 #include <algorithm>
-#include <array>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -18,7 +17,6 @@
 #include <iomanip>
 #include <memory>
 #include <filesystem>
-#include <functional>
 
 #include "opcodes.h"
 

@@ -53,11 +53,6 @@ inline bool is_jump;
 
 bool gui_init();
 void gui_update();
-void gui_show_disassembly(ImGuiIO io);
-void gui_show_buttons(ImGuiIO io);
-void gui_show_memory();
-void gui_show_breakpoints();
-void gui_show_registers(ImGuiIO io);
 void gui_show_menu();
 void gui_step(bool stepping, bool over = false);
 void gui_step_over();

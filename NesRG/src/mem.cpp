@@ -17,18 +17,16 @@ bool load_rom(const char* filename)
 
 	load_file(filename, rom, 0);
 
-	set_mapper();
-
-	return rom_loaded = true;
+	return rom_loaded = set_mapper();
 }
 
-void set_mapper()
+bool set_mapper()
 {
-	int prgbanks = rom[4];
-	int chrbanks = rom[5];
+	int prgbanks = header.prgnum = rom[4];
+	int chrbanks = header.chrnum = rom[5];
 	int prgsize = prgbanks * 0x4000;
 	int chrsize = chrbanks * 0x2000;
-	int mappernum = (rom[6] & 0xf0) >> 4;
+	int mappernum = header.mappernum = (rom[6] & 0xf0) >> 4;
 	mirrornametable = 0;
 
 	int control = 0;
@@ -42,6 +40,10 @@ void set_mapper()
 	{
 		mirrornametable = mirrortype::vertical;
 	}
+
+	header.mirror = mirrornametable;
+	header.battery = (rom[6] >> 1) & 1;
+	header.trainer = (rom[6] >> 2) & 1;
 
 	reset();
 
@@ -70,8 +72,9 @@ void set_mapper()
 		}
 		default:
 			printf("Mapper not supported");
-			break;
+			return false;
 	}
+	return true;
 }
 
 bool load_file(const char* filename, std::vector<u8>& rom, int offset)
@@ -108,10 +111,13 @@ u8 rb(u16 addr)
 {
 	read_addr = addr;
 
-	if (addr == 0x2002)
-		return ppu_status();
-	else if (addr == 0x2007)
-		return ppu_data_rb();
+	if (addr >= 0x2000 && addr <= 0x2fff)
+	{
+		if ((addr & 0x7) == 0x02)
+			return ppu_status();
+		if ((addr & 0x7) == 0x07)
+			return ppu_data_rb();
+	}
 	else if (addr == 0x4016)
 		return controls_read();
 
@@ -150,11 +156,11 @@ void wb(u16 addr, u8 val)
 		ppu_data_wb(val);
 	else if (addr == 0x4014)
 	{
-		ppuoamdma = val;
+		ppu.oamdma = val;
 		int oamaddr = val << 8;
 		for (int i = 0; i < 256; i++)
 			oam[i] = ram[oamaddr + i];
-		cycle += 513;
+		ppu.cycle += 513;
 	}
 	else if (addr == 0x4016)
 		return controls_write(val);
@@ -231,15 +237,18 @@ void ppuwb(u16 addr, u8 val)
 	{
 		if (addr >= 0x2000 && addr < 0x2400)
 		{
+			vram[addr & 0x3fff] = val;
 			vram[addr + 0x400 & 0x3fff] = val;
 		}
 		if (addr >= 0x2800 && addr < 0x2c00)
 		{
-			vram[addr + 0xc00 & 0x3fff] = val;
+			vram[addr & 0x3fff] = val;
+			vram[addr + 0x400 & 0x3fff] = val;
 		}
-		if (addr >= 0x3000 && addr < 0x3400)
+		if (addr >= 0x2c00 && addr < 0x3000)
 		{
-			vram[addr - 0x1000 & 0x3fff] = val;
+			vram[addr & 0x3fff] = val;
+			vram[addr - 0x400 & 0x3fff] = val;
 		}
 	}
 	else if (mirrornametable == mirrortype::vertical)

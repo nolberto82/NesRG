@@ -10,11 +10,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
-if(MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++17")
-else()
-	set(CMAKE_CXX_STANDARD 17)
-endif(MSVC)
+set(CMAKE_CXX_STANDARD 17)
 
 set (ASSETS_DIR "assets")
 
@@ -22,7 +18,7 @@ set(TOP_DIR ${CMAKE_SOURCE_DIR})
 set(SRC_DIR ${CMAKE_SOURCE_DIR}/${PROJECT_NAME})
 set(APP_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-include_directories(${SRC_DIR}/include)
+include_directories(${SRC_DIR}/src/include)
 
 file(GLOB_RECURSE EMU_SRC
 ${SRC_DIR}/src/cpu.cpp
@@ -37,6 +33,10 @@ if(WIN32)
 	${SRC_DIR}/windows/gui.cpp
 	${SRC_DIR}/windows/breakpoints.cpp
 	${SRC_DIR}/windows/tracer.cpp
+	${SRC_DIR}/windows/debugwindow.cpp
+	${SRC_DIR}/windows/memorywindow.cpp
+	${SRC_DIR}/windows/breakpointwindow.cpp
+	${SRC_DIR}/windows/registerswindow.cpp
 	${SRC_DIR}/imgui/imgui.cpp
 	${SRC_DIR}/imgui/imgui_demo.cpp
 	${SRC_DIR}/imgui/imgui_draw.cpp
@@ -47,7 +47,7 @@ if(WIN32)
 	${SRC_DIR}/main.cpp
 	)
 
-	include_directories(${SRC_DIR}/windows)	
+	include_directories(${SRC_DIR}/windows/include)	
 	include_directories(${SRC_DIR}/imgui)
 
 	add_executable (${PROJECT_NAME} ${WIN_SRC} ${EMU_SRC})

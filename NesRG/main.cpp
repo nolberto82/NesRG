@@ -4,8 +4,11 @@
 #include "gui.h"
 #include "renderer.h"
 
+Cpu cpu;
+Ppu ppu;
 Registers reg;
 PpuRegisters lp;
+Header header;
 
 int main(int argc, char* argv[])
 {
