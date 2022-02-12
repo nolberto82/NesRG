@@ -35,8 +35,6 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers)
 	b[1] = rbd(pc + 1);
 	b[2] = rbd(pc + 2);
 
-
-
 	int size = 0;
 	int asize = 0;
 	const char* name;

@@ -32,14 +32,12 @@ void ppu_reset();
 void clear_pixels();
 void render_pixels();
 void process_nametables(u16 addrnt, int i, u32* pixels);
-void render_sprites(u8 frontback);
 void set_vblank();
 void clear_vblank();
 void set_sprite_zero();
 void clear_sprite_zero();
 void x_inc();
 void y_inc();
-int get_attribute_index(int x, int y, int attrib);
 
 struct Ppu
 {
@@ -63,8 +61,11 @@ struct Ppu
 	u8 bits_lo[8];
 	u8 bits_hi[8];
 
+	u16 scroll = 0;
+
 	u16 nametableaddr;
 
+	u32 frame = 0;
 	u32 tempcolor[8];
 
 	int scanline;

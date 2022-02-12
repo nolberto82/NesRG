@@ -67,9 +67,10 @@ void ppu_step(int num)
 		}
 
 		ppu.cycle++;
-		if (ppu.cycle > 340)
+		int oddeven = ppu.frame % 2 == 0 && ppu.background_on ? 340 : 341;
+		if (ppu.cycle > oddeven)
 		{
-			ppu.cycle -= CYCLES_PER_LINE;
+			ppu.cycle -= oddeven;
 			//cycle = 0;
 			ppu.scanline++;
 			if (ppu.scanline > 261)
@@ -77,6 +78,7 @@ void ppu_step(int num)
 				ppu.nmi_flag = false;
 				ppu.frame_ready = true;
 				ppu.scanline = 0;
+				ppu.frame++;
 			}
 		}
 	}
@@ -130,11 +132,12 @@ void ppu_scroll(u8 v)
 		lp.t &= 0xffe0;
 		lp.t |= ((v & 0xf8) >> 3);
 		lp.x = (u8)(v & 0x07);
+		ppu.scroll = v;
 	}
 	else
 	{
 		lp.t = (lp.t & 0xfc1f) | (v & 0xf8) << 2 | (v & 7) << 12;
-		//lp.t = (lp.t & 0x8fff) ;
+		ppu.scroll |= v << 8;
 	}
 
 	lp.w = !lp.w;
@@ -245,19 +248,15 @@ void render_pixels()
 	u8 bgpixel = 0;
 	u8 sppixel = 0;
 
-	if (ppu.sprite_on && (ppu.cycle >= 257 && ppu.cycle <= 320))
+	if (ppu.sprite_on && (ppu.cycle > 256 && ppu.cycle <= 320))
 	{
 		u16 patternaddr = ppu.p2000 & 0x08 ? 0x1000 : 0x0000;
 		u16 oamaddr = 0x0100 * ppu.oamdma;
 		u8 x, y;
 		int tileid, att, i;
+		int palindex = 0;
 
 		i = (ppu.cycle % 64) - 1;
-
-		if (i == 20)
-		{
-			int yu = 0;
-		}
 
 		y = (u8)(oam[i * 4 + 0] + 1);
 		tileid = oam[i * 4 + 1];
@@ -322,16 +321,13 @@ void render_pixels()
 
 				shift >>= 1;
 
-				int palindex = bit0 | bit1 * 2;
+				palindex = bit0 | bit1 * 2;
 				int colorindex = palindex + (att & 3) * 4;
 
 				int xp = x + col;
 				int yp = y + row;
 				if (xp < 0 || xp >= 255 || yp < 0 || yp >= 240)
 					break;
-
-				if (i == 0 && ppu.cycle != 255 && yp == ppu.scanline && !(ppu.p2002 & 0x40) && ppu.background_on)
-					set_sprite_zero();
 
 				if (palindex != 0)
 				{
@@ -342,221 +338,52 @@ void render_pixels()
 					}
 				}
 			}
+
+			if (i == 0 && ppu.cycle != 255 && (y + 4) == ppu.scanline && !(ppu.p2002 & 0x40) && ppu.background_on)
+				set_sprite_zero();
 		}
 	}
 }
 
 void process_nametables(u16 addrnt, int i, u32* pixels)
 {
-	int x = (addrnt & 0x1f);
-	int y = (addrnt & 0x3e0) >> 5;
-
-	int ppuaddr = 0x2000 | (addrnt + (i * 0x400) & 0xfff);
-	u16 attaddr = 0x23c0 | (addrnt + (i * 0x400) & 0xc00) | (y / 4) * 8 + (x / 4);
-	u16 bgaddr = ppu.p2000 & 0x10 ? 0x1000 : 0x0000;
-
-	if (ppuaddr == 0x2086)
+	for (int a = addrnt; a < addrnt + 0x3c0; a++)
 	{
-		int yu = 0;
-	}
+		int x = (a & 0x1f);
+		int y = (a & 0x3e0) >> 5;
 
-	int offx = x * 8;
-	int offy = y * 8;
+		int ppuaddr = 0x2000 | (a + (i * 0x400) & 0xfff);
+		u16 attaddr = 0x23c0 | (a + (i * 0x400) & 0xc00) | (y / 4) * 8 + (x / 4);
+		u16 bgaddr = ppu.p2000 & 0x10 ? 0x1000 : 0x0000;
 
-	u16 baseaddr = ppuaddr & 0xc00;
+		int offx = x * 8;
+		int offy = y * 8;
 
-	for (int r = 0; r < 8; r++)
-	{
-		int byte1 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 0];
-		int byte2 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 8];
-
-		for (int cl = 0; cl < 8; cl++)
+		for (int r = 0; r < 8; r++)
 		{
-			int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
-			u8 attr = ppurb(attaddr);
-			u8 bit2 = (attr >> attr_shift) & 3;
+			int byte1 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 0];
+			int byte2 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 8];
 
-			int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-			int bit1 = (byte2 & 1) > 0 ? 2 : 0;
-
-			byte1 >>= 1;
-			byte2 >>= 1;
-
-			int colorindex = bit2 * 4 + (bit0 | bit1);
-
-			int color = ppu.palettes[vram[0x3f00 | colorindex]];
-
-			int xp = offx + (7 - cl);
-			int yp = offy + r;
-
-			pixels[yp * 256 + xp] = color;
-		}
-	}
-}
-
-void render_sprites(u8 frontback)
-{
-	int oamaddr = 0x0100 * ppu.oamdma;
-	int nametableaddr = 0x2000 | ppu.p2000 & 3 * 0x400;
-	int patternaddr = (ppu.p2000 & 0x08) > 0 ? 0x1000 : 0x0000;
-	int paladdr = 0x3f10;
-	int left8 = (ppu.p2000 & 0x04) > 0 ? 1 : 0;
-
-	u8 x, y;
-	int tileid, att, i;
-
-	for (int j = 64; j > 0; j--)
-	{
-		i = j % 64;
-
-		y = (u8)(oam[i * 4 + 0] + 1);
-		tileid = oam[i * 4 + 1];
-		att = oam[i * 4 + 2];
-		x = oam[i * 4 + 3];// & 0xff + left8;
-
-		int size = 8;
-		if (ppu.spritesize)
-		{
-			size = 16;
-		}
-
-		bool flipH = (att & 0x40) > 0;
-		bool flipV = (att & 0x80) > 0;
-
-		int byte1 = 0;
-		int byte2 = 0;
-
-		if (size == 16)
-		{
-			if ((tileid & 1) == 0)
-				patternaddr = 0x0000;
-			else
-				patternaddr = 0x1000;
-
-			tileid &= 0xfe;
-
-			for (int r = 0; r < 16; r++)
+			for (int cl = 0; cl < 8; cl++)
 			{
-				int rr = r % 8;
+				int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
+				u8 attr = ppurb(attaddr);
+				u8 bit2 = (attr >> attr_shift) & 3;
 
-				if (r < 8)
-				{
-					byte1 = vram[patternaddr + tileid * 16 + rr + 0];
-					byte2 = vram[patternaddr + tileid * 16 + rr + 8];
-				}
-				else
-				{
-					byte1 = vram[patternaddr + (tileid + 1) * 16 + rr + 0];
-					byte2 = vram[patternaddr + (tileid + 1) * 16 + rr + 8];
-				}
+				int bit0 = (byte1 & 1) > 0 ? 1 : 0;
+				int bit1 = (byte2 & 1) > 0 ? 2 : 0;
 
-				for (int cl = 0; cl < 8; cl++)
-				{
-					int col = 7 - cl;
-					int row = r;
+				byte1 >>= 1;
+				byte2 >>= 1;
 
-					if (flipH && flipV)
-					{
-						col = cl;
-						row = 7 - r;
-					}
-					else if (flipV)
-					{
-						row = 7 - r;
-					}
-					else if (flipH)
-					{
-						col = cl;
-					}
+				int colorindex = bit2 * 4 + (bit0 | bit1);
 
-					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
+				int color = ppu.palettes[vram[0x3f00 | colorindex]];
 
-					byte1 >>= 1;
-					byte2 >>= 1;
+				int xp = offx + (7 - cl);
+				int yp = offy + r;
 
-					int palindex = bit0 | bit1 * 2;
-
-					int colorindex = palindex + (att & 3) * 4;
-
-					int xp = x + col;
-					int yp = y + row;
-					if (x < 0 || x >= 255 || y < 0 || y >= 240)
-						break;
-
-					if (palindex != 0)
-					{
-						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
-						if (i == 0 && yp == ppu.scanline && x < 255)
-							set_sprite_zero();
-
-						if ((att & frontback) == 0)
-						{
-							int color = ppu.palettes[vram[paladdr | colorindex]];
-
-						}
-					}
-					//DrawFrame();
-				}
-			}
-		}
-		else
-		{
-			for (int r = 0; r < 8; r++)
-			{
-				byte1 = vram[patternaddr + tileid * 16 + r + 0];
-				byte2 = vram[patternaddr + tileid * 16 + r + 8];
-
-				//u8 byte1 = PpuRead(patternaddr + tileid * 16 + r + 0);
-				//u8 byte2 = PpuRead(patternaddr + tileid * 16 + r + 8);
-
-				for (int cl = 0; cl < 8; cl++)
-				{
-					int col = 7 - cl;
-					int row = r;
-
-					if (flipH && flipV)
-					{
-						col = cl;
-						row = 7 - r;
-					}
-					else if (flipV)
-					{
-						row = 7 - r;
-					}
-					else if (flipH)
-					{
-						col = cl;
-					}
-
-					int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-					int bit1 = (byte2 & 1) > 0 ? 1 : 0;
-
-					byte1 >>= 1;
-					byte2 >>= 1;
-
-					int palindex = bit0 | bit1 * 2;
-
-					int colorindex = palindex + (att & 3) * 4;
-
-					int xp = x + col;
-					int yp = y + row;
-					if (xp < 0 || xp >= 255 || yp < 0 || yp >= 240)
-						break;
-
-					if (palindex != 0)
-					{
-						//u8 bgpalindex = sp0data[256 * (y + row) * 4 + (x + col) * 4 + 0];
-						if (i == 0 && x < 255)
-							set_sprite_zero();
-
-						if ((att & frontback) == 0)
-						{
-							int color = ppu.palettes[vram[paladdr | colorindex]];
-
-						}
-					}
-				}
+				pixels[yp * 256 + xp] = color;
 			}
 		}
 	}
@@ -620,32 +447,5 @@ void y_inc()
 			y++;
 
 		lp.v = (lp.v & ~0x3e0) | (y << 5);
-	}
-}
-
-int get_attribute_index(int x, int y, int attrib)
-{
-	//get the right attribute
-	if (y & 2)
-	{
-		if (x & 2)
-		{
-			return (attrib & 0xc0) >> 6;
-		}
-		else
-		{
-			return (attrib & 0x30) >> 4;
-		}
-	}
-	else
-	{
-		if (x & 2)
-		{
-			return (attrib & 0x0c) >> 2;
-		}
-		else
-		{
-			return (attrib & 0x03) >> 0;
-		}
 	}
 }

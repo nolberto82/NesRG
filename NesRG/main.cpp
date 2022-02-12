@@ -6,6 +6,7 @@
 
 Cpu cpu;
 Ppu ppu;
+Renderer gfx;
 Registers reg;
 PpuRegisters lp;
 Header header;

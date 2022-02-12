@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "controls.h"
+#include "ppu.h"
 
 bool render_init()
 {
@@ -9,91 +10,111 @@ bool render_init()
 		return false;
 	}
 
-	window = SDL_CreateWindow("Nes RG", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, 0);
+	gfx.window = SDL_CreateWindow("Nes RG", 10, SDL_WINDOWPOS_CENTERED, APP_WIDTH, APP_HEIGHT, 0);
 
-	if (!window)
+	if (!gfx.window)
 	{
 		printf("Failed to open %d x %d window: %s\n", APP_WIDTH, APP_HEIGHT, SDL_GetError());
 		return false;
 	}
 
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	gfx.renderer = SDL_CreateRenderer(gfx.window, -1, SDL_RENDERER_ACCELERATED);
 
-	if (!renderer)
+	if (!gfx.renderer)
 	{
 		printf("Failed to create renderer: %s\n", SDL_GetError());
 		return false;
 	}
 
 	//create textures
-	screen = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT);
+	gfx.screen = SDL_CreateTexture(gfx.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT);
 
-	if (!screen)
+	if (!gfx.screen)
 	{
 		printf("Failed to create texture: %s\n", SDL_GetError());
 		return false;
 	}
 
-	for (int i = 0; i < 4; i++)
-	{
-		ntscreen[i] = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT);
 
-		if (!ntscreen[i])
-		{
-			printf("Failed to create texture: %s\n", SDL_GetError());
-			return false;
-		}
+	gfx.ntscreen = SDL_CreateTexture(gfx.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, NES_SCREEN_WIDTH * 2, NES_SCREEN_HEIGHT * 2);
+
+	if (!gfx.ntscreen)
+	{
+		printf("Failed to create texture: %s\n", SDL_GetError());
+		return false;
 	}
 
-	SDL_initFramerate(&fpsman);
-	SDL_setFramerate(&fpsman, 60);
+	//Enable transparency
+	SDL_SetRenderDrawBlendMode(gfx.renderer, SDL_BLENDMODE_BLEND);
+
+	SDL_initFramerate(&gfx.fpsman);
+	SDL_setFramerate(&gfx.fpsman, 60);
 
 	return true;
 }
 
 void render_frame(u32* screen_pixels)
 {
-	SDL_UpdateTexture(screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
-	SDL_RenderCopy(renderer, screen, NULL, NULL);
+	SDL_UpdateTexture(gfx.screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
+	SDL_RenderCopy(gfx.renderer, gfx.screen, NULL, NULL);
 }
 
-void render_nttable(u32* pixels, int i, int x, int y)
+void render_nttable()
 {
+	int x = 0, y = 0;
+	int sx = (lp.t & 0x1f);
+	int sy = (lp.t & 0x3e0) >> 5;
 
-	//if (i == 0)
-	//{
-		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-		SDL_RenderClear(renderer);
-		SDL_Rect rect = { x * 8, y * 8, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-		//SDL_RenderFillRect(renderer, &rect);
-		SDL_RenderDrawRect(renderer, &rect);
-	//}
+	if (!gfx.renderer)
+		return;
 
-	SDL_SetRenderTarget(renderer, ntscreen[i]);
-	SDL_UpdateTexture(ntscreen[i], NULL, pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
-	SDL_RenderCopy(renderer, screen, NULL, NULL);
-	SDL_SetRenderTarget(renderer, NULL);
+	SDL_SetRenderTarget(gfx.renderer, gfx.ntscreen);
+
+	for (int i = 0; i < 4; i++)
+	{
+		SDL_Rect rect = { x, y, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
+		SDL_UpdateTexture(gfx.ntscreen, &rect, ppu.ntable_pixels[i], NES_SCREEN_WIDTH * sizeof(unsigned int));
+		SDL_RenderCopy(gfx.renderer, gfx.ntscreen, NULL, NULL);
+
+		x = 256;
+		if (i == 1)
+		{
+			x = 0;
+			y = 240;
+		}
+	}
+
+	SDL_RenderCopy(gfx.renderer, gfx.ntscreen, NULL, NULL);
+
+	SDL_SetRenderTarget(gfx.renderer, NULL);
+}
+
+void render_overlay(SDL_Rect rect)
+{
+	SDL_SetRenderDrawColor(gfx.renderer, 255, 255, 255, 80);
+	SDL_RenderFillRect(gfx.renderer, &rect);
+	SDL_SetRenderDrawColor(gfx.renderer, 0, 255, 0, 255);
+	SDL_RenderDrawRect(gfx.renderer, &rect);
 }
 
 void render_input()
 {
-	ctrl_keys = SDL_GetKeyboardState(NULL);
+	gfx.ctrl_keys = SDL_GetKeyboardState(NULL);
 }
 
 void render_clean()
 {
-	for (int i = 0; i < 4; i++)
-	{
-		if (ntscreen[i])
-			SDL_DestroyTexture(ntscreen[i]);
-	}
+	if (gfx.ntscreen)
+		SDL_DestroyTexture(gfx.ntscreen);
 
-	if (screen)
-		SDL_DestroyTexture(screen);
-	if (renderer)
-		SDL_DestroyRenderer(renderer);
-	if (window)
-		SDL_DestroyWindow(window);
+	if (gfx.screen)
+		SDL_DestroyTexture(gfx.screen);
+
+	if (gfx.renderer)
+		SDL_DestroyRenderer(gfx.renderer);
+
+	if (gfx.window)
+		SDL_DestroyWindow(gfx.window);
 
 	SDL_Quit();
 }

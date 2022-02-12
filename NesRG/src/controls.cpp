@@ -6,21 +6,21 @@ u8 controls_keys(u8 id)
 	switch (id)
 	{
 		case 0:
-			return ctrl_keys[SDL_SCANCODE_Z];
+			return gfx.ctrl_keys[SDL_SCANCODE_Z];
 		case 1:
-			return ctrl_keys[SDL_SCANCODE_X];
+			return gfx.ctrl_keys[SDL_SCANCODE_X];
 		case 2:
-			return ctrl_keys[SDL_SCANCODE_SPACE];
+			return gfx.ctrl_keys[SDL_SCANCODE_SPACE];
 		case 3:
-			return ctrl_keys[SDL_SCANCODE_RETURN];
+			return gfx.ctrl_keys[SDL_SCANCODE_RETURN];
 		case 4:
-			return ctrl_keys[SDL_SCANCODE_UP];
+			return gfx.ctrl_keys[SDL_SCANCODE_UP];
 		case 5:
-			return ctrl_keys[SDL_SCANCODE_DOWN];
+			return gfx.ctrl_keys[SDL_SCANCODE_DOWN];
 		case 6:
-			return ctrl_keys[SDL_SCANCODE_LEFT];
+			return gfx.ctrl_keys[SDL_SCANCODE_LEFT];
 		case 7:
-			return ctrl_keys[SDL_SCANCODE_RIGHT];
+			return gfx.ctrl_keys[SDL_SCANCODE_RIGHT];
 
 	}
 

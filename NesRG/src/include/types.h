@@ -15,7 +15,6 @@
 #include <vector>
 #include <map>
 #include <iomanip>
-#include <memory>
 #include <filesystem>
 
 #include "opcodes.h"

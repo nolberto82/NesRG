@@ -12,8 +12,8 @@ bool gui_init()
 {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGui_ImplSDL2_InitForSDLRenderer(window);
-	ImGui_ImplSDLRenderer_Init(renderer);
+	ImGui_ImplSDL2_InitForSDLRenderer(gfx.window);
+	ImGui_ImplSDLRenderer_Init(gfx.renderer);
 
 	ImGui::StyleColorsLight();
 	//ImGui::StyleColorsClassic();
@@ -26,7 +26,7 @@ bool gui_init()
 	style->ItemSpacing = ImVec2(8, 1);
 	style->FrameBorderSize = 1.0f;
 
-	breakpoints.resize(BREAKPOINT_MAX);
+	//breakpoints.resize(BREAKPOINT_MAX);
 
 	return true;
 }
@@ -47,7 +47,7 @@ void gui_update()
 		gui_input(io);
 
 		ImGui_ImplSDLRenderer_NewFrame();
-		ImGui_ImplSDL2_NewFrame(window);
+		ImGui_ImplSDL2_NewFrame(gfx.window);
 		ImGui::NewFrame();
 
 		//Debugger Windows
@@ -68,33 +68,25 @@ void gui_update()
 			{
 				if (ImGui::BeginTabItem("Display"))
 				{
-					ImGui::Image((void*)screen, ImGui::GetContentRegionAvail());
+					ImGui::Image((void*)gfx.screen, ImGui::GetContentRegionAvail());
 					ImGui::EndTabItem();
 				}
 
 				if ((ImGui::BeginTabItem("Nametables")))
 				{
-					int x = (lp.t & 0x1f);
-					int y = (lp.t & 0x3e0) >> 5;
+					int x = 0, y = 0;
 
 					for (int i = 0; i < 4; i++)
 					{
-						for (int a = 0; a < 0x400; a++)
-							process_nametables(a, i, ppu.ntable_pixels[i]);
-
-						render_nttable(ppu.ntable_pixels[i], i, x, y);
-
-						if (i % 2 == 1)
-						{
-							ImGui::SameLine();
-						}
-
-						ImGui::Image((void*)ntscreen[i], ImVec2(256, 240));
+						memset(ppu.ntable_pixels[i], 0x00, sizeof(ppu.ntable_pixels[i]));
+						process_nametables(i * 0x400, 0, ppu.ntable_pixels[i]);
 					}
 
+					render_nttable();
+
+					ImGui::Image((void*)gfx.ntscreen, ImGui::GetContentRegionAvail());
 					ImGui::EndTabItem();
 				}
-
 				ImGui::EndTabBar();
 			}
 		}
@@ -102,12 +94,12 @@ void gui_update()
 
 		// Rendering
 		ImGui::Render();
-		SDL_SetRenderDrawColor(renderer, (u8)(clear_color.x * 255), (u8)(clear_color.y * 255), (u8)(clear_color.z * 255), (u8)(clear_color.w * 255));
-		SDL_RenderClear(renderer);
+		SDL_SetRenderDrawColor(gfx.renderer, (u8)(clear_color.x * 255), (u8)(clear_color.y * 255), (u8)(clear_color.z * 255), (u8)(clear_color.w * 255));
+		SDL_RenderClear(gfx.renderer);
 		ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-		if (frame_limit)
-			SDL_framerateDelay(&fpsman);
-		SDL_RenderPresent(renderer);
+		if (gfx.frame_limit)
+			SDL_framerateDelay(&gfx.fpsman);
+		SDL_RenderPresent(gfx.renderer);
 	}
 }
 
@@ -188,10 +180,7 @@ void gui_step(bool stepping, bool over)
 
 			for (auto& it : breakpoints)
 			{
-				if (!it.enabled)
-					continue;
-
-				if (it.type == bp_exec && it.enabled)
+				if (it.type & bp_exec && it.enabled)
 				{
 					if (bp_check(pc, bp_exec, it.enabled))
 					{
@@ -310,7 +299,8 @@ void gui_input(ImGuiIO io)
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if (event.type == SDL_QUIT)
 			gui_running = 0;
-		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
+			event.window.windowID == SDL_GetWindowID(gfx.window))
 			gui_running = 0;
 	}
 
@@ -318,11 +308,11 @@ void gui_input(ImGuiIO io)
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_TAB)) //frame limit
 	{
-		frame_limit = false;
+		gfx.frame_limit = false;
 	}
 	else if (ImGui::IsKeyReleased(SDL_SCANCODE_TAB))
 	{
-		frame_limit = true;
+		gfx.frame_limit = true;
 	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F5)) //run one scanline

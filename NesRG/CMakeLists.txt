@@ -34,9 +34,6 @@ if(WIN32)
 	${SRC_DIR}/windows/breakpoints.cpp
 	${SRC_DIR}/windows/tracer.cpp
 	${SRC_DIR}/windows/debugwindow.cpp
-	${SRC_DIR}/windows/memorywindow.cpp
-	${SRC_DIR}/windows/breakpointwindow.cpp
-	${SRC_DIR}/windows/registerswindow.cpp
 	${SRC_DIR}/imgui/imgui.cpp
 	${SRC_DIR}/imgui/imgui_demo.cpp
 	${SRC_DIR}/imgui/imgui_draw.cpp
