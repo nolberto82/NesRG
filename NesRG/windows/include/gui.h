@@ -17,7 +17,7 @@
 #define LIGHTGRAY ImVec4( 0xd0 / 255.0f, 0xd0 / 255.0f, 0xd0 / 255.0f , 1)
 
 //Gui defines
-#define DEBUG_W 500
+#define DEBUG_W 550
 #define DEBUG_H 540
 #define DEBUG_X 5
 #define DEBUG_Y 25
@@ -27,21 +27,6 @@
 //ImGui flags
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 #define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
-
-enum bptype
-{
-	bp_read = 1,
-	bp_write = 2,
-	bp_exec = 4,
-	bp_vread = 8,
-	bp_vwrite = 16,
-};
-
-enum bpaddtype
-{
-	add_bp,
-	add_edit,
-};
 
 inline u16 jumpaddr;
 
@@ -54,7 +39,7 @@ inline bool is_jump;
 bool gui_init();
 void gui_update();
 void gui_show_menu();
-void gui_step(bool stepping, bool over = false);
+void gui_step(bool stepping, int state);
 void gui_step_over();
 void gui_input(ImGuiIO io);
 void gui_clean();

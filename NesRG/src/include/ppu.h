@@ -18,6 +18,15 @@ struct PpuRegisters
 	u8 w;
 };
 
+struct SpriteData
+{
+	u8 x;
+	u8 tile;
+	u8 attrib;
+	u8 y;
+	u8 spritenum;
+};
+
 void ppu_step(int num);
 void ppu_ctrl(u8 v);
 void ppu_mask(u8 v);
@@ -70,7 +79,7 @@ struct Ppu
 
 	int scanline;
 	int cycle;
-	int totalcycles;
+	u32 totalcycles;
 
 	bool spritesize;
 	bool nmi_flag;
@@ -105,3 +114,4 @@ struct Ppu
 
 extern PpuRegisters lp;
 extern Ppu ppu;
+extern SpriteData sprites[8];

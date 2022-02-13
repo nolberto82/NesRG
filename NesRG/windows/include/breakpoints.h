@@ -14,14 +14,15 @@ struct bplist
 
 void bp_add(u16 addr, u8 type, bool enabled);
 void bp_edit(u16 addr, u8 type, u8 id, bool enabled);
-bool bp_check(u16 addr, u8 type, bool enabled);
-bool bp_check_access(u16 addr, u8 type, bool enabled = false);
+bool bp_check(u16 addr, u8 type);
 
 inline std::vector<bplist> breakpoints;
 
-enum bpaccesstype
+enum bptype
 {
-	read = 1,
-	write = 2,
-	exec = 4
+	bp_read = 1,
+	bp_write = 2,
+	bp_exec = 4,
+	bp_vread = 8,
+	bp_vwrite = 16,
 };

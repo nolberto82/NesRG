@@ -7,7 +7,7 @@ void mem_init()
 	ram.resize(RAMSIZE);
 	vram.resize(VRAMSIZE);
 	oam.resize(OAMSIZE);
-	oamalt.resize(OAMSIZE - 0x80);
+	oamalt.resize(32);
 }
 
 bool load_rom(const char* filename)

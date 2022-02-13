@@ -45,7 +45,7 @@ void debug_update()
 void debug_show_disassembly(ImGuiIO io)
 {
 	static int item_num = 0;
-	static bool ispc = false;
+	static bool is_pc = false;
 	u16 pc = is_jump ? jumpaddr : reg.pc;
 	vector<string> vdasm;
 
@@ -71,25 +71,23 @@ void debug_show_disassembly(ImGuiIO io)
 
 		vector<disasmentry> entry = get_trace_line(pcaddr, false);
 
-		bool bpcheck = false;
+		ImGui::PushID(pc);
 
-		for (auto& it : breakpoints)
+		if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
-			if (it.addr == pcaddr)
+			if (ImGui::IsWindowHovered())
 			{
-				bpcheck = true;
-				break;
+				ImGui::Selectable(entry[0].line.c_str(), is_pc);
+				//bp_add(pc, bp_exec, true);
 			}
+
 		}
+		ImGui::PopID();
 
-		ImVec4 currlinecol = ImVec4(0, 0, 0, 1);
-
-		ispc = false;
-		if (pcaddr == reg.pc)
-			ispc = true;
+		is_pc = pcaddr == reg.pc ? true : false;
 
 		if (entry[0].line != "")
-			ImGui::Selectable(entry[0].line.c_str(), ispc);
+			ImGui::Selectable(entry[0].line.c_str(), is_pc);
 
 		pc += entry[0].size;
 
@@ -105,6 +103,8 @@ void debug_show_disassembly(ImGuiIO io)
 
 void debug_show_buttons(ImGuiIO io)
 {
+	is_jump = false;
+
 	fileDialog.Display();
 	fileDialog.SetWindowSize(500, 800);
 
@@ -114,7 +114,6 @@ void debug_show_buttons(ImGuiIO io)
 		clear_pixels();
 		load_rom((char*)fileDialog.GetSelected().u8string().c_str());
 		cpu_reset();
-		//cpu.state = cstate::running;
 		fileDialog.ClearSelected();
 	}
 
@@ -134,11 +133,7 @@ void debug_show_buttons(ImGuiIO io)
 	if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
-		{
-			gui_step(true);
-			cpu.state = cstate::running;
-			is_jump = false;
-		}
+			gui_step(true, cstate::running);
 	}
 
 	ImGui::SameLine();
@@ -148,19 +143,14 @@ void debug_show_buttons(ImGuiIO io)
 		if (rom_loaded)
 		{
 			create_close_log(false);
-			cpu.state = cstate::running;
 			lineoffset = 0;
 			ppu_reset();
-			set_mapper();
 			cpu_reset();
-			is_jump = false;
-			clear_pixels();
+			cpu.state = cstate::debugging;
 		}
 	}
 
 	ImGui::SameLine();
-
-	ImGui::Text("Jump To");
 
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -168,12 +158,7 @@ void debug_show_buttons(ImGuiIO io)
 	if (ImGui::Button("Step Into", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
-		{
-			cpu.state = cstate::debugging;
-			lineoffset = 0;
-			gui_step(true);
-			is_jump = false;
-		}
+			gui_step(true, cstate::debugging);
 	}
 
 	ImGui::SameLine();
@@ -181,34 +166,17 @@ void debug_show_buttons(ImGuiIO io)
 	if (ImGui::Button("Step Over", ImVec2(BUTTON_W, 0)))
 	{
 		if (rom_loaded)
-		{
 			gui_step_over();
-			is_jump = false;
-		}
 	}
 
 	ImGui::SameLine();
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? GREEN : RED));
 	if (ImGui::Button("Trace Log", ImVec2(BUTTON_W, 0)))
-	{
 		create_close_log(!logging);
-	}
 	ImGui::PopStyleColor(1);
 
 	ImGui::SameLine();
-
-	static char jumpaddrtext[5] = { 0 };
-
-	ImGui::PushItemWidth(40);
-	if (ImGui::InputText("##jumptoaddr", jumpaddrtext, IM_ARRAYSIZE(jumpaddrtext), INPUT_ENTER))
-	{
-		std::istringstream ss(jumpaddrtext);
-		ss >> std::hex >> jumpaddr;
-		is_jump = true;
-		lineoffset = 0;
-	}
-	ImGui::PopItemWidth();
 
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -219,26 +187,45 @@ void debug_show_buttons(ImGuiIO io)
 void debug_show_registers(ImGuiIO io)
 {
 	static string flag_names = "NVUBDIZC";
+	static string reg_names[] = { "PC", "SP", "A", "X", "Y" };
+	static string reg_format[] = { "%04X", "%04X", "%02X", "%02X", "%02X" };
+	static u16 reg_val[] = { reg.pc, reg.sp, reg.a, reg.x, reg.y };
 	static bool flag_values[8] = { };
 
 	stringstream ss;
 
 	ImGui::BeginChild("Registers");
 
-	ImGui::Text("FPS=%d", static_cast<int>(round(io.Framerate)));
+	ImGui::Text(" FPS=%d", static_cast<int>(round(io.Framerate)));
 
 	ImGui::Spacing();
 	ImGui::Separator();
 
-
 	for (int i = 0; i < 3; i++)
 		ImGui::Spacing();
 
-	ImGui::Text("PC:%04X", reg.pc);
-	ImGui::Text("SP:%04X", reg.sp);
-	ImGui::Text(" A:%02X", reg.a);
-	ImGui::Text(" X:%02X", reg.x);
-	ImGui::Text(" Y:%02X", reg.y);
+	ImGui::Columns(2);
+
+	int	i = 0;
+	for (auto& s : reg_names)
+	{
+		debug_create_reg_text(s, reg_format[i], "%13s", reg_val[i]);
+		i++;
+	}
+
+	ImGui::Text("%13s", "Scanline"); ImGui::NextColumn();
+	ImGui::Text("%d", ppu.scanline); ImGui::NextColumn();
+	ImGui::Text("%13s", "Pixel"); ImGui::NextColumn();
+	ImGui::Text("%d", ppu.cycle); ImGui::NextColumn();
+	ImGui::Text("%13s", "Cycles"); ImGui::NextColumn();
+	ImGui::Text("%d", ppu.totalcycles); ImGui::NextColumn();
+	ImGui::Text("%13s", "V Address"); ImGui::NextColumn();
+	ImGui::Text("%04X", lp.v); ImGui::NextColumn();
+	ImGui::Text("%13s", "T Address"); ImGui::NextColumn();
+	ImGui::Text("%04X", lp.t); ImGui::NextColumn();
+
+	ImGui::Columns(1);
+
 	ImGui::Separator();
 	ImGui::Spacing();
 	ImGui::Spacing();
@@ -369,25 +356,19 @@ void debug_show_memory()
 		{
 			if (ImGui::BeginTabItem("RAM"))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-				mem_edit.DrawContents(ram.data(), ram.size());
-				ImGui::PopStyleColor(1);
+				debug_render_memory(mem_edit, ram);
 				ImGui::EndTabItem();
 			}
 
 			if ((ImGui::BeginTabItem("VRAM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-				mem_edit.DrawContents(vram.data(), vram.size());
-				ImGui::PopStyleColor(1);
+				debug_render_memory(mem_edit, vram);
 				ImGui::EndTabItem();
 			}
 
 			if ((ImGui::BeginTabItem("OAM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
-				mem_edit.DrawContents(oam.data(), oam.size());
-				ImGui::PopStyleColor(1);
+				debug_render_memory(mem_edit, oam);
 				ImGui::EndTabItem();
 			}
 
@@ -415,4 +396,17 @@ void debug_bp_buttons(string l, u8 bp, u8* type, float width)
 		*type ^= bp;
 	}
 	ImGui::PopStyleColor();
+}
+
+void debug_render_memory(MemoryEditor mem_edit, vector<u8> mem)
+{
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+	mem_edit.DrawContents(mem.data(), mem.size());
+	ImGui::PopStyleColor(1);
+}
+
+void debug_create_reg_text(string regname, string format, string format2, u16 regval)
+{
+	ImGui::Text(format2.c_str(), regname); ImGui::NextColumn();
+	ImGui::Text(format.c_str(), regval); ImGui::NextColumn();
 }
