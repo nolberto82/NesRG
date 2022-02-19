@@ -2,31 +2,6 @@
 
 #include "types.h"
 
-struct RAddr
-{
-	u8 cx;
-	u8 cy;
-	u8 nt;
-	u8 fy;
-};
-
-struct PpuRegisters
-{
-	u16 v;
-	u16 t;
-	u8 x;
-	u8 w;
-};
-
-struct SpriteData
-{
-	u8 x;
-	u8 tile;
-	u8 attrib;
-	u8 y;
-	u8 spritenum;
-};
-
 void ppu_step(int num);
 void ppu_ctrl(u8 v);
 void ppu_mask(u8 v);
@@ -41,12 +16,11 @@ void ppu_reset();
 void clear_pixels();
 void render_pixels();
 void process_nametables(u16 addrnt, int i, u32* pixels);
-void set_vblank();
-void clear_vblank();
-void set_sprite_zero();
-void clear_sprite_zero();
+void process_sprites();
 void x_inc();
 void y_inc();
+void ppu_eval_sprites();
+bool ppu_rendering();
 
 struct Ppu
 {
@@ -57,7 +31,6 @@ struct Ppu
 	u8 scroll_y;
 	u8 p2000;
 	u8 p2001;
-	u8 p2002;
 	u8 p2003;
 	u8 p2004;
 	u8 p2005;
@@ -69,28 +42,27 @@ struct Ppu
 	u8 tile_hi;
 	u8 bits_lo[8];
 	u8 bits_hi[8];
-
+	u8 sprite_count = 0;
 	u16 scroll = 0;
 
 	u16 nametableaddr;
 
-	u32 frame = 0;
-	u32 tempcolor[8];
-
 	int scanline;
 	int cycle;
+	int oddeven;
+
+	u32 frame;
+	u32 tempcolor[8];
 	u32 totalcycles;
 
-	bool spritesize;
 	bool nmi_flag;
 	bool frame_ready;
-	bool background_on;
-	bool sprite_on;
 	bool tabkey;
 	bool oldtabkey;
 
 	u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
 	u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+	u32 sprite_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
 	u32 palettes[192 / 3] = {};
 
 	u8 palbuffer[192] =

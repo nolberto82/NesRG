@@ -12,7 +12,78 @@ int cpu_step()
 	cpu.branchtaken = 0;
 
 	int mode = disasm[op].mode;
-	u16 addr = (*func[mode].modefuncs)(reg.pc + 1, false);
+	//u16 addr = (*func[mode].modefuncs)(reg.pc + 1, false);
+	u16 addr = 0;
+	u16 pc = reg.pc;
+	switch (mode)
+	{
+		case impl:
+		case accu:
+			break;
+		case imme:
+			addr = pc + 1; break;
+		case zerp:
+			addr = rbd(pc + 1); break;
+		case zerx:
+			addr = (rbd(pc + 1) + reg.x) & 0xff; break;
+		case zery:
+			addr = rbd(pc + 1) + reg.y & 0xff; break;
+		case abso:
+			addr = rw(pc + 1); break;
+		case absx:
+		{
+			u16 oldaddr = rw(pc + 1);
+			u16 newaddr = oldaddr + reg.x;
+			if (disasm[op].extracycle)
+				cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
+			addr = newaddr & 0xffff;
+			break;
+		}
+		case absy:
+		{
+			u16 oldaddr = rw(pc + 1);
+			u16 newaddr = oldaddr + reg.y;
+			cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
+			addr = newaddr & 0xffff;
+			break;
+		}
+		case indx:
+		{
+			u8 b1 = rbd(pc + 1);
+			u8 lo = rbd(b1 + reg.x & 0xff);
+			u8 hi = rbd(b1 + 1 + reg.x & 0xff);
+			addr = (hi << 8) | lo;
+			break;
+		}
+		case indy:
+		{
+			u8 b1 = rbd(pc + 1);
+			u8 lo = rbd((b1 & 0xff));
+			u8 hi = rbd(b1 + 1 & 0xff);
+			u16 oldaddr = (hi << 8 | lo);
+			addr = oldaddr + reg.y;
+			cpu.pagecrossed = (addr & 0xff00) != (oldaddr & 0xff00) ? true : false;
+			break;
+		}
+		case indi:
+		{
+			addr = rw(pc + 1);
+			if ((addr & 0xff) == 0xff)
+				++addr;
+			else
+				addr = rw(addr);
+			break;
+		}
+		case rela:
+		{
+			u8 b1 = rbd(pc + 1);
+			addr = pc + (s8)(b1)+2;
+			if (disasm[op].extracycle)
+				cpu.pagecrossed = (addr & 0xff00) != (pc & 0xff00) ? true : false;
+			break;
+		}
+		case erro: cpu.state = cstate::crashed; break;
+	}
 
 	if (cpu.state == cstate::crashed)
 		return 0;
@@ -57,7 +128,6 @@ int cpu_step()
 				b = (b << 1) & 0xfe;
 				wb(addr, b);
 			}
-
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -82,7 +152,6 @@ int cpu_step()
 		{
 			u8 v = rb(addr);
 			u8 b = reg.a & v;
-
 			set_flag(b == 0, FZ);
 			set_flag(v & 0x80, FN);
 			set_flag(v & 0x40, FV);
@@ -110,7 +179,7 @@ int cpu_step()
 			pb = rb(reg.pc);
 			op_push(reg.sp--, (reg.pc + 2) >> 8);
 			op_push(reg.sp--, (reg.pc + 2) & 0xff);
-			op_push(reg.sp--, reg.ps | FB | FU );
+			op_push(reg.sp--, reg.ps | FB | FU);
 			reg.pc = rw(INT_BRK);
 			reg.ps |= FI;
 			break;
@@ -153,7 +222,6 @@ int cpu_step()
 		{
 			u8 v = rb(addr);
 			s8 t = reg.a - v;
-
 			set_flag(reg.a >= v, FC);
 			set_flag(reg.a == v, FZ);
 			set_flag(t & 0x80, FN);
@@ -164,7 +232,6 @@ int cpu_step()
 		{
 			u8 v = rb(addr);
 			s8 t = reg.x - v;
-
 			set_flag(reg.x >= v, FC);
 			set_flag(reg.x == v, FZ);
 			set_flag(t & 0x80, FN);
@@ -175,7 +242,6 @@ int cpu_step()
 		{
 			u8 v = rb(addr);
 			s8 t = reg.y - v;
-
 			set_flag(reg.y >= v, FC);
 			set_flag(reg.y == v, FZ);
 			set_flag(t & 0x80, FN);
@@ -186,7 +252,6 @@ int cpu_step()
 		{
 			u8 b = rb(addr) - 1;
 			wb(addr, b);
-
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -195,7 +260,6 @@ int cpu_step()
 		case opcid::DEX:
 		{
 			reg.x--;
-
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -204,7 +268,6 @@ int cpu_step()
 		case opcid::DEY:
 		{
 			reg.y--;
-
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -213,7 +276,6 @@ int cpu_step()
 		case opcid::EOR:
 		{
 			reg.a ^= rb(addr);
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -223,7 +285,6 @@ int cpu_step()
 		{
 			u8 b = rb(addr) + 1;
 			wb(addr, b);
-
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -232,7 +293,6 @@ int cpu_step()
 		case opcid::INX:
 		{
 			reg.x++;
-
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -241,7 +301,6 @@ int cpu_step()
 		case opcid::INY:
 		{
 			reg.y++;
-
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -263,7 +322,6 @@ int cpu_step()
 		case opcid::LDA:
 		{
 			reg.a = rb(addr);
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -272,7 +330,6 @@ int cpu_step()
 		case opcid::LDX:
 		{
 			reg.x = rb(addr);
-
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -281,7 +338,6 @@ int cpu_step()
 		case opcid::LDY:
 		{
 			reg.y = rb(addr);
-
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -302,7 +358,6 @@ int cpu_step()
 				b = (b >> 1) & 0x7f;
 				wb(addr, b);
 			}
-
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -316,7 +371,6 @@ int cpu_step()
 		case opcid::ORA:
 		{
 			reg.a |= rb(addr);
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -337,7 +391,6 @@ int cpu_step()
 		case opcid::PLA:
 		{
 			reg.a = op_pop();
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -345,7 +398,7 @@ int cpu_step()
 		}
 		case opcid::PLP:
 		{
-			reg.ps = op_pop();
+			reg.ps = op_pop() & ~0x30;
 			reg.pc += disasm[op].size;
 			break;
 		}
@@ -372,7 +425,6 @@ int cpu_step()
 
 				wb(addr, b);
 			}
-
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			set_flag(bit7, FC);
@@ -402,7 +454,6 @@ int cpu_step()
 
 				wb(addr, b);
 			}
-
 			set_flag(b == 0, FZ);
 			set_flag(b & FN, FN);
 			set_flag(bit0, FC);
@@ -411,7 +462,7 @@ int cpu_step()
 		}
 		case opcid::RTI:
 		{
-			reg.ps = op_pop();
+			reg.ps = op_pop() & ~0x30;
 			reg.pc = op_pop();
 			reg.pc |= op_pop() << 8;
 			reg.pc;
@@ -428,12 +479,10 @@ int cpu_step()
 		{
 			u8 b = rb(addr);
 			u16 t = reg.a + ~b + (reg.ps & FC ? 1 : 0);
-
 			set_flag((t & 0xff) == 0, FZ);
 			set_flag(t & 0x80, FN);
 			set_flag((reg.a ^ b) & (reg.a ^ t) & 0x80, FV);
 			set_flag((t & 0xff00) == 0, FC);
-
 			reg.a = (u8)t;
 			reg.pc += disasm[op].size;
 			break;
@@ -480,7 +529,6 @@ int cpu_step()
 		case opcid::TAX:
 		{
 			reg.x = reg.a;
-
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -489,7 +537,6 @@ int cpu_step()
 		case opcid::TAY:
 		{
 			reg.y = reg.a;
-
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -498,7 +545,6 @@ int cpu_step()
 		case opcid::TSX:
 		{
 			reg.x = reg.sp;
-
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -507,7 +553,6 @@ int cpu_step()
 		case opcid::TXA:
 		{
 			reg.a = reg.x;
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -522,7 +567,6 @@ int cpu_step()
 		case opcid::TYA:
 		{
 			reg.a = reg.y;
-
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			reg.pc += disasm[op].size;
@@ -541,6 +585,7 @@ int cpu_step()
 		return 7 * 3;
 	}
 
+	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
 	return ((disasm[op].cycles + cpu.branchtaken) * 3) + cpu.pagecrossed;
 }
 
@@ -570,15 +615,14 @@ void cpu_init()
 void cpu_reset()
 {
 	reg.pc = rw(INT_RESET);
-	//reg.pc = 0xc000;
+	//if (header.name == "nestest.nes")
+	//	reg.pc = 0xc000;
 	reg.sp = 0xfd;
 	reg.ps = 0x04;
 	reg.x = 0x00;
 	reg.a = 0x00;
 	reg.y = 0x00;
-
-	memset(ram.data(), 0xff, 0x800);
-
+	memset(ram.data(), 0x00, 0x800);
 	cpu.state = cstate::debugging;
 }
 
@@ -630,17 +674,17 @@ u16 get_imme(u16 pc, bool trace)
 
 u16 get_zerp(u16 pc, bool trace)
 {
-	return (u8)rb(pc);
+	return (u8)rbd(pc);
 }
 
 u16 get_zerx(u16 pc, bool trace)
 {
-	return (u8)(rb(pc) + reg.x);
+	return (u8)(rbd(pc) + reg.x);
 }
 
 u16 get_zery(u16 pc, bool trace)
 {
-	return (u8)(rb(pc) + reg.y);
+	return (u8)(rbd(pc) + reg.y);
 }
 
 u16 get_abso(u16 pc, bool trace)
@@ -652,10 +696,8 @@ u16 get_absx(u16 pc, bool trace)
 {
 	u16 oldaddr = rw(pc);
 	u32 newaddr = oldaddr + reg.x;
-
 	if (disasm[op].extracycle)
 		cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-
 	return newaddr & 0xffff;
 }
 
@@ -663,18 +705,15 @@ u16 get_absy(u16 pc, bool trace)
 {
 	u16 oldaddr = rw(pc);
 	u32 newaddr = oldaddr + reg.y;
-
 	cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-
 	return newaddr & 0xffff;
 }
 
 u16 get_indx(u16 pc, bool trace)
 {
-	u8 b1 = rb(pc);
-	u8 lo = rb(b1 + reg.x & 0xff);
-	u8 hi = rb(b1 + 1 + reg.x & 0xff);
-
+	u8 b1 = rbd(pc);
+	u8 lo = rbd(b1 + reg.x & 0xff);
+	u8 hi = rbd(b1 + 1 + reg.x & 0xff);
 	if (trace)
 		return b1;
 	else
@@ -683,14 +722,12 @@ u16 get_indx(u16 pc, bool trace)
 
 u16 get_indy(u16 pc, bool trace)
 {
-	u8 b1 = rb(pc);
-	u8 lo = rb((b1 & 0xff));
-	u8 hi = rb(b1 + 1 & 0xff);
+	u8 b1 = rbd(pc);
+	u8 lo = rbd((b1 & 0xff));
+	u8 hi = rbd(b1 + 1 & 0xff);
 	u16 oldaddr = (hi << 8 | lo);
 	u32 newaddr = oldaddr + reg.y;
-
 	cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-
 	if (trace)
 		return b1;
 	else
@@ -700,20 +737,15 @@ u16 get_indy(u16 pc, bool trace)
 u16 get_indi(u16 pc, bool trace)
 {
 	u16 addr = rw(pc);
-
 	if ((addr & 0xff) == 0xff)
-	{
 		return ++addr;
-	}
 	else
-	{
 		return rw(addr);
-	}
 }
 
 u16 get_rela(u16 pc, bool trace)
 {
-	u8 b1 = rb(pc);
+	u8 b1 = rbd(pc);
 	u16 newaddr = pc + (s8)(b1)+1;
 	if (disasm[op].extracycle)
 		cpu.pagecrossed = (newaddr & 0xff00) != (pc & 0xff00) ? true : false;

@@ -2,8 +2,8 @@
     "version": 2,
     "configurePresets": [
         {
-            "name": "cmakebuild",
-            "displayName": "Configure preset using toolchain file",
+            "name": "windows",
+            "displayName": "Windows",
             "description": "Sets Ninja generator, build and install directory",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",

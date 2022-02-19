@@ -19,30 +19,6 @@
 const int CYCLES_PER_FRAME = 262 * 341;
 const int CYCLES_PER_LINE = 341;
 
-enum cstate
-{
-	running,
-	debugging,
-	scanlines,
-	cycles,
-	crashed
-};
-
-struct Registers
-{
-	u8 a, x, y, ps, sp;
-	u16 pc;
-};
-
-struct Cpu
-{
-	bool pagecrossed = false;
-	u8 branchtaken = 0;
-	int state;
-
-
-};
-
 void op_nmi();
 u8 op_pop();
 void op_push(u16 addr, u8 v);
@@ -66,8 +42,6 @@ u16 get_rela(u16 pc, bool trace = false);
 u16 get_impl(u16 pc, bool trace = false);
 u16 get_accu(u16 pc, bool trace = false);
 u16 get_erro(u16 pc, bool trace = false);
-
-
 
 struct amodefuncs
 {

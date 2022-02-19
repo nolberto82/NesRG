@@ -16,6 +16,8 @@ bool load_rom(const char* filename)
 		return rom_loaded = false;
 
 	load_file(filename, rom, 0);
+	fs::path p(filename);
+	header.name = p.filename().string();
 
 	return rom_loaded = set_mapper();
 }
@@ -45,7 +47,7 @@ bool set_mapper()
 	header.battery = (rom[6] >> 1) & 1;
 	header.trainer = (rom[6] >> 2) & 1;
 
-	reset();
+	ppu_reset();
 
 	switch (mappernum)
 	{
@@ -74,6 +76,9 @@ bool set_mapper()
 			printf("Mapper not supported");
 			return false;
 	}
+
+	cpu_reset();
+
 	return true;
 }
 
@@ -121,6 +126,8 @@ u8 rb(u16 addr)
 	else if (addr == 0x4016)
 		return controls_read();
 
+	//ppu_step(3);
+
 	return ram[addr];
 }
 
@@ -131,7 +138,7 @@ u8 rbd(u16 addr)
 
 u16 rw(u16 addr)
 {
-	return rb(addr + 0) | rb(addr + 1) << 8;
+	return rbd(addr + 0) | rbd(addr + 1) << 8;
 }
 
 void wb(u16 addr, u8 val)
@@ -163,7 +170,9 @@ void wb(u16 addr, u8 val)
 		ppu.cycle += 513;
 	}
 	else if (addr == 0x4016)
-		return controls_write(val);
+		controls_write(val);
+
+	//ppu_step(3);
 }
 
 void ww(u16 addr, u16 val)

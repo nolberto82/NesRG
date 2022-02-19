@@ -3,19 +3,27 @@
 #include "renderer.h"
 
 SpriteData sprites[8];
+PpuCtrl pctrl;
+PpuMask pmask;
+PpuStatus pstatus;
 
 void ppu_step(int num)
 {
 	while (num-- > 0)
 	{
-		if ((ppu.scanline >= 0 && ppu.scanline < 240) && (ppu.background_on || ppu.sprite_on))
+		if (ppu.scanline == 0 && (ppu.frame % 2) > 0)
+			ppu.oddeven = 1;
+		else
+			ppu.oddeven = 0;
+
+		if ((ppu.scanline >= 0 && ppu.scanline <= 239) && ppu_rendering())
 		{
 			render_pixels();
 
 			u8 fx = (lp.x + (ppu.cycle)) & 7;
 
 			//increment x scroll
-			if ((ppu.cycle > 0 && ppu.cycle < 256) && (fx == 0))// || (cycle == 328 || cycle == 336))
+			if ((ppu.cycle > 0 && ppu.cycle < 256) && (fx == 0))
 				x_inc();
 
 			//increment y scroll
@@ -25,85 +33,62 @@ void ppu_step(int num)
 			//copy horizontal bits
 			if (ppu.cycle == 257)
 				lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
+
+			ppu_eval_sprites();
 		}
 		else if (ppu.scanline == 240)
 		{
-			if ((ppu.background_on || ppu.sprite_on) && ppu.cycle == 1)
-				render_frame(ppu.screen_pixels);
+			if (ppu.cycle == 1)
+				ppu.frame++;
+
+			if (ppu_rendering() && ppu.cycle == 1)
+			{
+				render_frame(ppu.screen_pixels, cpu.state);
+			}
 		}
 		else if (ppu.scanline == 241 && ppu.cycle == 1)
 		{
-			set_vblank();
-
-			if (ppu.p2000 & 0x80)
-				ppu.nmi_flag = true;
-		}
-
-		if (ppu.scanline == 260)
-		{
-			if ((ppu.background_on || ppu.sprite_on) && ppu.cycle == 1)
+			ppu.frame_ready = true;
+			if (ppu.cycle == 1)
 			{
-				clear_vblank();
-				clear_sprite_zero();
+				pstatus.vblank = 1;
+				ram[0x2002] |= 0x80;
+				if (ppu.p2000 & 0x80)
+					ppu.nmi_flag = true;
 			}
 		}
 
-		if ((ppu.scanline == 261) && (ppu.background_on || ppu.sprite_on))
+		if (ppu.scanline == -1)
 		{
-			//copy horizontal bits
-			if (ppu.cycle == 257)
-				lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
+			if (ppu_rendering())
+			{
+				//copy horizontal bits
+				if (ppu.cycle == 257)
+					lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 
-			if ((ppu.cycle >= 280 && ppu.cycle <= 304))
-				lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
+				if ((ppu.cycle >= 280 && ppu.cycle <= 304))
+					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
+			}
 
 			if (ppu.cycle == 1)
 			{
 				ppu.frame_ready = false;
-				memset(ppu.screen_pixels, 0x00, sizeof(ppu.screen_pixels));
+				pstatus.vblank = 0; pstatus.sprite0hit = 0;
+				ram[0x2002] &= 0x1f;
 			}
-
-			//sprite clear
-
 		}
 
 		ppu.cycle++;
-		int oddeven = ppu.frame % 2 == 0 && ppu.background_on ? 340 : 341;
-		if (ppu.cycle > oddeven)
+		if (ppu.cycle >= CYCLES_PER_LINE - ppu.oddeven)
 		{
-			ppu.cycle -= oddeven;
-
-			memset(sprites, 0xff, sizeof(sprites));
-			//memset(oamalt.data(), 0xff, oamalt.size());
-
-		//sprite evaluation
-			int count = 0;
-			for (int i = 252; i >= 0; i -= 4)
-			{
-				if (count == 8)
-					break;
-
-				int yp = ppu.scanline - oam[i + 0];
-				u8 size = ppu.spritesize ? 16 : 8;
-
-				if (yp >= 0 && yp < size && oam[i + 3] != 255)
-				{
-					sprites[count].y = oam[i + 0];
-					sprites[count].tile = oam[i + 1];
-					sprites[count].attrib = oam[i + 2];
-					sprites[count].x = oam[i + 3];
-					sprites[count].spritenum = i / 4;
-					count++;
-				}
-			}
+			ppu.cycle -= CYCLES_PER_LINE - ppu.oddeven;
 
 			ppu.scanline++;
-			if (ppu.scanline > 261)
+			if (ppu.scanline == 261)
 			{
 				ppu.nmi_flag = false;
-				ppu.frame_ready = true;
-				ppu.scanline = 0;
-				ppu.frame++;
+				ppu.scanline = -1;
+				ppu.sprite_count = 0;
 			}
 		}
 	}
@@ -112,29 +97,28 @@ void ppu_step(int num)
 void ppu_ctrl(u8 v) //2000
 {
 	lp.t = (lp.t & ~0xc00) | (v & 3) << 10;
-	//nametableaddr = 0x2000 | (v & 3) << 10;
-
 	if (v & 0x10)
 	{
-		ppu.p2002 |= v;
-		ram[0x2002] = ppu.p2002;
+		pstatus.vblank = 1;
+		ram[0x2002] |= 0x80;
 	}
-
 	ppu.p2000 = v;
 }
 
 void ppu_mask(u8 v)
 {
 	ppu.p2001 = v;
-
-	ppu.background_on = (ppu.p2001 & 0x08) > 0;
-	ppu.sprite_on = (ppu.p2001 & 0x10) > 0;
+	pmask.backgroundleft = (v >> 1) & 1;
+	pmask.spriteleft = (v >> 2) & 1;
+	pmask.background = (v >> 3) & 1;
+	pmask.sprite = (v >> 4) & 1;
 }
 
 u8 ppu_status()
 {
-	u8 v = ppu.p2002 & 0xe0;
-	clear_vblank();
+	u8 v = pstatus.vblank << 7 | pstatus.sprite0hit << 6;
+	pstatus.vblank = 0;
+	ram[0x2002] &= 0x7f;
 	lp.w = 0;
 	return v;
 }
@@ -153,7 +137,7 @@ void ppu_scroll(u8 v)
 {
 	if (!lp.w)
 	{
-		lp.t &= 0xffe0;
+		lp.t &= 0x7fe0;
 		lp.t |= ((v & 0xf8) >> 3);
 		lp.x = (u8)(v & 0x07);
 		ppu.scroll = v;
@@ -163,7 +147,6 @@ void ppu_scroll(u8 v)
 		lp.t = (lp.t & 0xfc1f) | (v & 0xf8) << 2 | (v & 7) << 12;
 		ppu.scroll |= v << 8;
 	}
-
 	lp.w = !lp.w;
 }
 
@@ -177,14 +160,12 @@ void ppu_addr(u8 v)
 		lp.t = lp.t & 0xff00 | v;
 		lp.v = lp.t;
 	}
-
 	lp.w = !lp.w;
 }
 
 void ppu_data_wb(u8 v)
 {
 	ppuwb(lp.v, v);
-
 	if (ppu.p2000 & 0x04)
 		lp.v += 32;
 	else
@@ -207,33 +188,32 @@ u8 ppu_data_rb()
 		lp.v += 32;
 	else
 		lp.v++;
-
 	return v;
 }
 
 void ppu_reset()
 {
-	ppu.scanline = 0;
-	ppu.cycle = 7;
+	ppu.scanline = ppu.tile_shift = ppu.p2000 = ppu.oddeven = 0;
+	lp.v = lp.t = pmask.background = ppu.dummy2007 = 0;
+	ppu.cycle = 27;
 	ppu.totalcycles = 8;
-	ppu.tile_shift = 0;
+	ppu.frame = 1;
 	ppu.frame_ready = true;
-	ppu.p2000 = 0;
-	lp.v = 0;
-	lp.t = 0;
-	ppu.background_on = false;
-	ppu.dummy2007 = 0;
 
 	for (int i = 0; i < sizeof(ppu.palbuffer); i += 3)
 		ppu.palettes[i / 3] = ppu.palbuffer[i] | ppu.palbuffer[i + 1] << 8 | ppu.palbuffer[i + 2] << 16 | 0xff000000;
 
+	memset(vram.data(), 0x00, vram.size());
+	memset(&pctrl, 0x00, sizeof(pctrl));
+	memset(&pmask, 0x00, sizeof(pmask));
+	memset(&pstatus, 0x00, sizeof(pstatus));
 	clear_pixels();
 }
 
 void clear_pixels()
 {
 	memset(ppu.screen_pixels, 0x00, sizeof(ppu.screen_pixels));
-	render_frame(ppu.screen_pixels);
+	render_frame(ppu.screen_pixels, cpu.state);
 }
 
 void render_pixels()
@@ -243,9 +223,9 @@ void render_pixels()
 	int x = ppu.cycle - 1;
 	u8 bgindex = 0;
 
-	if ((ppu.cycle > 0 && ppu.cycle < 258))
+	if (ppu.cycle > 0 && ppu.cycle <= 256)
 	{
-		if (ppu.background_on)
+		if (pmask.background && (x > 7 || pmask.backgroundleft))
 		{
 			u16 ppuaddr = 0x2000 | (lp.v & 0xfff);
 			u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
@@ -272,7 +252,7 @@ void render_pixels()
 		u8 bgpixel = 0;
 		u8 sppixel = 0;
 
-		if (ppu.sprite_on)
+		if (pmask.sprite && (x > 7 || !pmask.spriteleft))
 		{
 			u16 bgaddr = ppu.p2000 & 0x08 ? 0x1000 : 0x0000;
 			u16 oamaddr = 0x0100 * ppu.oamdma;
@@ -282,25 +262,19 @@ void render_pixels()
 				u16 sy = sprite.y + 1;
 				u8 tileid = sprite.tile;
 				u8 attrib = sprite.attrib;
-				u16 sx = sprite.x + 8;
+				u16 sx = sprite.x;
 
 				if (sy >= 240)
 					continue;
 
-				if ((sx - x) < 1 || (sx - x) > 8)
+				if ((x - sx) < 0 || (x - sx) > 7)
 					continue;
 
-				if (x == 0x80 && tileid == 0x10)
-				{
-					int yu = 0;
-				}
-
 				u8 size = 8;
-				if (ppu.spritesize)
+				if (pctrl.spritesize)
 				{
 					size = 16;
-					if ((tileid & 1))
-						bgaddr = (tileid & 1) * 0x1000;
+					bgaddr = ((tileid & 1) * 0x1000);// + (tileid & 0xfe);
 				}
 
 				bool flipH = attrib & 0x40;
@@ -328,10 +302,14 @@ void render_pixels()
 					{
 						int color = ppu.palettes[vram[0x3f10 | colorindex]];
 						ppu.screen_pixels[y * 256 + x] = color;
+						//ppu.screen_pixels[127 * 256 + x] = 0xffff00ff;
 					}
 
-					if (sprite.spritenum == 0 && x < 255)
-						set_sprite_zero();
+					if (sprite.spritenum == 0 && x < 255 && !pstatus.sprite0hit)
+					{
+						pstatus.sprite0hit = 1;
+						ram[0x2002] |= 0x40;
+					}
 				}
 			}
 		}
@@ -383,30 +361,69 @@ void process_nametables(u16 addrnt, int i, u32* pixels)
 	}
 }
 
-void set_vblank()
+void process_sprites()
 {
-	ppu.p2002 |= 0x80;
-	ram[0x2002] = ppu.p2002;
-}
+	u16 bgaddr = ppu.p2000 & 0x08 ? 0x1000 : 0x0000;
+	u16 oamaddr = 0x0100 * ppu.oamdma;
 
-void clear_vblank()
-{
-	ppu.p2002 &= 0x7f;
-	ram[0x2002] = ppu.p2002;
-}
+	memset(ppu.sprite_pixels, 0x00, sizeof(ppu.sprite_pixels));
 
-void set_sprite_zero()
-{
-	ppu.p2002 |= 0x40;
-	ram[0x2002] = ppu.p2002;
-	//sprite0 = true;
-}
+	for (int j = 0; j >= 0; j--)
+	{
+		u8 i = j % 64;
 
-void clear_sprite_zero()
-{
-	ppu.p2002 &= 0xbf;
-	wb(0x2002, ppu.p2002);
-	//sprite0 = true;
+		u8 sy = oam[i + 0];
+		u8 tileid = oam[i + 1];
+		u8 attrib = oam[i + 2];
+		u8 sx = oam[i + 3];
+
+		if (sy > 239)
+			continue;
+
+		u8 size = 8;
+		if (pctrl.spritesize)
+		{
+			size = 16;
+			if ((tileid & 1))
+				bgaddr = ((tileid & 1) * 0x1000) + (tileid & 0xfe);
+		}
+
+		bool flipH = attrib & 0x40;
+		bool flipV = attrib & 0x80;
+
+		for (int yy = 0; yy < 8; yy++)
+		{
+			u8 fy = (yy - sy) & 7;
+			u8 b1 = ppurb(bgaddr + tileid * 16 + fy + 0);
+			u8 b2 = ppurb(bgaddr + tileid * 16 + fy + 8);
+			for (int xx = 0; xx < 8; xx++)
+			{
+				u8 fx = (xx - sx) & 7;
+
+				if (!flipH)
+					fx = 7 - fx;
+				if (flipV)
+					fy = 7 - fy;
+
+				int bit0 = (b1 >> fx) & 1;
+				int bit1 = (b2 >> fx) & 1;
+				u8 palindex = bit0 | bit1 * 2;
+				u8 colorindex = palindex + (attrib & 3) * 4;
+
+				int xp = sx + xx;
+				int yp = sy + yy;
+
+				if (palindex != 0)
+				{
+					if ((attrib & 0x20) == 0)
+					{
+						int color = ppu.palettes[vram[0x3f10 | colorindex]];
+						ppu.sprite_pixels[yp * 256 + xp] = color;
+					}
+				}
+			}
+		}
+	}
 }
 
 void x_inc()
@@ -442,4 +459,37 @@ void y_inc()
 
 		lp.v = (lp.v & ~0x3e0) | (y << 5);
 	}
+}
+
+void ppu_eval_sprites()
+{
+	if (ppu.cycle == 1)
+	{
+		memset(sprites, 0xff, sizeof(sprites));
+		int count = 0;
+
+		for (int i = 252; i >= 0; i -= 4)
+		{
+			if (count > 7)
+				break;
+
+			int yp = ppu.scanline - oam[i + 0];
+			u8 size = pctrl.spritesize ? 16 : 8;
+
+			if (yp > 0 && yp < size + 1)
+			{
+				sprites[count].y = oam[i + 0];
+				sprites[count].tile = oam[i + 1];
+				sprites[count].attrib = oam[i + 2];
+				sprites[count].x = oam[i + 3];
+				sprites[count].spritenum = i / 4;
+				count++;
+			}
+		}
+	}
+}
+
+bool ppu_rendering()
+{
+	return pmask.background || pmask.sprite;
 }

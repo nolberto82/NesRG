@@ -2,6 +2,17 @@
 
 void bp_add(u16 addr, u8 type, bool enabled)
 {
+	auto it = remove_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
+		{
+			return (obj.addr == addr);
+		});
+
+	if (it != breakpoints.end())
+	{
+		breakpoints.erase(it, breakpoints.end());
+		return;
+	}
+
 	bplist bp = { addr, enabled, type };
 	breakpoints.push_back(bp);
 }
@@ -19,7 +30,7 @@ bool bp_check(u16 addr, u8 type)
 	{
 		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
 			{
-				return (obj.addr == addr);
+				return (obj.addr == addr && obj.enabled);
 			});
 		return it != breakpoints.end();
 	}
@@ -27,7 +38,7 @@ bool bp_check(u16 addr, u8 type)
 	{
 		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
 			{
-				return (obj.addr == addr);
+				return (obj.addr == addr && obj.enabled);
 			});
 		return it != breakpoints.end();
 	}
@@ -35,7 +46,7 @@ bool bp_check(u16 addr, u8 type)
 	{
 		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
 			{
-				return (obj.addr == addr);
+				return (obj.addr == addr && obj.enabled);
 			});
 		return it != breakpoints.end();
 	}

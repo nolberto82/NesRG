@@ -23,6 +23,7 @@ struct Header
 	u8 mirror;
 	u8 battery;
 	u8 trainer;
+	string name;
 };
 
 extern Header header;

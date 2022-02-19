@@ -30,10 +30,10 @@ ${SRC_DIR}/src/controls.cpp
 
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
+	${SRC_DIR}/windows//main.cpp
 	${SRC_DIR}/windows/gui.cpp
 	${SRC_DIR}/windows/breakpoints.cpp
 	${SRC_DIR}/windows/tracer.cpp
-	${SRC_DIR}/windows/debugwindow.cpp
 	${SRC_DIR}/imgui/imgui.cpp
 	${SRC_DIR}/imgui/imgui_demo.cpp
 	${SRC_DIR}/imgui/imgui_draw.cpp
@@ -41,7 +41,6 @@ if(WIN32)
 	${SRC_DIR}/imgui/imgui_widgets.cpp
 	${SRC_DIR}/imgui/imgui_impl_sdl.cpp
 	${SRC_DIR}/imgui/imgui_impl_sdlrenderer.cpp
-	${SRC_DIR}/main.cpp
 	)
 
 	include_directories(${SRC_DIR}/windows/include)	
@@ -65,8 +64,10 @@ if(UNIX)
     target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main)
 endif()
 
+if(NOT ${APP_DIR}/${ASSETS_DIR})
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
 	            ${TOP_DIR}/${ASSETS_DIR}
                 ${APP_DIR}/${ASSETS_DIR})
+endif()
