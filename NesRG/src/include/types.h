@@ -121,4 +121,6 @@ struct PpuStatus
 	u8 vblank;
 };
 
+extern PpuCtrl pctrl;
+extern PpuMask pmask;
 extern PpuStatus pstatus;

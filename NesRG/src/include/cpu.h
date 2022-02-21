@@ -28,26 +28,5 @@ int cpu_step();
 void cpu_init();
 void cpu_reset();
 
-u16 get_imme(u16 pc, bool trace = false);
-u16 get_zerp(u16 pc, bool trace = false);
-u16 get_zerx(u16 pc, bool trace = false);
-u16 get_zery(u16 pc, bool trace = false);
-u16 get_abso(u16 pc, bool trace = false);
-u16 get_absx(u16 pc, bool trace = false);
-u16 get_absy(u16 pc, bool trace = false);
-u16 get_indx(u16 pc, bool trace = false);
-u16 get_indy(u16 pc, bool trace = false);
-u16 get_indi(u16 pc, bool trace = false);
-u16 get_rela(u16 pc, bool trace = false);
-u16 get_impl(u16 pc, bool trace = false);
-u16 get_accu(u16 pc, bool trace = false);
-u16 get_erro(u16 pc, bool trace = false);
-
-struct amodefuncs
-{
-	u16(*modefuncs)(u16 pc, bool trace);
-};
-
 extern Registers reg;
 extern Cpu cpu;
-extern vector<amodefuncs> func;

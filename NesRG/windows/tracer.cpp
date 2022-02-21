@@ -53,7 +53,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::zerp:
 		{
-			u16 a = get_zerp(pc + 1);
+			u16 a = rw(pc + 1);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], name, b[1], rbd(a));
 			break;
 		}
@@ -93,14 +93,14 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::indx:
 		{
-			u16 a = get_indx(pc + 1);
+			u16 a = ((b[1] + reg.x) << 8) | (u8)(b[1] + 1 + reg.x);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, b[1], a, rbd(a));
 			break;
 		}
 		case addrmode::indy:
 		{
-			u16 a = get_indy(pc + 1);
+			u16 a = (b[1] << 8) | (b[1] + 1) + reg.y;
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, b[1], a, rbd(a));
 			break;
@@ -116,7 +116,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::rela:
 		{
-			u16 a = get_rela(pc + 1);
+			u16 a = pc + (s8)(b[1]) + 2;
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, a, rbd(a));
 			jump = true;
@@ -138,10 +138,16 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 	{
 		char temp[TEXTSIZE] = { 0 };
 		char str[TEXTSIZE] = { 0 };
-		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X",
-			reg.a, reg.x, reg.y, reg.ps, reg.sp);
+		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
+			reg.a, reg.x, reg.y, reg.ps, reg.sp, ppu.cycle, ppu.scanline, ppu.totalcycles);
 
-		snprintf(str, TEXTSIZE, "%-45s %s", data, temp);
+		string t(data);
+		t.erase(5, 10);
+		int ind = t.find('=');
+		if (ind > 0)
+			t.erase(ind, 5);
+
+		snprintf(str, TEXTSIZE, "%-48s %s", t.data(), temp);
 		e.line = str;
 	}
 	else if (!get_registers)

@@ -26,11 +26,12 @@ ${SRC_DIR}/src/mem.cpp
 ${SRC_DIR}/src/ppu.cpp
 ${SRC_DIR}/src/renderer.cpp
 ${SRC_DIR}/src/controls.cpp
+${SRC_DIR}/src/mappers.cpp
 )
 
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
-	${SRC_DIR}/windows//main.cpp
+	${SRC_DIR}/windows/main.cpp
 	${SRC_DIR}/windows/gui.cpp
 	${SRC_DIR}/windows/breakpoints.cpp
 	${SRC_DIR}/windows/tracer.cpp

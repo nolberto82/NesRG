@@ -1,6 +1,7 @@
 #include "mem.h"
 #include "ppu.h"
 #include "controls.h"
+#include "mappers.h"
 
 void mem_init()
 {
@@ -141,36 +142,47 @@ u16 rw(u16 addr)
 	return rbd(addr + 0) | rbd(addr + 1) << 8;
 }
 
-void wb(u16 addr, u8 val)
+void wb(u16 addr, u8 v)
 {
 	write_addr = addr;
 
 	if (addr >= 0x0000 && addr <= 0x1fff)
-		ram[addr & 0x7ff] = val;
+		ram[addr & 0x7ff] = v;
 	else if (addr == 0x2000)
-		ppu_ctrl(val);
+		ppu_ctrl(v);
 	else if (addr == 0x2001)
-		ppu_mask(val);
+		ppu_mask(v);
 	else if (addr == 0x2003)
-		ppu_oam_addr(val);
+		ppu_oam_addr(v);
 	else if (addr == 0x2004)
-		ppu_oam_data(val);
+		ppu_oam_data(v);
 	else if (addr == 0x2005)
-		ppu_scroll(val);
+		ppu_scroll(v);
 	else if (addr == 0x2006)
-		ppu_addr(val);
+		ppu_addr(v);
 	else if (addr == 0x2007)
-		ppu_data_wb(val);
+		ppu_data_wb(v);
 	else if (addr == 0x4014)
 	{
-		ppu.oamdma = val;
-		int oamaddr = val << 8;
+		ppu.oamdma = v;
+		int oamaddr = v << 8;
 		for (int i = 0; i < 256; i++)
 			oam[i] = ram[oamaddr + i];
 		ppu.cycle += 513;
 	}
 	else if (addr == 0x4016)
-		controls_write(val);
+		controls_write(v);
+	else if(addr >= 0x8000)
+	{
+		switch (header.mappernum)
+		{
+			case 1:
+				mapper001(v);
+				break;
+			default:
+				break;
+		}
+	}
 
 	//ppu_step(3);
 }
@@ -202,7 +214,7 @@ u8 ppurb(u16 addr)
 		}
 		else if (addr >= 0x2c00 && addr < 0x3000)
 		{
-			v = vram[addr - 0xc00 & 0x3fff];
+			v = vram[addr & 0x3fff];
 		}
 		else if (addr >= 0x3000 && addr < 0x3400)
 		{

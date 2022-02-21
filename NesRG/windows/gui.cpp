@@ -8,7 +8,7 @@
 
 ImGui::FileBrowser fileDialog;
 
-void gui_update(ImGuiIO io)
+void gui_update()
 {
 	ImGui_ImplSDLRenderer_NewFrame();
 	ImGui_ImplSDL2_NewFrame(gfx.window);
@@ -21,13 +21,13 @@ void gui_update(ImGuiIO io)
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGui::DockSpace(dockspace_id);
 
-	gui_show_disassembly(io);
+	gui_show_disassembly();
 	gui_show_memory();
 	gui_show_display();
-	gui_show_registers(io);
+	gui_show_registers();
 	gui_show_rom_info();
 	gui_show_breakpoints();
-	//gui_show_logger();
+	gui_show_logger();
 	gui_show_buttons();
 	gui_show_menu();
 
@@ -83,43 +83,29 @@ void gui_show_display()
 	ImGui::End();
 }
 
-void gui_show_disassembly(ImGuiIO io)
+void gui_show_disassembly()
 {
 	u16 pc = is_jump ? jumpaddr : reg.pc;
-
 	vector<disasmentry> entries;
-	u16 pco = pc - DISASSEMBLY_LINES / 3;
+	ImGui::Begin("Disassembly", NULL, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
+
+	float mousewheel = ImGui::GetIO().MouseWheel;
+	if (mousewheel != 0 && (pc + lineoffset < 0x10000))
+	{
+		if (ImGui::IsWindowHovered())
+		{
+			if (mousewheel > 0)
+				lineoffset -= 6;
+			else
+				lineoffset += 6;
+		}
+	}
+
+	pc += lineoffset;
 	for (int i = 0; i < DISASSEMBLY_LINES; i++)
 	{
-		entries.push_back(get_trace_line(pco, false, false)[0]);
-		pco += entries[i].size;
-	}
-
-	auto it = find_if(entries.begin(), entries.end(), [&](const disasmentry& obj)
-		{
-			return obj.pc == pc;
-		});
-
-	if (it != entries.end())
-	{
-		int index = distance(entries.begin(), it);
-		for (int i = 0; i < index - 9; i++)
-		{
-			entries.erase(entries.begin());
-		}
-
-	}
-
-	if (it != entries.end())
-	{
-		int yu = 0;
-	}
-
-	ImGui::Begin("Disassembly", NULL, 0);
-
-	for (auto& entry : entries)
-	{
-		pc = entry.pc;
+		disasmentry entry = get_trace_line(pc, false, false)[0];
+;
 		stringstream ss;
 		ss << setw(4) << hex << uppercase << setfill('0') << pc;
 
@@ -146,11 +132,15 @@ void gui_show_disassembly(ImGuiIO io)
 			ImGui::Selectable(entry.line.c_str(), is_pc);
 
 		if (follow_pc)
-			ImGui::SetScrollHereY();
+		{
+			ImGui::SetScrollHereY(0);
+			lineoffset = 0;
+		}
 
 		follow_pc = false;
 
 		ImGui::PopID();
+		pc += entry.size;
 	}
 	ImGui::End();
 }
@@ -162,7 +152,7 @@ void gui_show_memory()
 	{
 		if (ImGui::BeginTabItem("RAM"))
 		{
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
 			mem_edit.DrawContents(ram.data(), ram.size());
 			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
@@ -170,7 +160,7 @@ void gui_show_memory()
 
 		if ((ImGui::BeginTabItem("VRAM")))
 		{
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
 			mem_edit.DrawContents(vram.data(), vram.size());
 			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
@@ -178,7 +168,7 @@ void gui_show_memory()
 
 		if ((ImGui::BeginTabItem("OAM")))
 		{
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 1.0f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
 			mem_edit.DrawContents(oam.data(), oam.size());
 			ImGui::PopStyleColor(1);
 			ImGui::EndTabItem();
@@ -188,11 +178,11 @@ void gui_show_memory()
 	ImGui::End();
 }
 
-void gui_show_registers(ImGuiIO io)
+void gui_show_registers()
 {
 	ImGui::Begin("Registers", NULL, ImGuiWindowFlags_NoScrollbar);
 
-	ImGui::Text(" Frame Per Seconds = %.1f", io.Framerate);
+	ImGui::Text(" Frame Per Seconds = %.1f", ImGui::GetIO().Framerate);
 
 	ImGui::Spacing();
 	ImGui::Separator();
@@ -211,8 +201,8 @@ void gui_show_registers(ImGuiIO io)
 	ImGui::Text("%15s", "Pixel"); ImGui::NextColumn(); ImGui::Text("%d", ppu.cycle); ImGui::NextColumn();
 	ImGui::Text("%15s", "Cycles"); ImGui::NextColumn(); ImGui::Text("%d", ppu.totalcycles); ImGui::NextColumn();
 	ImGui::Text("%15s", "Frames"); ImGui::NextColumn(); ImGui::Text("%d", ppu.frame); ImGui::NextColumn();
-	ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%d", lp.v); ImGui::NextColumn();
-	ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%d", lp.t); ImGui::NextColumn();
+	ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.v); ImGui::NextColumn();
+	ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 	ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();
 
 	ImGui::Columns(1);
@@ -288,6 +278,14 @@ void gui_show_breakpoints()
 
 			if (ImGui::Button("Delete"))
 				breakpoints.erase(breakpoints.begin() + n);
+
+			ImGui::SameLine();
+
+			string bps = bptype & bp_read ? "R" : ".";
+			bps += bptype & bp_write ? "W" : ".";
+			bps += bptype & bp_exec ? "X" : ".";
+
+			ImGui::Text(bps.c_str());
 
 			ImGui::PopID();
 

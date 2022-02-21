@@ -1,7 +1,7 @@
 #include "cpu.h"
 #include "ppu.h"
+#include "mappers.h"
 
-vector<amodefuncs> func;
 u8 op = 0;
 
 int cpu_step()
@@ -12,7 +12,6 @@ int cpu_step()
 	cpu.branchtaken = 0;
 
 	int mode = disasm[op].mode;
-	//u16 addr = (*func[mode].modefuncs)(reg.pc + 1, false);
 	u16 addr = 0;
 	u16 pc = reg.pc;
 	switch (mode)
@@ -579,36 +578,12 @@ int cpu_step()
 		}
 	}
 
-	if (ppu.nmi_flag)
-	{
-		op_nmi();
-		return 7 * 3;
-	}
-
 	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
 	return ((disasm[op].cycles + cpu.branchtaken) * 3) + cpu.pagecrossed;
 }
 
 void cpu_init()
 {
-	func =
-	{
-		{ &get_impl },
-		{ &get_accu },
-		{ &get_imme },
-		{ &get_zerp },
-		{ &get_zerx },
-		{ &get_zery },
-		{ &get_abso },
-		{ &get_absx },
-		{ &get_absy },
-		{ &get_indx },
-		{ &get_indy },
-		{ &get_indi },
-		{ &get_rela },
-		{ &get_erro },
-	};
-
 	cpu.state = cstate::debugging;
 }
 
@@ -622,8 +597,9 @@ void cpu_reset()
 	reg.x = 0x00;
 	reg.a = 0x00;
 	reg.y = 0x00;
-	memset(ram.data(), 0x00, 0x800);
+	memset(ram.data(), 0x00, 0x8000);
 	cpu.state = cstate::debugging;
+	mapper_reset();
 }
 
 void op_nmi()
@@ -632,7 +608,7 @@ void op_nmi()
 	op_push(reg.sp--, reg.pc & 0xff);
 	op_push(reg.sp--, reg.ps);
 	reg.pc = rw(INT_NMI);
-	ppu.nmi_flag = false;
+	//pctrl.nmi = false;
 }
 
 u8 op_pop()
@@ -666,105 +642,3 @@ void set_flag(bool flag, u8 v)
 	else
 		reg.ps &= ~v;
 }
-
-u16 get_imme(u16 pc, bool trace)
-{
-	return pc;
-}
-
-u16 get_zerp(u16 pc, bool trace)
-{
-	return (u8)rbd(pc);
-}
-
-u16 get_zerx(u16 pc, bool trace)
-{
-	return (u8)(rbd(pc) + reg.x);
-}
-
-u16 get_zery(u16 pc, bool trace)
-{
-	return (u8)(rbd(pc) + reg.y);
-}
-
-u16 get_abso(u16 pc, bool trace)
-{
-	return rw(pc);
-}
-
-u16 get_absx(u16 pc, bool trace)
-{
-	u16 oldaddr = rw(pc);
-	u32 newaddr = oldaddr + reg.x;
-	if (disasm[op].extracycle)
-		cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-	return newaddr & 0xffff;
-}
-
-u16 get_absy(u16 pc, bool trace)
-{
-	u16 oldaddr = rw(pc);
-	u32 newaddr = oldaddr + reg.y;
-	cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-	return newaddr & 0xffff;
-}
-
-u16 get_indx(u16 pc, bool trace)
-{
-	u8 b1 = rbd(pc);
-	u8 lo = rbd(b1 + reg.x & 0xff);
-	u8 hi = rbd(b1 + 1 + reg.x & 0xff);
-	if (trace)
-		return b1;
-	else
-		return hi << 8 | lo;
-}
-
-u16 get_indy(u16 pc, bool trace)
-{
-	u8 b1 = rbd(pc);
-	u8 lo = rbd((b1 & 0xff));
-	u8 hi = rbd(b1 + 1 & 0xff);
-	u16 oldaddr = (hi << 8 | lo);
-	u32 newaddr = oldaddr + reg.y;
-	cpu.pagecrossed = (newaddr & 0xff00) != (oldaddr & 0xff00) ? true : false;
-	if (trace)
-		return b1;
-	else
-		return newaddr;
-}
-
-u16 get_indi(u16 pc, bool trace)
-{
-	u16 addr = rw(pc);
-	if ((addr & 0xff) == 0xff)
-		return ++addr;
-	else
-		return rw(addr);
-}
-
-u16 get_rela(u16 pc, bool trace)
-{
-	u8 b1 = rbd(pc);
-	u16 newaddr = pc + (s8)(b1)+1;
-	if (disasm[op].extracycle)
-		cpu.pagecrossed = (newaddr & 0xff00) != (pc & 0xff00) ? true : false;
-	return newaddr;
-}
-
-u16 get_impl(u16 pc, bool trace)
-{
-	return 0;
-}
-
-u16 get_accu(u16 pc, bool trace)
-{
-	return 0;
-}
-
-u16 get_erro(u16 pc, bool trace)
-{
-	cpu.state = cstate::crashed;
-	return 0;
-}
-

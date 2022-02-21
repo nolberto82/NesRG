@@ -64,11 +64,11 @@ inline MemoryEditor mem_edit;
 
 inline ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-void gui_update(ImGuiIO io);
+void gui_update();
 void gui_show_display();
-void gui_show_disassembly(ImGuiIO io);
+void gui_show_disassembly();
 void gui_show_memory();
-void gui_show_registers(ImGuiIO io);
+void gui_show_registers();
 void gui_show_rom_info();
 void gui_show_breakpoints();
 void gui_show_logger();

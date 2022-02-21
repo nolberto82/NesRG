@@ -12,6 +12,9 @@ Renderer gfx;
 Registers reg;
 PpuRegisters lp;
 Header header;
+PpuCtrl pctrl;
+PpuMask pmask;
+PpuStatus pstatus;
 
 int main(int argc, char* argv[])
 {
@@ -42,7 +45,7 @@ int main(int argc, char* argv[])
 			while (gui_running)
 			{
 				main_update();
-				gui_update(io);
+				gui_update();
 				if (cpu.state == cstate::running)
 					main_step();
 			}
@@ -91,8 +94,11 @@ void main_update()
 		cpu.state = cstate::running;
 	}
 
-	//if (ImGui::IsKeyPressed(SDL_SCANCODE_F6)) //run one ppu cycle
-	//	gui_step(true, cstate::cycles);
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6)) //run one ppu cycle
+	{
+		ppu_step(1);
+		cpu.state = cstate::cycles;
+	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F7)) //run one scanline
 		main_step_scanline();
@@ -129,17 +135,24 @@ void main_step()
 		{
 			if (!it.enabled)
 				continue;
-			if (bp_check(reg.pc, it.type) || bp_check(read_addr, it.type) || bp_check(write_addr, it.type))
+			if (bp_exec_access(reg.pc))
 			{
-				if (it.addr == read_addr)
-					read_addr = -1;
-				if (it.addr == write_addr)
-					write_addr = -1;
+				cpu.state = cstate::debugging;
+				return;
+			}
+			else if (bp_read_access(read_addr))
+			{
+				read_addr = -1;
+				cpu.state = cstate::debugging;
+				return;
+			}
+			else if (bp_write_access(write_addr))
+			{
+				write_addr = -1;
 				cpu.state = cstate::debugging;
 				return;
 			}
 		}
-
 		if (logging)
 			log_to_file(pc);
 
@@ -153,6 +166,7 @@ void main_step()
 void main_step_frame()
 {
 	u16 pc = reg.pc;
+	cpu.state = cstate::frame;
 	if (logging)
 		log_to_file(pc);
 
@@ -167,6 +181,7 @@ void main_step_frame()
 void main_step_scanline()
 {
 	u16 pc = reg.pc;
+	cpu.state = cstate::scanlines;
 	if (logging)
 		log_to_file(pc);
 

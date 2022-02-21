@@ -24,30 +24,29 @@ void bp_edit(u16 addr, u8 type, u8 id, bool enabled)
 	breakpoints[id].enabled = enabled;
 }
 
-bool bp_check(u16 addr, u8 type)
+bool bp_read_access(u16 addr)
 {
-	if (type & bp_read || type & bp_vread)
-	{
-		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
-			{
-				return (obj.addr == addr && obj.enabled);
-			});
-		return it != breakpoints.end();
-	}
-	else if (type & bp_write || type & bp_vwrite)
-	{
-		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
-			{
-				return (obj.addr == addr && obj.enabled);
-			});
-		return it != breakpoints.end();
-	}
-	else
-	{
-		auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
-			{
-				return (obj.addr == addr && obj.enabled);
-			});
-		return it != breakpoints.end();
-	}
+	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
+		{
+			return (obj.addr == addr && obj.enabled);
+		});
+	return it != breakpoints.end();
+}
+
+bool bp_write_access(u16 addr)
+{
+	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
+		{
+			return (obj.addr == addr && obj.enabled && obj.type & bp_write);
+		});
+	return it != breakpoints.end();
+}
+
+bool bp_exec_access(u16 addr)
+{
+	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
+		{
+			return (obj.addr == addr && obj.enabled);
+		});
+	return it != breakpoints.end();
 }

@@ -21,6 +21,7 @@ void x_inc();
 void y_inc();
 void ppu_eval_sprites();
 bool ppu_rendering();
+bool ppu_odd_frame();
 
 struct Ppu
 {
@@ -29,8 +30,6 @@ struct Ppu
 	u8 tile_shift;
 	u8 scroll_x;
 	u8 scroll_y;
-	u8 p2000;
-	u8 p2001;
 	u8 p2003;
 	u8 p2004;
 	u8 p2005;
@@ -49,13 +48,12 @@ struct Ppu
 
 	int scanline;
 	int cycle;
-	int oddeven;
+	int oddeven = 0;
 
 	u32 frame;
 	u32 tempcolor[8];
 	u32 totalcycles;
 
-	bool nmi_flag;
 	bool frame_ready;
 	bool tabkey;
 	bool oldtabkey;
