@@ -92,12 +92,6 @@ void ppu_step(int num)
 void ppu_ctrl(u8 v) //2000
 {
 	lp.t = (lp.t & ~0xc00) | (v & 3) << 10;
-	if (v & 0x10)
-	{
-		//pstatus.vblank = 1;
-		//ram[0x2002] |= 0x80;
-	}
-
 	pctrl.nametable = (v >> 1) & 3;
 	pctrl.vaddr = (v >> 2) & 1;
 	pctrl.spraddr = (v >> 3) & 1;
@@ -119,9 +113,6 @@ void ppu_mask(u8 v)
 
 u8 ppu_status()
 {
-	//if (ppu.totalcycles == 176070)
-	//	cpu.state = cstate::debugging;
-
 	u8 v = pstatus.vblank << 7 | pstatus.sprite0hit << 6;
 	if (ppu.cycle == 2 && pstatus.vblank)
 		v &= 0;
@@ -130,7 +121,7 @@ u8 ppu_status()
 
 	pstatus.vblank = 0;
 	ram[0x2000] |= v;
-	ram[0x2002] |= v & 0x7f;
+	ram[0x2002] &= 0x7f;
 	lp.w = 0;
 	return v;
 }
@@ -229,9 +220,9 @@ void render_pixels()
 	int x = ppu.cycle - 1;
 	u8 bgindex = 0;
 
-	if (ppu.cycle >= 2 && ppu.cycle < 258)
+	if (ppu.cycle >= 1 && ppu.cycle < 256)
 	{
-		if (pmask.background && (x > 7 || pmask.backgroundleft))
+		if (pmask.background && !(x < 7 && !pmask.backgroundleft))
 		{
 			u16 ppuaddr = 0x2000 | (lp.v & 0xfff);
 			u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
@@ -255,63 +246,52 @@ void render_pixels()
 			ppu.screen_pixels[y * 256 + x] = color;
 		}
 
-		u8 bgpixel = 0;
-		u8 sppixel = 0;
-		//ram[0x2d] = 0x25;
-		if (pmask.sprite && (x > 7 || !pmask.spriteleft))
+		if (pmask.sprite && !(x < 7 && !pmask.spriteleft))
 		{
 			u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
 			u16 oamaddr = 0x0100 * ppu.oamdma;
 
-			for (auto& sprite : sprites)
+			for (auto& spr : sprites)
 			{
-				u8 sy = sprite.y + 1;
-				u8 tileid = sprite.tile;
-				u8 attrib = sprite.attrib;
-				u16 sx = sprite.x;
+				u8 tile = spr.tile;
+				u8 attrib = spr.attrib;
+				u8 sy = spr.y + 1;
+				u8 sx = spr.x;
 
-				if (sy >= 240)
+				if (sy >= 240 || (x - sx) < 0 || (x - sx) > 7)
 					continue;
-
-				if ((x - sx) < 0 || (x - sx) > 7)
-					continue;
-
-				u8 size = 8;
-				if (pctrl.spritesize)
-				{
-					size = 16;
-					bgaddr = ((tileid & 1) * 0x1000);// + (tileid & 0xfe);
-				}
 
 				bool flipH = attrib & 0x40;
 				bool flipV = attrib & 0x80;
 
+				u8 size = pctrl.spritesize ? 15 : 7;
+
 				u8 fx = (x - sx) & 7;
-				u8 fy = (y - sy) & 7;
+				u8 fy = (y - sy) & size;
 
-				if (!flipH)
-					fx = 7 - fx;
-				if (flipV)
-					fy = 7 - fy;
+				u16 spraddr = 0;
+				if (!flipH) fx = 7 - fx;
+				if (flipV) fy = 7 - sy;
 
-				u8 b1 = ppurb(bgaddr + tileid * 16 + fy + 0);
-				u8 b2 = ppurb(bgaddr + tileid * 16 + fy + 8);
+				if (pctrl.spritesize)
+				{
+					spraddr = ((tile & 1) * 0x1000);
+					spraddr += (tile & 0xfe) * 16 + fy + (fy & 8);
+				}
+				else
+				{
+					spraddr = bgaddr + tile * 16 + fy;
+					if (flipV) fy = 7 - fy;
+				}
 
-				int bit0 = (b1 >> fx) & 1;
-				int bit1 = (b2 >> fx) & 1;
-				u8 palindex = bit0 | bit1 * 2;
-				u8 colorindex = palindex + (attrib & 3) * 4;
+				u8 palindex = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
 
 				if (palindex != 0)
 				{
-					if ((attrib & 0x20) == 0)
-					{
-						int color = ppu.palettes[vram[0x3f10 | colorindex]];
-						ppu.screen_pixels[y * 256 + x] = color;
-						//ppu.screen_pixels[127 * 256 + x] = 0xffff00ff;
-					}
+					if ((attrib & 0x20) == 0 || bgindex == 0)
+						ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f10 | palindex + (attrib & 3) * 4]];
 
-					if (sprite.spritenum == 0 && bgindex && x < 255 && !pstatus.sprite0hit)
+					if (spr.spritenum == 0 && bgindex && x < 255 && !pstatus.sprite0hit)
 					{
 						pstatus.sprite0hit = 1;
 						ram[0x2002] |= 0x40;
@@ -320,7 +300,6 @@ void render_pixels()
 			}
 		}
 	}
-
 }
 
 void process_nametables(u16 addrnt, int i, u32* pixels)

@@ -174,14 +174,7 @@ void wb(u16 addr, u8 v)
 		controls_write(v);
 	else if(addr >= 0x8000)
 	{
-		switch (header.mappernum)
-		{
-			case 1:
-				mapper001(v);
-				break;
-			default:
-				break;
-		}
+		mapper_update(addr, v);
 	}
 
 	//ppu_step(3);
