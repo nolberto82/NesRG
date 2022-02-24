@@ -573,8 +573,9 @@ int cpu_step()
 		}
 		case opcid::ERR:
 		{
-			cpu.state = cstate::crashed;
-			break;
+			//cpu.state = cstate::crashed;
+			reg.pc++;
+			return 3;
 		}
 	}
 
@@ -599,7 +600,6 @@ void cpu_reset()
 	reg.y = 0x00;
 	memset(ram.data(), 0x00, 0x8000);
 	cpu.state = cstate::debugging;
-	mapper_reset();
 }
 
 void op_nmi()

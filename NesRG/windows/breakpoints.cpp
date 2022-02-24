@@ -28,7 +28,7 @@ bool bp_read_access(u16 addr)
 {
 	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
 		{
-			return (obj.addr == addr && obj.enabled);
+			return (obj.addr == addr && obj.enabled && obj.type & bp_read);
 		});
 	return it != breakpoints.end();
 }

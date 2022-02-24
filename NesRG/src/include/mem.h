@@ -10,8 +10,10 @@ const int OAMSIZE = 0x100;
 
 enum mirrortype
 {
-	horizontal,
-	vertical
+	single_nt0,
+	single_nt1,
+	vertical,
+	horizontal
 };
 
 struct Header
@@ -54,4 +56,4 @@ void wb(u16 addr, u8 val);
 void ww(u16 addr, u16 val);
 u8 ppurb(u16 addr);
 void ppuwb(u16 addr, u8 val);
-void reset();
+void mem_copy(u16 addr, int offset, int size);

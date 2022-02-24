@@ -26,7 +26,7 @@ ${SRC_DIR}/src/mem.cpp
 ${SRC_DIR}/src/ppu.cpp
 ${SRC_DIR}/src/renderer.cpp
 ${SRC_DIR}/src/controls.cpp
-${SRC_DIR}/src/mappers.cpp
+${SRC_DIR}/src/mappers/mapper001.cpp
 )
 
 if(WIN32)

@@ -150,7 +150,7 @@ void ppu_scroll(u8 v)
 		lp.t = (lp.t & 0xc1f) | (v & 0xf8) << 2 | (v & 7) << 12;
 		ppu.scroll |= v << 8;
 	}
-	lp.w = !lp.w;
+	lp.w ^= 1;
 }
 
 void ppu_addr(u8 v)
@@ -163,7 +163,7 @@ void ppu_addr(u8 v)
 		lp.t = lp.t & 0xff00 | v;
 		lp.v = lp.t;
 	}
-	lp.w = !lp.w;
+	lp.w ^= 1;
 }
 
 void ppu_data_wb(u8 v)
@@ -229,21 +229,13 @@ void render_pixels()
 
 			u8 fx = (lp.x + x) & 7;
 			u8 fy = (lp.v & 0x7000) >> 12;
-			u8 tileid = ppurb(ppuaddr);
 
-			u16 bgaddr = patternaddr + tileid * 16 + fy + 0;
-			u8 b1 = ppurb(bgaddr);
-			u8 b2 = ppurb(bgaddr + 8);
-
+			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + fy;
 			u8 attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
-			u8 attr = ppurb(attaddr);
-			u8 att = (attr >> attr_shift) & 3;
+			u8 att = (ppurb(attaddr) >> attr_shift) & 3;
 
-			bgindex = ((b1 >> (7 - fx)) & 1) | ((b2 >> (7 - fx)) & 1) << 1;
-			u8 colorindex = att * 4 + bgindex;
-			int color = ppu.palettes[vram[0x3f00 | colorindex]];
-
-			ppu.screen_pixels[y * 256 + x] = color;
+			bgindex = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) << 1;
+			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 | att * 4 + bgindex]];
 		}
 
 		if (pmask.sprite && !(x < 7 && !pmask.spriteleft))
@@ -265,7 +257,6 @@ void render_pixels()
 				bool flipV = attrib & 0x80;
 
 				u8 size = pctrl.spritesize ? 15 : 7;
-
 				u8 fx = (x - sx) & 7;
 				u8 fy = (y - sy) & size;
 
@@ -330,17 +321,12 @@ void process_nametables(u16 addrnt, int i, u32* pixels)
 				int bit0 = (byte1 & 1) > 0 ? 1 : 0;
 				int bit1 = (byte2 & 1) > 0 ? 2 : 0;
 
-				byte1 >>= 1;
-				byte2 >>= 1;
-
-				int colorindex = bit2 * 4 + (bit0 | bit1);
-
-				int color = ppu.palettes[vram[0x3f00 | colorindex]];
+				byte1 >>= 1; byte2 >>= 1;
 
 				int xp = offx + (7 - cl);
 				int yp = offy + r;
 
-				pixels[yp * 256 + xp] = color;
+				pixels[yp * 256 + xp] = ppu.palettes[vram[0x3f00 | bit2 * 4 + (bit0 | bit1)]];
 			}
 		}
 	}

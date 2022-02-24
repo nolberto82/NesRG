@@ -100,7 +100,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::indy:
 		{
-			u16 a = (b[1] << 8) | (b[1] + 1) + reg.y;
+			u16 a = rw(b[1]) + reg.y;
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, b[1], a, rbd(a));
 			break;
@@ -108,7 +108,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		case addrmode::indi:
 		{
 			u16 a = rw(pc + 1);
-			if ((a & 0xff) == 0xff)++a;
+			if ((a & 0xff) == 0xff) ++a;
 			else a = rw(a);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], b[2],
 				name, b[2] << 8 | b[1], a, rbd(a));

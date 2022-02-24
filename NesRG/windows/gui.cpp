@@ -5,6 +5,7 @@
 #include "renderer.h"
 #include "tracer.h"
 #include "main.h"
+#include "mappers.h"
 
 ImGui::FileBrowser fileDialog;
 
@@ -20,7 +21,7 @@ void gui_update()
 	ImGui::SetWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGui::DockSpace(dockspace_id);
-
+	
 	gui_show_disassembly();
 	gui_show_memory();
 	gui_show_display();
@@ -204,6 +205,7 @@ void gui_show_registers()
 	ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.v); ImGui::NextColumn();
 	ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 	ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();
+	ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", mmc1); ImGui::NextColumn();
 
 	ImGui::Columns(1);
 
@@ -366,6 +368,17 @@ void gui_show_buttons()
 			create_close_log(false);
 			follow_pc = true;
 			cpu.state = cstate::debugging;
+		}
+	}
+
+	set_spacing(15);
+
+	if (ImGui::Button("Dump VRAM", ImVec2(-1, 0)))
+	{
+		if (rom_loaded)
+		{
+			ofstream file("vram.bin",ios::binary);
+			file.write((char*)vram.data(), vram.size());
 		}
 	}
 

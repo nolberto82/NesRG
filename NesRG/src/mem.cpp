@@ -126,6 +126,8 @@ u8 rb(u16 addr)
 	}
 	else if (addr == 0x4016)
 		return controls_read();
+	else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
+		return ram[addr];
 
 	//ppu_step(3);
 
@@ -172,9 +174,18 @@ void wb(u16 addr, u8 v)
 	}
 	else if (addr == 0x4016)
 		controls_write(v);
+	else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
+		ram[addr] = v;
 	else if(addr >= 0x8000)
 	{
-		mapper_update(addr, v);
+		switch (header.mappernum)
+		{
+			case 1:
+				mapper001_update(addr, v);
+				break;
+			default:
+				break;
+		}
 	}
 
 	//ppu_step(3);
@@ -300,9 +311,7 @@ void ppuwb(u16 addr, u8 val)
 	//	vram[addr & 0x3fff] = val;
 }
 
-void reset()
+void mem_copy(u16 addr, int offset, int size)
 {
-	//fill(ram.begin)
-	//memset(ram, 0x00, 0x10000);
-	//memset(vram, 0x00, 0x4000);
+	memcpy(&ram[addr], rom.data() + offset, size);
 }
