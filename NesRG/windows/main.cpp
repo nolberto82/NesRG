@@ -175,6 +175,8 @@ void main_step_frame()
 	{
 		int cyc = cpu_step();
 		ppu_step(cyc);
+		if (cpu.state == cstate::crashed)
+			return;
 	}
 }
 
@@ -186,10 +188,12 @@ void main_step_scanline()
 		log_to_file(pc);
 
 	int old_scanline = ppu.scanline;
-	while (old_scanline == ppu.scanline)
+ 	while (old_scanline == ppu.scanline)
 	{
 		int cyc = cpu_step();
 		ppu_step(cyc);
+		if (cpu.state == cstate::crashed)
+			return;
 	}
 }
 

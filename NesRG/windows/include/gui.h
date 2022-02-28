@@ -20,21 +20,12 @@
 #define LIGHTGRAY ImVec4( 0xd0 / 255.0f, 0xd0 / 255.0f, 0xd0 / 255.0f , 1)
 #define DEFCOLOR ImVec4(0.260f, 0.590f, 0.980f, 0.400f)
 
-//Gui defines
-#define DEBUG_W 700
-#define DEBUG_H 540
-#define DEBUG_X 5
-#define DEBUG_Y 25
-#define MEM_W 550
-#define MEM_H 350
-
 //ImGui flags
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 #define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
 #define MAIN_WINDOW_FLAGS ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | \
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_MenuBar | \
 ImGuiWindowFlags_NoBringToFrontOnFocus
-
 
 inline u16 jumpaddr;
 
@@ -46,12 +37,11 @@ inline bool is_jump;
 inline int item_num = 0;
 inline bool is_pc = false;
 
-inline bool trace_logger;
+inline bool trace_logger = false;
 
 inline string flag_names = "NVUBDIZC";
 inline bool flag_values[8] = { };
 inline char jumpto[5] = { 0 };
-
 
 inline bool follow_pc;
 

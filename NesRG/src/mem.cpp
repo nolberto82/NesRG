@@ -16,7 +16,11 @@ bool load_rom(const char* filename)
 	if (filename == NULL)
 		return rom_loaded = false;
 
-	load_file(filename, rom, 0);
+	vector<u8> hdr;
+	load_file(filename, hdr, 0, 16);
+	load_file(filename, rom, 0, hdr[4] * 0x4000 + 0x10);
+	load_file(filename, vrom, rom.size(), hdr[5] * 0x2000);
+
 	fs::path p(filename);
 	header.name = p.filename().string();
 
@@ -57,12 +61,12 @@ bool set_mapper()
 			if (prgbanks == 1)
 			{
 				memcpy(&ram[0xc000], rom.data() + 0x10, prgsize);
-				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
+				memcpy(&vram[0x0000], vrom.data(), chrsize);
 			}
 			else
 			{
 				memcpy(&ram[0x8000], rom.data() + 0x10, prgsize);
-				memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
+				memcpy(&vram[0x0000], vrom.data(), chrsize);
 			}
 			break;
 		}
@@ -70,7 +74,8 @@ bool set_mapper()
 		{
 			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
 			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
-			memcpy(&vram[0x0000], rom.data() + 0x10 + prgsize, chrsize);
+			if (chrbanks > 0)
+				memcpy(&vram[0x0000], vrom.data(), chrsize / chrbanks);
 			break;
 		}
 		default:
@@ -83,9 +88,8 @@ bool set_mapper()
 	return true;
 }
 
-bool load_file(const char* filename, std::vector<u8>& rom, int offset)
+bool load_file(const char* filename, std::vector<u8>& data, int offset, int size)
 {
-	int size = 0;
 	bool res = true;
 
 	FILE* fp;
@@ -97,16 +101,16 @@ bool load_file(const char* filename, std::vector<u8>& rom, int offset)
 		return false;
 	}
 
-	fseek(fp, 0, SEEK_END);
-	size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
+	//fseek(fp, 0, SEEK_END);
+	//size = ftell(fp);
+	fseek(fp, offset, SEEK_SET);
 
-	if (rom.size())
-		vector<u8>().swap(rom);
+	if (data.size())
+		vector<u8>().swap(data);
 
-	rom.resize(size);
+	data.resize(size);
 
-	fread(&rom[offset], 1, size, fp);
+	fread(&data[0], 1, size, fp);
 
 	fclose(fp);
 
@@ -128,8 +132,6 @@ u8 rb(u16 addr)
 		return controls_read();
 	else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
 		return ram[addr];
-
-	//ppu_step(3);
 
 	return ram[addr];
 }
@@ -176,7 +178,7 @@ void wb(u16 addr, u8 v)
 		controls_write(v);
 	else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
 		ram[addr] = v;
-	else if(addr >= 0x8000)
+	else if (addr >= 0x8000)
 	{
 		switch (header.mappernum)
 		{
@@ -187,8 +189,6 @@ void wb(u16 addr, u8 v)
 				break;
 		}
 	}
-
-	//ppu_step(3);
 }
 
 void ww(u16 addr, u16 val)
@@ -214,7 +214,7 @@ u8 ppurb(u16 addr)
 		}
 		else if (addr >= 0x2800 && addr < 0x2c00)
 		{
-			v = vram[addr - 0x000 & 0x3fff];
+			v = vram[addr - 0x800 & 0x3fff];
 		}
 		else if (addr >= 0x2c00 && addr < 0x3000)
 		{
@@ -311,7 +311,14 @@ void ppuwb(u16 addr, u8 val)
 	//	vram[addr & 0x3fff] = val;
 }
 
-void mem_copy(u16 addr, int offset, int size)
+void mem_rom(vector<u8>& dst, u16 addr, int offset, int size)
 {
-	memcpy(&ram[addr], rom.data() + offset, size);
+	memcpy(dst.data() + addr, rom.data() + offset, size);
+}
+
+void mem_vrom(vector<u8>& dst, u16 addr, int offset, int size)
+{
+	if (!header.chrnum)
+		return;
+	memcpy(dst.data() + addr, vrom.data() + offset, size);
 }

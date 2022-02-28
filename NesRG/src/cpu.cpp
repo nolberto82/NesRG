@@ -81,7 +81,9 @@ int cpu_step()
 				cpu.pagecrossed = (addr & 0xff00) != (pc & 0xff00) ? true : false;
 			break;
 		}
-		case erro: cpu.state = cstate::crashed; break;
+		case erro: 
+			cpu.state = cstate::crashed;
+			break;
 	}
 
 	if (cpu.state == cstate::crashed)

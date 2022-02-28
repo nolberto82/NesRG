@@ -250,30 +250,23 @@ void render_pixels()
 				u8 sy = spr.y + 1;
 				u8 sx = spr.x;
 
-				if (sy >= 240 || (x - sx) < 0 || (x - sx) > 7)
+				if (sy >= 239 || (x - sx) < 0 || (x - sx) > 7)
 					continue;
 
-				bool flipH = attrib & 0x40;
-				bool flipV = attrib & 0x80;
-
-				u8 size = pctrl.spritesize ? 15 : 7;
 				u8 fx = (x - sx) & 7;
-				u8 fy = (y - sy) & size;
+				u8 fy = (y - sy) & (pctrl.spritesize ? 15 : 7);
 
 				u16 spraddr = 0;
-				if (!flipH) fx = 7 - fx;
-				if (flipV) fy = 7 - sy;
+				if (!(attrib & 0x40)) fx = 7 - fx;
+				if (attrib & 0x80) fy = 7 - fy;
 
 				if (pctrl.spritesize)
 				{
-					spraddr = ((tile & 1) * 0x1000);
-					spraddr += (tile & 0xfe) * 16 + fy + (fy & 8);
+					spraddr = ((tile & 1) * 0x1000) +
+						(tile & 0xfe) * 16 + fy + (fy & 8);
 				}
 				else
-				{
 					spraddr = bgaddr + tile * 16 + fy;
-					if (flipV) fy = 7 - fy;
-				}
 
 				u8 palindex = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
 
@@ -302,31 +295,23 @@ void process_nametables(u16 addrnt, int i, u32* pixels)
 
 		int ppuaddr = 0x2000 | (a + (i * 0x400) & 0xfff);
 		u16 attaddr = 0x23c0 | (a + (i * 0x400) & 0xc00) | (y / 4) * 8 + (x / 4);
-		u16 bgaddr = pctrl.bgaddr & 0x10 ? 0x1000 : 0x0000;
-
-		int offx = x * 8;
-		int offy = y * 8;
+		u16 patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
 
 		for (int r = 0; r < 8; r++)
 		{
-			int byte1 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 0];
-			int byte2 = vram[bgaddr + (vram[ppuaddr] * 16) + r + 8];
-
+			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + r;
 			for (int cl = 0; cl < 8; cl++)
 			{
 				int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
-				u8 attr = ppurb(attaddr);
-				u8 bit2 = (attr >> attr_shift) & 3;
+				u8 bit2 = (ppurb(attaddr) >> attr_shift) & 3;
 
-				int bit0 = (byte1 & 1) > 0 ? 1 : 0;
-				int bit1 = (byte2 & 1) > 0 ? 2 : 0;
+				int color = ppurb(bgaddr) >> (7 - cl) & 1 |
+					(ppurb(bgaddr + 8) >> (7 - cl) & 1) * 2;
 
-				byte1 >>= 1; byte2 >>= 1;
+				int xp = x * 8 + cl;
+				int yp = y * 8 + r;
 
-				int xp = offx + (7 - cl);
-				int yp = offy + r;
-
-				pixels[yp * 256 + xp] = ppu.palettes[vram[0x3f00 | bit2 * 4 + (bit0 | bit1)]];
+				pixels[yp * 256 + xp] = ppu.palettes[ppurb(0x3f00 | bit2 * 4 + color)];
 			}
 		}
 	}
