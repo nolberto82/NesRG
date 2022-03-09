@@ -6,14 +6,18 @@
 
 const int RAMSIZE = 0x10000;
 const int VRAMSIZE = 0x4000;
+const int PATTSIZE = 0x1000;
+const int NTABSIZE = 0x400;
 const int OAMSIZE = 0x100;
+const int PALSIZE = 0x20;
 
 enum mirrortype
 {
 	single_nt0,
 	single_nt1,
 	vertical,
-	horizontal
+	horizontal,
+	fourscreen
 };
 
 struct Header
@@ -30,19 +34,18 @@ struct Header
 
 inline string mirrornames[] =
 {
-	{ "one screen nt 0"},
-	{ "one screen nt 1"},
+	{ "one screen 0"},
+	{ "one screen 1"},
 	{ "vertical"},
-	{ "horizontal"}
+	{ "horizontal"},
+	{ "fourscreen"}
 };
-
 
 extern Header header;
 
 inline vector<u8> ram;
 inline vector<u8> vram;
 inline vector<u8> oam;
-inline vector<u8> oamalt;
 inline vector<u8> rom;
 inline vector<u8> vrom;
 

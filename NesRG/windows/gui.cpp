@@ -2,7 +2,7 @@
 #include "breakpoints.h"
 #include "cpu.h"
 #include "ppu.h"
-#include "renderer.h"
+#include "sdlcore.h"
 #include "tracer.h"
 #include "main.h"
 #include "mappers.h"
@@ -12,13 +12,15 @@ ImGui::FileBrowser fileDialog;
 void gui_update()
 {
 	ImGui_ImplSDLRenderer_NewFrame();
-	ImGui_ImplSDL2_NewFrame(gfx.window);
+	ImGui_ImplSDL2_NewFrame(sdl.window);
 	ImGui::NewFrame();
 
-	ImGui::Begin("MainWindow", NULL, MAIN_WINDOW_FLAGS);
+	ImGuiViewport* view = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(view->Pos, ImGuiCond_Always);
+	ImGui::SetNextWindowSize(view->Size, ImGuiCond_Always);
 
-	ImGui::SetWindowSize(ImVec2(APP_WIDTH, APP_HEIGHT), ImGuiCond_Always);
-	ImGui::SetWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+	ImGui::Begin("MainWindow", NULL, MAIN_WINDOW);
+
 	ImGuiID dockspace_id = ImGui::GetID("MyDockspace");
 	ImGui::DockSpace(dockspace_id);
 
@@ -34,54 +36,41 @@ void gui_update()
 
 	ImGui::End();
 
+	if (style_editor)
+		ImGui::ShowStyleEditor();
+
 	ImGui::Render();
-	SDL_SetRenderDrawColor(gfx.renderer, (u8)(clear_color.x * 255), (u8)(clear_color.y * 255), (u8)(clear_color.z * 255), (u8)(clear_color.w * 255));
-	SDL_RenderClear(gfx.renderer);
+	SDL_SetRenderDrawColor(sdl.renderer, (u8)(clear_color.x * 255), (u8)(clear_color.y * 255), (u8)(clear_color.z * 255), (u8)(clear_color.w * 255));
+	SDL_RenderClear(sdl.renderer);
 	ImGui_ImplSDLRenderer_RenderDrawData(ImGui::GetDrawData());
-	if (gfx.frame_limit)
-		SDL_framerateDelay(&gfx.fpsman);
-	SDL_RenderPresent(gfx.renderer);
+	if (sdl.frame_limit)
+		SDL_framerateDelay(&sdl.fpsman);
+	SDL_RenderPresent(sdl.renderer);
 }
 
 void gui_show_display()
 {
-	ImGui::Begin("Graphics", nullptr, ImGuiWindowFlags_NoScrollbar);
-
-	if (cpu.state == cstate::scanlines || cpu.state == cstate::cycles)
-		render_frame(ppu.screen_pixels, cpu.state);
-
-	if (ImGui::BeginTabBar("##gfx_tabs", ImGuiTabBarFlags_None))
+	if (ImGui::Begin("Display"))
 	{
-		if (ImGui::BeginTabItem("Display"))
-		{
-			ImGui::Image((void*)gfx.screen, ImGui::GetContentRegionAvail());
-			ImGui::EndTabItem();
-		}
-
-		if ((ImGui::BeginTabItem("Nametables")))
-		{
-			for (int i = 0; i < 4; i++)
-			{
-				memset(ppu.ntable_pixels[i], 0x00, sizeof(ppu.ntable_pixels[i]));
-				process_nametables(i * 0x400, 0, ppu.ntable_pixels[i]);
-			}
-
-			render_nttable();
-
-			ImGui::Image((void*)gfx.ntscreen, ImGui::GetContentRegionAvail());
-			ImGui::EndTabItem();
-		}
-
-		if (ImGui::BeginTabItem("Sprites"))
-		{
-			process_sprites();
-			render_sprites();
-			ImGui::Image((void*)gfx.sprscreen, ImGui::GetContentRegionAvail());
-			ImGui::EndTabItem();
-		}
-		ImGui::EndTabBar();
+		if (cpu.state == cstate::scanlines || cpu.state == cstate::cycles)
+			sdl_frame(ppu.screen_pixels, cpu.state);
+		ImGui::Image((void*)sdl.screen, ImGui::GetContentRegionAvail());
+		ImGui::End();
 	}
-	ImGui::End();
+
+	if ((ImGui::Begin("Nametables")))
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			memset(ppu.ntable_pixels[i], 0x00, sizeof(ppu.ntable_pixels[i]));
+			process_nametables(i * 0x400, 0, ppu.ntable_pixels[i]);
+		}
+
+		sdl_nttable();
+
+		ImGui::Image((void*)sdl.ntscreen, ImGui::GetContentRegionAvail());
+		ImGui::End();
+	}
 }
 
 void gui_show_disassembly()
@@ -119,7 +108,7 @@ void gui_show_disassembly()
 					bpenabled = true;
 			}
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? GREEN : LIGHTGRAY);
+			ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? LIGHTGRAY : DEFCOLOR);
 			if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 70, 0)))
 				bp_add(pc, bp_exec, true);
 
@@ -156,7 +145,7 @@ void gui_show_memory()
 		{
 			if (ImGui::BeginTabItem("RAM"))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
+				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 				mem_edit.DrawContents(ram.data(), ram.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
@@ -255,9 +244,16 @@ void gui_show_rom_info()
 		ImGui::Text("%15s", "Mapper Number"); ImGui::NextColumn(); ImGui::Text("%d", header.mappernum); ImGui::NextColumn();
 		ImGui::Text("%15s", "PRG Banks"); ImGui::NextColumn(); ImGui::Text("%d", header.prgnum); ImGui::NextColumn();
 		ImGui::Text("%15s", "CHR Banks"); ImGui::NextColumn(); ImGui::Text("%d", header.chrnum); ImGui::NextColumn();
-		ImGui::Text("%15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[header.mirror]); ImGui::NextColumn();
+		ImGui::Text("%15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[mirrornametable]); ImGui::NextColumn();
 
 		ImGui::Columns(1);
+
+		if (!rom_loaded)
+		{
+			set_spacing(5);
+			ImGui::TextColored(RED, "Mapper not supported");
+		}
+
 	}
 	ImGui::End();
 }
@@ -291,7 +287,7 @@ void gui_show_breakpoints()
 
 				ImGui::SameLine();
 
-				ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? GREEN : RED);
+				ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? LIGHTGRAY : RED);
 				if (ImGui::Button("Enabled"))
 					it.enabled = !it.enabled;
 				ImGui::PopStyleColor();
@@ -361,7 +357,7 @@ void gui_show_buttons()
 	{
 		if (ImGui::Button("Load Rom", ImVec2(-1, 0)))
 		{
-			fs::path game_dir = "D:\\Emulators+Hacking\\NES";
+			fs::path game_dir = "D:\\Emulators+Hacking\\NES\\Mapper1";
 			fileDialog.SetTitle("Load Nes Rom");
 			fileDialog.SetTypeFilters({ ".nes" });
 			fileDialog.SetPwd(game_dir);
@@ -404,12 +400,13 @@ void gui_show_buttons()
 			{
 				ofstream file("vram.bin", ios::binary);
 				file.write((char*)vram.data(), vram.size());
+				file.close();
 			}
 		}
 
 		set_spacing(15);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? GREEN : DEFCOLOR));
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? LIGHTGRAY : DEFCOLOR));
 		if (ImGui::Button("Trace Log", ImVec2(-1, 0)))
 			create_close_log(!logging);
 		ImGui::PopStyleColor(1);
@@ -441,6 +438,11 @@ void gui_show_menu()
 			ImGui::MenuItem("Trace Logger", NULL, &trace_logger);
 			ImGui::EndMenu();
 		}
+		if (ImGui::BeginMenu("Debug"))
+		{
+			ImGui::MenuItem("Style Editor", NULL, &style_editor);
+			ImGui::EndMenu();
+		}
 		ImGui::EndMenuBar();
 	}
 }
@@ -458,19 +460,19 @@ void gui_open_dialog()
 		}
 		ImGui::PopItemWidth();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? GREEN : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? LIGHTGRAY : DEFCOLOR);
 		if (ImGui::Button("Cpu Read", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_read;
 		ImGui::PopStyleColor();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? GREEN : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? LIGHTGRAY : DEFCOLOR);
 		if (ImGui::Button("Cpu Write", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_write;
 		ImGui::PopStyleColor();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? GREEN : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? LIGHTGRAY : DEFCOLOR);
 		if (ImGui::Button("Cpu Exec", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_exec;
 		ImGui::SameLine();

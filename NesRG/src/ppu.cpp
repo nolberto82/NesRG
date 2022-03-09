@@ -1,6 +1,6 @@
 #include "ppu.h"
 #include "mem.h"
-#include "renderer.h"
+#include "sdlcore.h"
 
 SpriteData sprites[8];
 
@@ -58,7 +58,7 @@ void ppu_step(int num)
 					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 				if (ppu.cycle == 1)
-					render_frame(ppu.screen_pixels, cpu.state);
+					sdl_frame(ppu.screen_pixels, cpu.state);
 
 				ppu.frame_ready = false;
 			}
@@ -200,6 +200,10 @@ void ppu_reset()
 	for (int i = 0; i < sizeof(ppu.palbuffer); i += 3)
 		ppu.palettes[i / 3] = ppu.palbuffer[i] | ppu.palbuffer[i + 1] << 8 | ppu.palbuffer[i + 2] << 16 | 0xff000000;
 
+	//memset(pattrn[0].data(), 0x00, pattrn[0].size());
+	//memset(pattrn[1].data(), 0x00, pattrn[1].size());
+	//memset(ntable[0].data(), 0x00, ntable[0].size());
+	//memset(ntable[1].data(), 0x00, ntable[1].size());
 	memset(vram.data(), 0x00, vram.size());
 	memset(&pctrl, 0x00, sizeof(pctrl));
 	memset(&pmask, 0x00, sizeof(pmask));
@@ -210,7 +214,7 @@ void ppu_reset()
 void clear_pixels()
 {
 	memset(ppu.screen_pixels, 0x00, sizeof(ppu.screen_pixels));
-	render_frame(ppu.screen_pixels, cpu.state);
+	sdl_frame(ppu.screen_pixels, cpu.state);
 }
 
 void render_pixels()
@@ -268,7 +272,7 @@ void render_pixels()
 				else
 					spraddr = bgaddr + tile * 16 + fy;
 
-				u8 palindex = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
+				u8 palindex = (vram[spraddr] >> fx & 1) | (vram[spraddr + 8] >> fx & 1) * 2;
 
 				if (palindex != 0)
 				{
@@ -311,7 +315,7 @@ void process_nametables(u16 addrnt, int i, u32* pixels)
 				int xp = x * 8 + cl;
 				int yp = y * 8 + r;
 
-				pixels[yp * 256 + xp] = ppu.palettes[ppurb(0x3f00 | bit2 * 4 + color)];
+				pixels[yp * 256 + xp] = ppu.palettes[vram[0x3f00 | bit2 * 4 + color]];
 			}
 		}
 	}

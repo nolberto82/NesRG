@@ -1,26 +1,52 @@
 #include "controls.h"
-#include "renderer.h"
+#include "sdlcore.h"
 
 u8 controls_keys(u8 id)
 {
 	switch (id)
 	{
 		case 0:
-			return gfx.ctrl_keys[SDL_SCANCODE_Z];
+			return sdl.ctrl_keys[SDL_SCANCODE_Z];
 		case 1:
-			return gfx.ctrl_keys[SDL_SCANCODE_X];
+			return sdl.ctrl_keys[SDL_SCANCODE_X];
 		case 2:
-			return gfx.ctrl_keys[SDL_SCANCODE_SPACE];
+			return sdl.ctrl_keys[SDL_SCANCODE_SPACE];
 		case 3:
-			return gfx.ctrl_keys[SDL_SCANCODE_RETURN];
+			return sdl.ctrl_keys[SDL_SCANCODE_RETURN];
 		case 4:
-			return gfx.ctrl_keys[SDL_SCANCODE_UP];
+			return sdl.ctrl_keys[SDL_SCANCODE_UP];
 		case 5:
-			return gfx.ctrl_keys[SDL_SCANCODE_DOWN];
+			return sdl.ctrl_keys[SDL_SCANCODE_DOWN];
 		case 6:
-			return gfx.ctrl_keys[SDL_SCANCODE_LEFT];
+			return sdl.ctrl_keys[SDL_SCANCODE_LEFT];
 		case 7:
-			return gfx.ctrl_keys[SDL_SCANCODE_RIGHT];
+			return sdl.ctrl_keys[SDL_SCANCODE_RIGHT];
+
+	}
+
+	return 0;
+}
+
+u8 controls_pad(u8 id)
+{
+	switch (id)
+	{
+		case 0:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_B);
+		case 1:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_A);
+		case 2:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_BACK);
+		case 3:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_START);
+		case 4:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
+		case 5:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+		case 6:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+		case 7:
+			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);	
 
 	}
 
@@ -48,7 +74,7 @@ u8 controls_read()
 			buttonid = 0;
 		}
 
-		if (controls_keys(buttonid))
+		if (controls_pad(buttonid))
 		{
 			val = 0x41;
 		}

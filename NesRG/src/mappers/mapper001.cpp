@@ -33,12 +33,12 @@ void mapper001_update(u16 addr, u8 v)
 				if (mmc1.chrmode == 0)
 				{
 					int chr = mmc1.chrbank * ((mmc1.control & 0x1e) >> 1);
-					mem_vrom(vram, 0x0000, chr, 0x2000);
+					mem_vrom(vram, 0x0000, chr, 0x1000);
 				}
 				else
 				{
 					int chr = mmc1.chrbank * (mmc1.control & 0x1f);
-					mem_vrom(vram, 0x0000, chr, mmc1.chrbank);
+					mem_vrom(vram, 0x0000, chr, 0x1000);
 				}
 			}
 			else if (mmc1.reg == 2)
@@ -46,12 +46,12 @@ void mapper001_update(u16 addr, u8 v)
 				if (mmc1.chrmode == 0)
 				{
 					int chr = mmc1.chrbank * ((mmc1.control & 0x1e) >> 1);
-					mem_vrom(vram, 0x1000, chr, 0x2000);
+					mem_vrom(vram, 0x1000, chr, 0x1000);
 				}
 				else
 				{
 					int chr = mmc1.chrbank * (mmc1.control & 0x1f);
-					mem_vrom(vram, 0x1000, chr, mmc1.chrbank);
+					mem_vrom(vram, 0x1000, chr, 0x1000);
 				}
 			}
 			else if (mmc1.reg == 3)

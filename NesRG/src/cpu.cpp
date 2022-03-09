@@ -11,6 +11,9 @@ int cpu_step()
 	u16 b2 = 0;
 	cpu.branchtaken = 0;
 
+	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
+	int cycles = (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
+
 	int mode = disasm[op].mode;
 	u16 addr = 0;
 	u16 pc = reg.pc;
@@ -81,7 +84,7 @@ int cpu_step()
 				cpu.pagecrossed = (addr & 0xff00) != (pc & 0xff00) ? true : false;
 			break;
 		}
-		case erro: 
+		case erro:
 			cpu.state = cstate::crashed;
 			break;
 	}
@@ -102,7 +105,6 @@ int cpu_step()
 			set_flag(b > 0xff, FC);
 
 			reg.a = (u8)b;
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::AND:
@@ -111,7 +113,6 @@ int cpu_step()
 
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::ASL:
@@ -131,23 +132,22 @@ int cpu_step()
 			}
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::BCC:
 		{
 			op_bra(addr, op, !(reg.ps & FC));
-			break;
+			return cycles;
 		}
 		case opcid::BCS:
 		{
 			op_bra(addr, op, (reg.ps & FC));
-			break;
+			return cycles;
 		}
 		case opcid::BEQ:
 		{
 			op_bra(addr, op, (reg.ps & FZ));
-			break;
+			return cycles;
 		}
 		case opcid::BIT:
 		{
@@ -156,23 +156,22 @@ int cpu_step()
 			set_flag(b == 0, FZ);
 			set_flag(v & 0x80, FN);
 			set_flag(v & 0x40, FV);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::BMI:
 		{
 			op_bra(addr, op, (reg.ps & FN));
-			break;
+			return cycles;
 		}
 		case opcid::BNE:
 		{
 			op_bra(addr, op, !(reg.ps & FZ));
-			break;
+			return cycles;
 		}
 		case opcid::BPL:
 		{
 			op_bra(addr, op, !(reg.ps & FN));
-			break;
+			return cycles;
 		}
 		case opcid::BRK:
 		{
@@ -183,40 +182,36 @@ int cpu_step()
 			op_push(reg.sp--, reg.ps | FB | FU);
 			reg.pc = rw(INT_BRK);
 			reg.ps |= FI;
-			break;
+			return cycles;
 		}
 		case opcid::BVC:
 		{
 			op_bra(addr, op, !(reg.ps & FV));
-			break;
+			return cycles;
 		}
 		case opcid::BVS:
 		{
 			op_bra(addr, op, (reg.ps & FV));
-			break;
+			return cycles;
 		}
 		case opcid::CLC:
 		{
 			set_flag(0, FC);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CLD:
 		{
 			set_flag(0, FD);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CLI:
 		{
 			set_flag(0, FI);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CLV:
 		{
 			set_flag(0, FV);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CMP:
@@ -226,7 +221,6 @@ int cpu_step()
 			set_flag(reg.a >= v, FC);
 			set_flag(reg.a == v, FZ);
 			set_flag(t & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CPX:
@@ -236,7 +230,6 @@ int cpu_step()
 			set_flag(reg.x >= v, FC);
 			set_flag(reg.x == v, FZ);
 			set_flag(t & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::CPY:
@@ -246,7 +239,6 @@ int cpu_step()
 			set_flag(reg.y >= v, FC);
 			set_flag(reg.y == v, FZ);
 			set_flag(t & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::DEC:
@@ -255,7 +247,6 @@ int cpu_step()
 			wb(addr, b);
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::DEX:
@@ -263,7 +254,6 @@ int cpu_step()
 			reg.x--;
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::DEY:
@@ -271,7 +261,6 @@ int cpu_step()
 			reg.y--;
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::EOR:
@@ -279,7 +268,6 @@ int cpu_step()
 			reg.a ^= rb(addr);
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::INC:
@@ -288,7 +276,6 @@ int cpu_step()
 			wb(addr, b);
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::INX:
@@ -296,7 +283,6 @@ int cpu_step()
 			reg.x++;
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::INY:
@@ -304,13 +290,12 @@ int cpu_step()
 			reg.y++;
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::JMP:
 		{
 			reg.pc = addr;
-			break;
+			return cycles;
 		}
 		case opcid::JSR:
 		{
@@ -318,14 +303,13 @@ int cpu_step()
 			op_push(reg.sp--, pc >> 8);
 			op_push(reg.sp--, pc & 0xff);
 			reg.pc = addr;
-			break;
+			return cycles;
 		}
 		case opcid::LDA:
 		{
 			reg.a = rb(addr);
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::LDX:
@@ -333,7 +317,6 @@ int cpu_step()
 			reg.x = rb(addr);
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::LDY:
@@ -341,7 +324,6 @@ int cpu_step()
 			reg.y = rb(addr);
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::LSR:
@@ -361,12 +343,10 @@ int cpu_step()
 			}
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::NOP:
 		{
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::ORA:
@@ -374,19 +354,16 @@ int cpu_step()
 			reg.a |= rb(addr);
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::PHA:
 		{
 			op_push(reg.sp--, reg.a);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::PHP:
 		{
 			op_push(reg.sp--, reg.ps | 0x30);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::PLA:
@@ -394,13 +371,11 @@ int cpu_step()
 			reg.a = op_pop();
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::PLP:
 		{
 			reg.ps = op_pop() & ~0x30;
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::ROL:
@@ -429,7 +404,6 @@ int cpu_step()
 			set_flag(b == 0, FZ);
 			set_flag(b & 0x80, FN);
 			set_flag(bit7, FC);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::ROR:
@@ -458,23 +432,19 @@ int cpu_step()
 			set_flag(b == 0, FZ);
 			set_flag(b & FN, FN);
 			set_flag(bit0, FC);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::RTI:
 		{
 			reg.ps = op_pop() & ~0x30;
-			reg.pc = op_pop();
-			reg.pc |= op_pop() << 8;
-			reg.pc;
-			break;
+			reg.pc = op_pop(); reg.pc |= op_pop() << 8;
+			return cycles;
 		}
 		case opcid::RTS:
 		{
-			reg.pc = op_pop();
-			reg.pc |= op_pop() << 8;
+			reg.pc = op_pop(); reg.pc |= op_pop() << 8;
 			reg.pc++;
-			break;
+			return cycles;
 		}
 		case opcid::SBC:
 		{
@@ -485,46 +455,39 @@ int cpu_step()
 			set_flag((reg.a ^ b) & (reg.a ^ t) & 0x80, FV);
 			set_flag((t & 0xff00) == 0, FC);
 			reg.a = (u8)t;
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::SEC:
 		{
 			set_flag(1, FC);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::SED:
 		{
 			set_flag(1, FD);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::SEI:
 		{
 			set_flag(1, FI);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::STA:
 		{
 			cpu.pagecrossed = false;
 			wb(addr, reg.a);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::STX:
 		{
 			cpu.pagecrossed = false;
 			wb(addr, reg.x);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::STY:
 		{
 			cpu.pagecrossed = false;
 			wb(addr, reg.y);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TAX:
@@ -532,7 +495,6 @@ int cpu_step()
 			reg.x = reg.a;
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TAY:
@@ -540,7 +502,6 @@ int cpu_step()
 			reg.y = reg.a;
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TSX:
@@ -548,7 +509,6 @@ int cpu_step()
 			reg.x = reg.sp;
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TXA:
@@ -556,13 +516,11 @@ int cpu_step()
 			reg.a = reg.x;
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TXS:
 		{
 			reg.sp = reg.x;
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::TYA:
@@ -570,7 +528,6 @@ int cpu_step()
 			reg.a = reg.y;
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
-			reg.pc += disasm[op].size;
 			break;
 		}
 		case opcid::ERR:
@@ -581,8 +538,8 @@ int cpu_step()
 		}
 	}
 
-	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
-	return ((disasm[op].cycles + cpu.branchtaken) * 3) + cpu.pagecrossed;
+	reg.pc += disasm[op].size;
+	return cycles;
 }
 
 void cpu_init()

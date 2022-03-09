@@ -5,6 +5,7 @@ cmake_minimum_required (VERSION 3.8)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	set(CMAKE_CXX_FLAGS_DEBUG "/ZI")
+	set(CMAKE_CXX_FLAGS_RELEASE "/ZI")
 	set(CMAKE_SHARED_LINKER_FLAGS "/SAFESEH:NO")
 	set(CMAKE_EXE_LINKER_FLAGS "/SAFESEH:NO")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -25,7 +26,7 @@ file(GLOB_RECURSE EMU_SRC
 ${SRC_DIR}/src/cpu.cpp
 ${SRC_DIR}/src/mem.cpp
 ${SRC_DIR}/src/ppu.cpp
-${SRC_DIR}/src/renderer.cpp
+${SRC_DIR}/src/sdlcore.cpp
 ${SRC_DIR}/src/controls.cpp
 ${SRC_DIR}/src/mappers/mapper001.cpp
 )

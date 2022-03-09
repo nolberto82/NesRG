@@ -17,13 +17,16 @@
 #define RED ImVec4(1, 0, 0, 1)
 #define GREEN ImVec4(0, 1, 0, 1)
 #define BLUE ImVec4(0, 0, 1, 1)
-#define LIGHTGRAY ImVec4( 0xd0 / 255.0f, 0xd0 / 255.0f, 0xd0 / 255.0f , 1)
+#define LIGHTGREEN ImVec4(0x90 / 255.0f, 0xee / 255.0f, 0x90 / 255.0f , 1)
+#define FRAMEACTIVE ImVec4(0.260f, 0.590f, 0.980f, 0.670f)
+#define ALICEBLUE ImVec4( 0xf0 / 255.0f, 0xf8 / 255.0f, 0xff / 255.0f , 1)
+#define LIGHTGRAY ImVec4( 0x7f / 255.0f, 0x7f / 255.0f, 0x7f / 255.0f , 1)
 #define DEFCOLOR ImVec4(0.260f, 0.590f, 0.980f, 0.400f)
 
 //ImGui flags
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 #define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
-#define MAIN_WINDOW_FLAGS ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | \
+#define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | \
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_MenuBar | \
 ImGuiWindowFlags_NoBringToFrontOnFocus
 
@@ -37,6 +40,7 @@ inline bool is_jump;
 inline int item_num = 0;
 inline bool is_pc = false;
 
+inline bool style_editor = false;
 inline bool trace_logger = false;
 
 inline string flag_names = "NVUBDIZC";

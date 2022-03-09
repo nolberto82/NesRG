@@ -3,12 +3,17 @@
 #include "controls.h"
 #include "mappers.h"
 
+u8 mirrorhor[] = { 0, 0, 1, 1 };
+u8 mirrorver[] = { 0, 1, 0, 1 };
+u8 mirrornt0[] = { 0, 0, 0, 0 };
+u8 mirrornt1[] = { 1, 1, 1, 1 };
+u8 mirror4sc[] = { 0, 1, 2, 3 };
+
 void mem_init()
 {
 	ram.resize(RAMSIZE);
 	vram.resize(VRAMSIZE);
 	oam.resize(OAMSIZE);
-	oamalt.resize(32);
 }
 
 bool load_rom(const char* filename)
@@ -33,20 +38,16 @@ bool set_mapper()
 	int chrbanks = header.chrnum = rom[5];
 	int prgsize = prgbanks * 0x4000;
 	int chrsize = chrbanks * 0x2000;
-	int mappernum = header.mappernum = (rom[6] & 0xf0) >> 4;
+	int mappernum = header.mappernum = (rom[6] & 0xf0) >> 4 | (rom[7] & 0xf0);
 	mirrornametable = 0;
 
 	int control = 0;
 	int shift = 0;
 
-	if (rom[6] & 0x08)
-	{
-		mirrornametable = 2;
-	}
-	else if (rom[6] & 0x01)
-	{
+	if (rom[6] & 0x01)
 		mirrornametable = mirrortype::vertical;
-	}
+	else
+		mirrornametable = mirrortype::horizontal;
 
 	header.mirror = mirrornametable;
 	header.battery = (rom[6] >> 1) & 1;
@@ -75,7 +76,9 @@ bool set_mapper()
 			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
 			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
 			if (chrbanks > 0)
+			{
 				memcpy(&vram[0x0000], vrom.data(), chrsize / chrbanks);
+			}
 			break;
 		}
 		default:
@@ -199,103 +202,65 @@ void ww(u16 addr, u16 val)
 
 u8 ppurb(u16 addr)
 {
+	addr &= 0x3fff;
+	u16 a = addr;
 	u8 v = 0;
 	ppu_read_addr = addr;
 
+	v = vram[addr];
+
 	if (mirrornametable == mirrortype::horizontal)
 	{
-		if (addr >= 0x2000 && addr < 0x2400)
-		{
-			v = vram[addr & 0x3fff];
-		}
-		else if (addr >= 0x2400 && addr < 0x2800)
-		{
-			v = vram[addr - 0x400 & 0x3fff];
-		}
-		else if (addr >= 0x2800 && addr < 0x2c00)
-		{
-			v = vram[addr - 0x800 & 0x3fff];
-		}
-		else if (addr >= 0x2c00 && addr < 0x3000)
-		{
-			v = vram[addr & 0x3fff];
-		}
-		else if (addr >= 0x3000 && addr < 0x3400)
-		{
-			v = vram[addr - 0x1000 & 0x3fff];
-		}
-		else
-		{
-			v = vram[addr & 0x3fff];
-		}
+		if (a >= 0x2000 && a < 0x3f00)
+			v = vram[0x2000 + (a % 0x400) + mirrorhor[(a >> 10) - 8] * 0x400];
 	}
-	else if (mirrornametable == mirrortype::vertical)
+	if (mirrornametable == mirrortype::vertical)
 	{
-		if (addr >= 0x2000 && addr < 0x2400)
-		{
-			v = vram[addr & 0x3fff];
-		}
-		else if (addr >= 0x2400 && addr < 0x2800)
-		{
-			v = vram[addr & 0x3fff];
-		}
-		else if (addr >= 0x2800 && addr < 0x2c00)
-		{
-			v = vram[addr - 0x800 & 0x3fff];
-		}
-		else if (addr >= 0x2c00 && addr < 0x3000)
-		{
-			v = vram[addr - 0x800 & 0x3fff];
-		}
-		else
-			v = vram[addr & 0x3fff];
+		if (a >= 0x2000 && a < 0x3f00)
+			v = vram[0x2000 + (a % 0x400) + mirrorver[(addr >> 10) - 8] * 0x400];
 	}
-
+	else if (mirrornametable == mirrortype::single_nt0)
+	{
+		if (a >= 0x2000 && a < 0x3f00)
+			v = vram[0x2000 + (a % 0x400) + mirrornt0[(addr >> 10) - 8] * 0x400];
+	}
+	else if (mirrornametable == mirrortype::single_nt1)
+	{
+		if (a >= 0x2000 && a < 0x3f00)
+			v = vram[0x2000 + (a % 0x400) + mirrornt1[(addr >> 10) - 8] * 0x400];
+	}
 	return v;
 }
 
-void ppuwb(u16 addr, u8 val)
+void ppuwb(u16 addr, u8 v)
 {
 	ppu_write_addr = addr;
 
+	addr &= 0x3fff;
+	u16 a = addr;
+
+	vram[addr] = v;
+
 	if (mirrornametable == mirrortype::horizontal)
 	{
-		if (addr >= 0x2000 && addr < 0x2400)
-		{
-			vram[addr & 0x3fff] = val;
-			vram[addr + 0x400 & 0x3fff] = val;
-		}
-		if (addr >= 0x2800 && addr < 0x2c00)
-		{
-			vram[addr & 0x3fff] = val;
-			vram[addr + 0x400 & 0x3fff] = val;
-		}
-		if (addr >= 0x2c00 && addr < 0x3000)
-		{
-			vram[addr & 0x3fff] = val;
-			vram[addr - 0x400 & 0x3fff] = val;
-		}
+		if (a >= 0x2000 && a < 0x3f00)
+			vram[0x2000 + (a % 0x400) + mirrorhor[(addr >> 10) - 8] * 0x400] = v;
 	}
-	else if (mirrornametable == mirrortype::vertical)
+	if (mirrornametable == mirrortype::vertical)
 	{
-		if (addr >= 0x2000 && addr < 0x2400)
-		{
-			vram[addr + 0x1000 & 0x3fff] = val;
-			vram[addr + 0x800 & 0x3fff] = val;
-		}
-		if (addr >= 0x2400 && addr < 0x2800)
-		{
-			//vram[addr + 0x1000 & 0x3fff] = val;
-			vram[addr + 0x800 & 0x3fff] = val;
-		}
-		if (addr >= 0x2800 && addr < 0x2c00)
-		{
-			vram[addr + 0xc00 & 0x3fff] = val;
-			vram[addr & 0x3fff] = val;
-		}
+		if (a >= 0x2000 && a < 0x3f00)
+			vram[0x2000 + (a % 0x400) + mirrorver[(addr >> 10) - 8] * 0x400] = v;
 	}
-
-	vram[addr & 0x3fff] = val;
+	if (mirrornametable == mirrortype::single_nt0)
+	{
+		if (a >= 0x2000 && a < 0x3f00)
+			vram[0x2000 + (a % 0x400) + mirrornt0[(addr >> 10) - 8] * 0x400] = v;
+	}
+	if (mirrornametable == mirrortype::single_nt1)
+	{
+		if (a >= 0x2000 && a < 0x3f00)
+			vram[0x2000 + (a % 0x400) + mirrornt1[(addr >> 10) - 8] * 0x400] = v;
+	}
 
 	for (int i = 0; i < 7; i++)
 		memcpy(&vram[0x3f20 + i * 32], &vram[0x3f00], 0x20);
@@ -304,11 +269,11 @@ void ppuwb(u16 addr, u8 val)
 		memcpy(&vram[0x3f04 + i * 0x4], &vram[0x3f10], 0x01);
 
 	if (addr == 0x3f10)
-		vram[0x3f00] = val;
+		vram[0x3f00] = v;
 	else if (addr == 0x3f00)
-		vram[0x3f10] = val;
+		vram[0x3f10] = v;
 	//else if (addr == 0x3f10)
-	//	vram[addr & 0x3fff] = val;
+	//	vram[addr & 0x3fff] = v;
 }
 
 void mem_rom(vector<u8>& dst, u16 addr, int offset, int size)

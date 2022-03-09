@@ -1,0 +1,231 @@
+switch ()
+{
+case opcid::ADC:
+{
+	break;
+}
+case opcid::AND:
+{
+	break;
+}
+case opcid::ASL:
+{
+	break;
+}
+case opcid::BCC:
+{
+	break;
+}
+case opcid::BCS:
+{
+	break;
+}
+case opcid::BEQ:
+{
+	break;
+}
+case opcid::BIT:
+{
+	break;
+}
+case opcid::BMI:
+{
+	break;
+}
+case opcid::BNE:
+{
+	break;
+}
+case opcid::BPL:
+{
+	break;
+}
+case opcid::BRK:
+{
+	break;
+}
+case opcid::BVC:
+{
+	break;
+}
+case opcid::BVS:
+{
+	break;
+}
+case opcid::CLC:
+{
+	break;
+}
+case opcid::CLD:
+{
+	break;
+}
+case opcid::CLI:
+{
+	break;
+}
+case opcid::CLV:
+{
+	break;
+}
+case opcid::CMP:
+{
+	break;
+}
+case opcid::CPX:
+{
+	break;
+}
+case opcid::CPY:
+{
+	break;
+}
+case opcid::DEC:
+{
+	break;
+}
+case opcid::DEX:
+{
+	break;
+}
+case opcid::DEY:
+{
+	break;
+}
+case opcid::EOR:
+{
+	break;
+}
+case opcid::INC:
+{
+	break;
+}
+case opcid::INX:
+{
+	break;
+}
+case opcid::INY:
+{
+	break;
+}
+case opcid::JMP:
+{
+	break;
+}
+case opcid::JSR:
+{
+	break;
+}
+case opcid::LDA:
+{
+	break;
+}
+case opcid::LDX:
+{
+	break;
+}
+case opcid::LDY:
+{
+	break;
+}
+case opcid::LSR:
+{
+	break;
+}
+case opcid::NOP:
+{
+	break;
+}
+case opcid::ORA:
+{
+	break;
+}
+case opcid::PHA:
+{
+	break;
+}
+case opcid::PHP:
+{
+	break;
+}
+case opcid::PLA:
+{
+	break;
+}
+case opcid::PLP:
+{
+	break;
+}
+case opcid::ROL:
+{
+	break;
+}
+case opcid::ROR:
+{
+	break;
+}
+case opcid::RTI:
+{
+	break;
+}
+case opcid::RTS:
+{
+	break;
+}
+case opcid::SBC:
+{
+	break;
+}
+case opcid::SEC:
+{
+	break;
+}
+case opcid::SED:
+{
+	break;
+}
+case opcid::SEI:
+{
+	break;
+}
+case opcid::STA:
+{
+	break;
+}
+case opcid::STX:
+{
+	break;
+}
+case opcid::STY:
+{
+	break;
+}
+case opcid::TAX:
+{
+	break;
+}
+case opcid::TAY:
+{
+	break;
+}
+case opcid::TSX:
+{
+	break;
+}
+case opcid::TXA:
+{
+	break;
+}
+case opcid::TXS:
+{
+	break;
+}
+case opcid::TYA:
+{
+	break;
+}
+case opcid::ERR:
+{
+	break;
+}
+}
