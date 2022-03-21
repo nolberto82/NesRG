@@ -12,7 +12,7 @@
 #define DISASSEMBLY_LINES 60
 
 //Color defines
-#define BUTTON_W 120
+#define BUTTON_W 90
 #define BUTTON_H 35
 #define RED ImVec4(1, 0, 0, 1)
 #define GREEN ImVec4(0, 1, 0, 1)
@@ -26,9 +26,9 @@
 //ImGui flags
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 #define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
-#define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | \
-ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_MenuBar | \
-ImGuiWindowFlags_NoBringToFrontOnFocus
+#define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | \
+ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | \
+ImGuiWindowFlags_NoMove
 
 inline u16 jumpaddr;
 
@@ -42,6 +42,8 @@ inline bool is_pc = false;
 
 inline bool style_editor = false;
 inline bool trace_logger = false;
+inline bool open_rom = false;
+inline bool exec_rom = false;
 
 inline string flag_names = "NVUBDIZC";
 inline bool flag_values[8] = { };

@@ -27,6 +27,8 @@ bool sdl_init()
 		return false;
 	}
 
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
 	//create textures
 	sdl.screen = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT);
 
@@ -44,12 +46,23 @@ bool sdl_init()
 		return false;
 	}
 
-	sdl.sprscreen = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, 128, 128);
+	sdl.sprscreen = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, PATTERN_WIDTH, PATTERN_HEIGHT);
 
 	if (!sdl.sprscreen)
 	{
 		printf("Failed to create texture: %s\n", SDL_GetError());
 		return false;
+	}
+
+	for (int i = 0; i < 2; i++)
+	{
+		sdl.patscreen[i] = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, PATTERN_WIDTH, PATTERN_HEIGHT);
+
+		if (!sdl.patscreen[i])
+		{
+			printf("Failed to create texture: %s\n", SDL_GetError());
+			return false;
+		}
 	}
 
 	//Enable transparency
@@ -69,21 +82,11 @@ void sdl_frame(u32* screen_pixels, int state)
 		int y = (lp.v & 0x3e0) >> 5;
 
 		SDL_SetRenderTarget(sdl.renderer, sdl.screen);
-
-		//SDL_Rect rect = { 0,  ppu.scanline, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-		//SDL_Rect rect2 = { 0,  ppu.scanline, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-		//if (state == cstate::cycles)
-		//{
 		SDL_Rect rect = { 0,  ppu.scanline + 1, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
 		SDL_Rect rect2 = { ppu.cycle,  ppu.scanline, NES_SCREEN_WIDTH, 1 };
-		//}
-
-
 		SDL_UpdateTexture(sdl.screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
 		SDL_RenderCopy(sdl.renderer, sdl.screen, NULL, NULL);
-
 		sdl_overlay(rect, rect2);
-
 		SDL_SetRenderTarget(sdl.renderer, NULL);
 	}
 	else
@@ -116,7 +119,7 @@ void sdl_nttable()
 	}
 
 	u8 nametable = (lp.t & 0xc00) >> 10;
-	s16 fy = (lp.v & 0x7000) >> 12;
+	s16 fy = (lp.t & 0x7000) >> 12;
 	s16 fx = (lp.x & 7);
 	u16 xp = (sx * 8 + fx) + (nametable & 1) * 256;
 	u16 yp = (sy * 8 + fy) + ((nametable & 2) >> 1) * 240;
@@ -189,6 +192,12 @@ void sdl_clean()
 
 	if (sdl.ntscreen)
 		SDL_DestroyTexture(sdl.ntscreen);
+
+	for (int i = 0; i < 2; i++)
+	{
+		if (sdl.patscreen[i])
+			SDL_DestroyTexture(sdl.patscreen[i]);
+	}
 
 	if (sdl.controller)
 		SDL_GameControllerClose(sdl.controller);

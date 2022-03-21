@@ -10,9 +10,7 @@ int cpu_step()
 	u8 b1 = 0;
 	u16 b2 = 0;
 	cpu.branchtaken = 0;
-
-	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
-	int cycles = (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
+	cpu.jumptaken = 0;
 
 	int mode = disasm[op].mode;
 	u16 addr = 0;
@@ -137,17 +135,17 @@ int cpu_step()
 		case opcid::BCC:
 		{
 			op_bra(addr, op, !(reg.ps & FC));
-			return cycles;
+			break;
 		}
 		case opcid::BCS:
 		{
 			op_bra(addr, op, (reg.ps & FC));
-			return cycles;
+			break;
 		}
 		case opcid::BEQ:
 		{
 			op_bra(addr, op, (reg.ps & FZ));
-			return cycles;
+			break;
 		}
 		case opcid::BIT:
 		{
@@ -161,17 +159,17 @@ int cpu_step()
 		case opcid::BMI:
 		{
 			op_bra(addr, op, (reg.ps & FN));
-			return cycles;
+			break;
 		}
 		case opcid::BNE:
 		{
 			op_bra(addr, op, !(reg.ps & FZ));
-			return cycles;
+			break;
 		}
 		case opcid::BPL:
 		{
 			op_bra(addr, op, !(reg.ps & FN));
-			return cycles;
+			break;
 		}
 		case opcid::BRK:
 		{
@@ -182,17 +180,18 @@ int cpu_step()
 			op_push(reg.sp--, reg.ps | FB | FU);
 			reg.pc = rw(INT_BRK);
 			reg.ps |= FI;
-			return cycles;
+			cpu.jumptaken = 1;
+			break;
 		}
 		case opcid::BVC:
 		{
 			op_bra(addr, op, !(reg.ps & FV));
-			return cycles;
+			break;
 		}
 		case opcid::BVS:
 		{
 			op_bra(addr, op, (reg.ps & FV));
-			return cycles;
+			break;
 		}
 		case opcid::CLC:
 		{
@@ -295,7 +294,8 @@ int cpu_step()
 		case opcid::JMP:
 		{
 			reg.pc = addr;
-			return cycles;
+			cpu.jumptaken = 1;
+			break;
 		}
 		case opcid::JSR:
 		{
@@ -303,7 +303,8 @@ int cpu_step()
 			op_push(reg.sp--, pc >> 8);
 			op_push(reg.sp--, pc & 0xff);
 			reg.pc = addr;
-			return cycles;
+			cpu.jumptaken = 1;
+			break;
 		}
 		case opcid::LDA:
 		{
@@ -438,13 +439,15 @@ int cpu_step()
 		{
 			reg.ps = op_pop() & ~0x30;
 			reg.pc = op_pop(); reg.pc |= op_pop() << 8;
-			return cycles;
+			cpu.jumptaken = 1;
+			break;
 		}
 		case opcid::RTS:
 		{
 			reg.pc = op_pop(); reg.pc |= op_pop() << 8;
 			reg.pc++;
-			return cycles;
+			cpu.jumptaken = 1;
+			break;
 		}
 		case opcid::SBC:
 		{
@@ -538,7 +541,10 @@ int cpu_step()
 		}
 	}
 
-	reg.pc += disasm[op].size;
+	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
+	int cycles = (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
+	if (!cpu.branchtaken && !cpu.jumptaken)
+		reg.pc += disasm[op].size;
 	return cycles;
 }
 
@@ -590,7 +596,6 @@ void op_bra(u16 addr, u8 op, bool flag)
 	else
 	{
 		cpu.branchtaken = 0;
-		reg.pc += disasm[op].size;
 	}
 }
 

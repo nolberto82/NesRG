@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 			ImGuiIO& io = ImGui::GetIO(); (void)io;
 			io.ConfigFlags = ImGuiConfigFlags_DockingEnable;
 
-			io.IniFilename = "./assets/imgui.ini";
+			io.IniFilename = "assets\\imgui.ini";
 
 			mem_init();
 			cpu_init();
@@ -71,17 +71,21 @@ int main(int argc, char* argv[])
 				if (cpu.state == cstate::running)
 					main_step();
 			}
+
+			//Save imgui.ini
+			fs::path assets(fs::current_path().parent_path().parent_path()
+				.parent_path().parent_path() / io.IniFilename);
+			ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
+
+			ImGui_ImplSDLRenderer_Shutdown();
+			ImGui_ImplSDL2_Shutdown();
+			ImGui::DestroyContext();
 		}
+		sdl_clean();
 	}
 
 	if (logging)
 		create_close_log(false);
-
-	ImGui_ImplSDLRenderer_Shutdown();
-	ImGui_ImplSDL2_Shutdown();
-	ImGui::DestroyContext();
-
-	sdl_clean();
 
 	return 0;
 }

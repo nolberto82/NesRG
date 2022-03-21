@@ -3,12 +3,6 @@
 #include "controls.h"
 #include "mappers.h"
 
-u8 mirrorhor[] = { 0, 0, 1, 1 };
-u8 mirrorver[] = { 0, 1, 0, 1 };
-u8 mirrornt0[] = { 0, 0, 0, 0 };
-u8 mirrornt1[] = { 1, 1, 1, 1 };
-u8 mirror4sc[] = { 0, 1, 2, 3 };
-
 void mem_init()
 {
 	ram.resize(RAMSIZE);
@@ -71,7 +65,7 @@ bool set_mapper()
 			}
 			break;
 		}
-		case 1:
+		case 1: case 2:
 		{
 			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
 			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
@@ -188,6 +182,9 @@ void wb(u16 addr, u8 v)
 			case 1:
 				mapper001_update(addr, v);
 				break;
+			case 2:
+				mapper002_update(addr, v);
+				break;
 			default:
 				break;
 		}
@@ -211,23 +208,23 @@ u8 ppurb(u16 addr)
 
 	if (mirrornametable == mirrortype::horizontal)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
+		if (a >= 0x2000 && a < 0x3000)
 			v = vram[0x2000 + (a % 0x400) + mirrorhor[(a >> 10) - 8] * 0x400];
 	}
 	if (mirrornametable == mirrortype::vertical)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			v = vram[0x2000 + (a % 0x400) + mirrorver[(addr >> 10) - 8] * 0x400];
+		if (a >= 0x2000 && a < 0x3000)
+			v = vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x400];
 	}
 	else if (mirrornametable == mirrortype::single_nt0)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			v = vram[0x2000 + (a % 0x400) + mirrornt0[(addr >> 10) - 8] * 0x400];
+		if (a >= 0x2000 && a < 0x3000)
+			v = vram[0x2000 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400];
 	}
 	else if (mirrornametable == mirrortype::single_nt1)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			v = vram[0x2000 + (a % 0x400) + mirrornt1[(addr >> 10) - 8] * 0x400];
+		if (a >= 0x2000 && a < 0x3000)
+			v = vram[0x2000 + (a % 0x400) + mirrornt1[(a >> 10) - 8] * 0x400];
 	}
 	return v;
 }
@@ -239,27 +236,35 @@ void ppuwb(u16 addr, u8 v)
 	addr &= 0x3fff;
 	u16 a = addr;
 
-	vram[addr] = v;
+	if (a < 0x2000)
+	{
+		int yu = 0;
+	}
+
+	vram[a] = v;
 
 	if (mirrornametable == mirrortype::horizontal)
 	{
 		if (a >= 0x2000 && a < 0x3f00)
-			vram[0x2000 + (a % 0x400) + mirrorhor[(addr >> 10) - 8] * 0x400] = v;
+			vram[0x2000 + (a % 0x400) + mirrorhor[(a >> 10) - 8] * 0x400] = v;
 	}
 	if (mirrornametable == mirrortype::vertical)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			vram[0x2000 + (a % 0x400) + mirrorver[(addr >> 10) - 8] * 0x400] = v;
+		if (a >= 0x2000 && a < 0x3000)
+		{
+			vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x400] = v;
+		}
+
 	}
 	if (mirrornametable == mirrortype::single_nt0)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			vram[0x2000 + (a % 0x400) + mirrornt0[(addr >> 10) - 8] * 0x400] = v;
+		if (a >= 0x2000 && a < 0x3000)
+			vram[0x2000 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
 	}
 	if (mirrornametable == mirrortype::single_nt1)
 	{
-		if (a >= 0x2000 && a < 0x3f00)
-			vram[0x2000 + (a % 0x400) + mirrornt1[(addr >> 10) - 8] * 0x400] = v;
+		if (a >= 0x2000 && a < 0x3000)
+			vram[0x2000 + (a % 0x400) + mirrornt1[(a >> 10) - 8] * 0x400] = v;
 	}
 
 	for (int i = 0; i < 7; i++)

@@ -32,6 +32,12 @@ struct Header
 	string name;
 };
 
+inline u16 mirrorhor[] = { 0, 0, 1, 1 };
+inline u16 mirrorver[] = { 0, 1, 0, 1 };
+inline u16 mirrornt0[] = { 0, 0, 0, 0 };
+inline u16 mirrornt1[] = { 1, 1, 1, 1 };
+inline u16 mirror4sc[] = { 0, 1, 2, 3 };
+
 inline string mirrornames[] =
 {
 	{ "one screen 0"},
@@ -45,6 +51,7 @@ extern Header header;
 
 inline vector<u8> ram;
 inline vector<u8> vram;
+inline vector<u8> ntram[2];
 inline vector<u8> oam;
 inline vector<u8> rom;
 inline vector<u8> vrom;

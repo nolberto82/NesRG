@@ -10,9 +10,6 @@ void ppu_step(int num)
 	{
 		if ((ppu.scanline >= 0 && ppu.scanline < 240) && ppu_rendering())
 		{
-			//if (ppu.scanline == 0 && ppu_rendering)
-			//	lp.t = lp.v;
-
 			render_pixels();
 
 			u8 fx = (lp.x + (ppu.cycle)) & 7;
@@ -25,25 +22,36 @@ void ppu_step(int num)
 			if (ppu.cycle == 256)
 				y_inc();
 
+			//if (ppu.cycle == 328 || ppu.cycle == 336)
+			//	x_inc();
+
 			//copy horizontal bits
 			if (ppu.cycle == 257)
-			{
 				lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
-			}
 
 			ppu_eval_sprites();
+		}
+		else if (ppu.scanline == 240)
+		{
+			if (ppu.cycle == 0)
+			{
+				ppu.frame++;
+				ppu.frame_ready = true;
+			}
+
 		}
 		else if (ppu.scanline == 241)
 		{
 			if (ppu.cycle == 1)
 			{
+				//if ()
+				//{
 				pstatus.vblank = 1;
-				ppu.frame++;
-				ram[0x2002] |= 0x80;
-				if (pctrl.nmi)
-					op_nmi();
 
-				ppu.frame_ready = true;
+				ram[0x2002] |= 0x80;
+				if (pctrl.nmi && !ppu.no_nmi)
+					op_nmi();
+				//}
 			}
 		}
 		else if (ppu.scanline == -1)
@@ -65,10 +73,7 @@ void ppu_step(int num)
 
 			if (ppu.cycle == 1)
 			{
-				pstatus.vblank = 0;
-				pstatus.sprite0hit = 0;
-				pstatus.sproverflow = 0;
-				ram[0x2002] &= 0x1f;
+
 			}
 		}
 
@@ -84,6 +89,12 @@ void ppu_step(int num)
 				ppu.scanline = -1;
 				ppu.sprite_count = 0;
 				ppu.oddeven ^= 1;
+				pstatus.vblank = 0;
+				pstatus.sprite0hit = 0;
+				pstatus.sproverflow = 0;
+				ppu.no_nmi = ppu.no_vbl = 0;
+				ram[0x2002] &= 0x1f;
+				//memset(ppu.screen_pixels, 0x00, sizeof(ppu.screen_pixels));
 			}
 		}
 	}
@@ -114,14 +125,22 @@ void ppu_mask(u8 v)
 u8 ppu_status()
 {
 	u8 v = pstatus.vblank << 7 | pstatus.sprite0hit << 6;
-	if (ppu.cycle == 2 && pstatus.vblank)
-		v &= 0;
+	if (ppu.scanline == 241)
+	{
+		if (ppu.cycle == 0)
+		{
+			ppu.no_nmi = ppu.no_vbl = 1;
+			pstatus.vblank = 1;
+		}
+		else if (ppu.cycle == 1 || ppu.cycle == 2)
+			ppu.no_nmi = 1;
+	}
 
 	pctrl.vaddr = (v & 4) >> 2;
-
-	pstatus.vblank = 0;
 	ram[0x2000] |= v;
 	ram[0x2002] &= 0x7f;
+	pstatus.vblank = 0;
+
 	lp.w = 0;
 	return v;
 }
@@ -222,11 +241,14 @@ void render_pixels()
 	int patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
 	int y = ppu.scanline;
 	int x = ppu.cycle - 1;
-	u8 bgindex = 0;
+	u8 bkg_pixel = 0;
+	u8 spr_pixel = 0;
+
+	ppu.screen_pixels[y * 256 + x] = 0;
 
 	if (ppu.cycle >= 1 && ppu.cycle < 256)
 	{
-		if (pmask.background && !(x < 7 && !pmask.backgroundleft))
+		if (pmask.background && !(x < 8 && !pmask.backgroundleft))
 		{
 			u16 ppuaddr = 0x2000 | (lp.v & 0xfff);
 			u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
@@ -238,11 +260,11 @@ void render_pixels()
 			u8 attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
 			u8 att = (ppurb(attaddr) >> attr_shift) & 3;
 
-			bgindex = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) << 1;
-			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 | att * 4 + bgindex]];
+			bkg_pixel = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) * 2;
+			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 | att * 4 + bkg_pixel]];
 		}
 
-		if (pmask.sprite && !(x < 7 && !pmask.spriteleft))
+		if (pmask.sprite && !(x < 8 && !pmask.spriteleft))
 		{
 			u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
 			u16 oamaddr = 0x0100 * ppu.oamdma;
@@ -254,7 +276,10 @@ void render_pixels()
 				u8 sy = spr.y + 1;
 				u8 sx = spr.x;
 
-				if (sy >= 239 || (x - sx) < 0 || (x - sx) > 7)
+				if (sy > 239)
+					continue;
+
+				if ((x - sx) < 0 || (x - sx) > 7)
 					continue;
 
 				u8 fx = (x - sx) & 7;
@@ -272,14 +297,14 @@ void render_pixels()
 				else
 					spraddr = bgaddr + tile * 16 + fy;
 
-				u8 palindex = (vram[spraddr] >> fx & 1) | (vram[spraddr + 8] >> fx & 1) * 2;
+				spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
 
-				if (palindex != 0)
+				if (spr_pixel)
 				{
-					if ((attrib & 0x20) == 0 || bgindex == 0)
-						ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f10 | palindex + (attrib & 3) * 4]];
+					if ((attrib & 0x20) == 0 || bkg_pixel == 0)
+						ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f10 | spr_pixel + (attrib & 3) * 4]];
 
-					if (spr.spritenum == 0 && bgindex && x < 255 && !pstatus.sprite0hit)
+					if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit)
 					{
 						pstatus.sprite0hit = 1;
 						ram[0x2002] |= 0x40;
@@ -297,20 +322,20 @@ void process_nametables(u16 addrnt, int i, u32* pixels)
 		int x = (a & 0x1f);
 		int y = (a & 0x3e0) >> 5;
 
-		int ppuaddr = 0x2000 | (a + (i * 0x400) & 0xfff);
-		u16 attaddr = 0x23c0 | (a + (i * 0x400) & 0xc00) | (y / 4) * 8 + (x / 4);
+		int ppuaddr = 0x2000 | a;
+		u16 attaddr = 0x23c0 | (a & 0xc00) | (y / 4) * 8 + (x / 4);
 		u16 patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
 
 		for (int r = 0; r < 8; r++)
 		{
-			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + r;
+			u16 bgaddr = patternaddr + vram[ppuaddr] * 16 + r;
 			for (int cl = 0; cl < 8; cl++)
 			{
 				int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
-				u8 bit2 = (ppurb(attaddr) >> attr_shift) & 3;
+				u8 bit2 = (vram[attaddr] >> attr_shift) & 3;
 
-				int color = ppurb(bgaddr) >> (7 - cl) & 1 |
-					(ppurb(bgaddr + 8) >> (7 - cl) & 1) * 2;
+				int color = vram[bgaddr] >> (7 - cl) & 1 |
+					(vram[bgaddr + 8] >> (7 - cl) & 1) * 2;
 
 				int xp = x * 8 + cl;
 				int yp = y * 8 + r;
@@ -386,6 +411,40 @@ void process_sprites()
 	}
 }
 
+void process_pattern()
+{
+	u16 bgaddr = 0x0000;
+	int tileid = 0;
+
+	for (int i = 0; i < 2; i++)
+	{
+		for (int y = 0; y < 16; y++)
+		{
+			for (int x = 0; x < 16; x++)
+			{
+				for (int yy = 0; yy < 8; yy++)
+				{
+					u8 b1 = ppurb(bgaddr + tileid * 16 + yy + 0);
+					u8 b2 = ppurb(bgaddr + tileid * 16 + yy + 8);
+					for (int xx = 0; xx < 8; xx++)
+					{
+						int color = b1 >> (7 - xx) & 1 |
+							(b2 >> (7 - xx) & 1) * 2;
+						int xp = x * 8 + xx;
+						int yp = y * 8 + yy;
+						ppu.pattern_pixels[i][yp * PATTERN_WIDTH + xp] = ppu.palettes[vram[0x3f00 | 0 * 4 + color]];
+					}
+				}
+				tileid++;
+			}
+		}
+		SDL_UpdateTexture(sdl.patscreen[i], NULL, ppu.pattern_pixels[i], PATTERN_WIDTH * sizeof(unsigned int));
+		SDL_RenderCopy(sdl.renderer, sdl.patscreen[i], NULL, NULL);
+		tileid = 0;
+		bgaddr = 0x1000;
+	}
+}
+
 void x_inc()
 {
 	if ((lp.v & 0x1f) == 0x1f)
@@ -428,24 +487,24 @@ void ppu_eval_sprites()
 		memset(sprites, 0xff, sizeof(sprites));
 		int count = 0;
 
-		for (int i = 252; i >= 0; i -= 4)
+		for (int i = 63; i >= 0; i--)
 		{
-			if (count > 7)
+			if (count > 8)
 			{
-				ram[0x2002] |= (pstatus.sproverflow = 1) << 5;
+				ram[0x2002] |= (pstatus.sproverflow) << 5;
 				break;
 			}
 
-			int yp = ppu.scanline - oam[i + 0];
+			int yp = ppu.scanline - oam[i * 4 + 0];
 			u8 size = pctrl.spritesize ? 16 : 8;
 
 			if (yp >= 0 && yp < size)
 			{
-				sprites[count].y = oam[i + 0];
-				sprites[count].tile = oam[i + 1];
-				sprites[count].attrib = oam[i + 2];
-				sprites[count].x = oam[i + 3];
-				sprites[count].spritenum = i / 4;
+				sprites[count].y = oam[i * 4 + 0];
+				sprites[count].tile = oam[i * 4 + 1];
+				sprites[count].attrib = oam[i * 4 + 2];
+				sprites[count].x = oam[i * 4 + 3];
+				sprites[count].spritenum = i;
 				count++;
 			}
 		}
@@ -455,6 +514,11 @@ void ppu_eval_sprites()
 bool ppu_rendering()
 {
 	return pmask.background || pmask.sprite;
+}
+
+bool ppu_clipping()
+{
+	return pmask.backgroundleft || pmask.spriteleft;
 }
 
 bool ppu_odd_frame()

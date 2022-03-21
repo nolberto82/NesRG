@@ -35,11 +35,14 @@ typedef char s8;
 typedef short s16;
 typedef int s32;
 
-const int APP_WIDTH = 1700;
+const int APP_WIDTH = 1600;
 const int APP_HEIGHT = 975;
 
 const int NES_SCREEN_WIDTH = 256;
 const int NES_SCREEN_HEIGHT = 240;
+
+const int PATTERN_WIDTH = 128;
+const int PATTERN_HEIGHT = 128;
 
 enum cstate
 {
@@ -62,6 +65,7 @@ struct Cpu
 {
 	bool pagecrossed = false;
 	u8 branchtaken = 0;
+	u8 jumptaken = 0;
 	int state;
 	u32 cycles;
 };

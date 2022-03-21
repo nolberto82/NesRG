@@ -24,6 +24,7 @@ struct SdlCore
 	FPSmanager fpsman;
 	SDL_Texture* screen;
 	SDL_Texture* ntscreen;
+	SDL_Texture* patscreen[2];
 	SDL_Texture* sprscreen;
 	SDL_Renderer* renderer;
 	SDL_Window* window;

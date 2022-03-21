@@ -29,6 +29,8 @@ ${SRC_DIR}/src/ppu.cpp
 ${SRC_DIR}/src/sdlcore.cpp
 ${SRC_DIR}/src/controls.cpp
 ${SRC_DIR}/src/mappers/mapper001.cpp
+${SRC_DIR}/src/mappers/mapper002.cpp
+${SRC_DIR}/src/mappers/mapper004.cpp
 )
 
 if(WIN32)

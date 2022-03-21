@@ -15,9 +15,22 @@ void gui_update()
 	ImGui_ImplSDL2_NewFrame(sdl.window);
 	ImGui::NewFrame();
 
+	fileDialog.Display();
+	fileDialog.SetWindowSize(500, 800);
+
+	if (fileDialog.HasSelected())
+	{
+		if (!load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
+		{
+			cpu.state = cstate::debugging;
+			rom.clear();
+		}
+		fileDialog.ClearSelected();
+	}
+
 	ImGuiViewport* view = ImGui::GetMainViewport();
-	ImGui::SetNextWindowPos(view->Pos, ImGuiCond_Always);
-	ImGui::SetNextWindowSize(view->Size, ImGuiCond_Always);
+	ImGui::SetNextWindowPos(view->Pos, ImGuiCond_Once);
+	ImGui::SetNextWindowSize(view->Size, ImGuiCond_Once);
 
 	ImGui::Begin("MainWindow", NULL, MAIN_WINDOW);
 
@@ -31,7 +44,7 @@ void gui_update()
 	gui_show_rom_info();
 	gui_show_breakpoints();
 	gui_show_logger();
-	gui_show_buttons();
+	//gui_show_buttons();
 	gui_show_menu();
 
 	ImGui::End();
@@ -54,29 +67,103 @@ void gui_show_display()
 	{
 		if (cpu.state == cstate::scanlines || cpu.state == cstate::cycles)
 			sdl_frame(ppu.screen_pixels, cpu.state);
-		ImGui::Image((void*)sdl.screen, ImGui::GetContentRegionAvail());
-		ImGui::End();
+		ImGui::Image((void*)sdl.screen, ImVec2(256 * 2, 240 * 2));
 	}
+	ImGui::End();
 
-	if ((ImGui::Begin("Nametables")))
+	if (ImGui::Begin("PPU Debug"))
 	{
-		for (int i = 0; i < 4; i++)
+		if (ImGui::BeginTabBar("##gfx_tabs", ImGuiTabBarFlags_None))
 		{
-			memset(ppu.ntable_pixels[i], 0x00, sizeof(ppu.ntable_pixels[i]));
-			process_nametables(i * 0x400, 0, ppu.ntable_pixels[i]);
+			if (ImGui::BeginTabItem("Name Tables"))
+			{
+				//ImGui::SetNextWindowSize(ImVec2(256 * 4, 256 * 4));
+				for (int i = 0; i < 4; i++)
+				{
+					u16 ntaddr = 0;
+					switch (mirrornametable)
+					{
+						case mirrortype::single_nt0: ntaddr = mirrornt0[i]; break;
+						case mirrortype::single_nt1: ntaddr = mirrornt1[i]; break;
+						case mirrortype::vertical: ntaddr = mirrorver[i] * 0x400; break;
+						case mirrortype::horizontal: ntaddr = mirrorhor[i] * 0x400; break;
+					}
+					process_nametables(ntaddr, 0, ppu.ntable_pixels[i]);
+				}
+
+				sdl_nttable();
+
+				ImGui::Image((void*)sdl.ntscreen, ImVec2(128 * 4, 128 * 4));
+				ImGui::EndTabItem();
+			}
+			if (ImGui::BeginTabItem("Pattern Tables"))
+			{
+				process_pattern();
+				ImVec2 pos = ImGui::GetCursorPos();
+				ImGui::Image((void*)sdl.patscreen[0], ImVec2(256, 256));
+				pos.x += 260;
+				ImGui::SetCursorPos(pos);
+				ImGui::Image((void*)sdl.patscreen[1], ImVec2(256, 256));
+				ImGui::EndTabItem();
+			}
+			ImGui::EndTabBar();
 		}
-
-		sdl_nttable();
-
-		ImGui::Image((void*)sdl.ntscreen, ImGui::GetContentRegionAvail());
-		ImGui::End();
 	}
+	ImGui::End();
 }
 
 void gui_show_disassembly()
 {
 	u16 pc = is_jump ? jumpaddr : reg.pc;
 	vector<disasmentry> entries;
+
+	if (ImGui::Begin("Buttons"))
+	{
+		if (ImGui::Button("Load Rom", ImVec2(BUTTON_W, 0)))
+		{
+			fs::path game_dir = "D:\\Emulators+Hacking\\NES\\Mapper1";
+			fileDialog.SetTitle("Load Nes Rom");
+			fileDialog.SetTypeFilters({ ".nes" });
+			fileDialog.SetPwd(game_dir);
+			fileDialog.Open();
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
+		{
+			if (rom_loaded)
+			{
+				if (logging)
+					log_to_file(reg.pc);
+
+				int cyc = cpu_step();
+				ppu_step(cyc);
+				cpu.state = cstate::running; is_jump = false;
+			}
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::Button("Reset", ImVec2(BUTTON_W, 0)))
+		{
+			if (rom_loaded)
+			{
+				set_mapper();
+				create_close_log(false);
+				follow_pc = true;
+				cpu.state = cstate::debugging;
+			}
+		}
+
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? BLUE : DEFCOLOR));
+		if (ImGui::Button("Trace Log", ImVec2(BUTTON_W, 0)))
+			create_close_log(!logging);
+		ImGui::PopStyleColor(1);
+	}
+	ImGui::End();
 
 	if (ImGui::Begin("Disassembly", NULL, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar))
 	{
@@ -92,11 +179,11 @@ void gui_show_disassembly()
 			}
 		}
 
+
 		pc += lineoffset;
 		for (int i = 0; i < DISASSEMBLY_LINES; i++)
 		{
 			disasmentry entry = get_trace_line(pc, false, false)[0];
-			;
 			stringstream ss;
 			ss << setw(4) << hex << uppercase << setfill('0') << pc;
 
@@ -108,8 +195,8 @@ void gui_show_disassembly()
 					bpenabled = true;
 			}
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? LIGHTGRAY : DEFCOLOR);
-			if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 70, 0)))
+			ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? BLUE : DEFCOLOR);
+			if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 50, 0)))
 				bp_add(pc, bp_exec, true);
 
 			ImGui::PopStyleColor();
@@ -152,28 +239,28 @@ void gui_show_memory()
 			}
 			if ((ImGui::BeginTabItem("VRAM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
+				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 				mem_edit.DrawContents(vram.data(), vram.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("OAM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
+				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 				mem_edit.DrawContents(oam.data(), oam.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("ROM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
+				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 				mem_edit.DrawContents(rom.data(), rom.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("VROM")))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Text, BLUE);
+				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 				mem_edit.DrawContents(vrom.data(), vrom.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
@@ -197,6 +284,7 @@ void gui_show_registers()
 			ImGui::Spacing();
 
 		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, 120);
 
 		ImGui::Text("%15s", "PC"); ImGui::NextColumn(); ImGui::Text("%04X", reg.pc); ImGui::NextColumn();
 		ImGui::Text("%15s", "SP"); ImGui::NextColumn(); ImGui::Text("%04X", reg.sp | 0x100); ImGui::NextColumn();
@@ -210,7 +298,7 @@ void gui_show_registers()
 		ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.v); ImGui::NextColumn();
 		ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 		ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();
-		ImGui::Text("%15s", "MMC1 Writes"); ImGui::NextColumn(); ImGui::Text("%d", mmc1.writes); ImGui::NextColumn();
+		ImGui::Text("%15s", "Sprite 0 Hit"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.sprite0hit); ImGui::NextColumn();
 
 		ImGui::Columns(1);
 
@@ -287,7 +375,7 @@ void gui_show_breakpoints()
 
 				ImGui::SameLine();
 
-				ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? LIGHTGRAY : RED);
+				ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? BLUE : RED);
 				if (ImGui::Button("Enabled"))
 					it.enabled = !it.enabled;
 				ImGui::PopStyleColor();
@@ -406,13 +494,6 @@ void gui_show_buttons()
 
 		set_spacing(15);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? LIGHTGRAY : DEFCOLOR));
-		if (ImGui::Button("Trace Log", ImVec2(-1, 0)))
-			create_close_log(!logging);
-		ImGui::PopStyleColor(1);
-
-		set_spacing(15);
-
 		if (ImGui::Button("Jump To", ImVec2(-1, 0)))
 			is_jump = true;
 
@@ -460,19 +541,19 @@ void gui_open_dialog()
 		}
 		ImGui::PopItemWidth();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? LIGHTGRAY : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Cpu Read", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_read;
 		ImGui::PopStyleColor();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? LIGHTGRAY : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Cpu Write", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_write;
 		ImGui::PopStyleColor();
 		ImGui::SameLine();
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? LIGHTGRAY : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Cpu Exec", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_exec;
 		ImGui::SameLine();

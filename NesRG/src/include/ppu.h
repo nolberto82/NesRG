@@ -17,10 +17,12 @@ void clear_pixels();
 void render_pixels();
 void process_nametables(u16 addrnt, int i, u32* pixels);
 void process_sprites();
+void process_pattern();
 void x_inc();
 void y_inc();
 void ppu_eval_sprites();
 bool ppu_rendering();
+bool ppu_clipping();
 bool ppu_odd_frame();
 
 struct Ppu
@@ -48,6 +50,7 @@ struct Ppu
 
 	int scanline;
 	int cycle;
+	int vblank_cycle = 0;
 	int oddeven = 0;
 
 	u32 frame;
@@ -57,10 +60,13 @@ struct Ppu
 	bool frame_ready;
 	bool tabkey;
 	bool oldtabkey;
+	bool no_vbl;
+	bool no_nmi;
 
 	u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
 	u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
 	u32 sprite_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+	u32 pattern_pixels[2][PATTERN_WIDTH * PATTERN_HEIGHT] = {};
 	u32 palettes[192 / 3] = {};
 
 	u8 palbuffer[192] =
