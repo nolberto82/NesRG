@@ -58,7 +58,7 @@ enum cstate
 struct Registers
 {
 	u8 a, x, y, ps, sp;
-	u16 pc;
+	u16 pc, old_pc;
 };
 
 struct Cpu

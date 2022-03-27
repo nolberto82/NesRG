@@ -65,7 +65,7 @@ bool set_mapper()
 			}
 			break;
 		}
-		case 1: case 2:
+		case 1: case 2: case 4:
 		{
 			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
 			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
@@ -73,6 +73,9 @@ bool set_mapper()
 			{
 				memcpy(&vram[0x0000], vrom.data(), chrsize / chrbanks);
 			}
+
+			if (mappernum == 4)
+				mapper004_reset();
 			break;
 		}
 		default:
@@ -114,14 +117,14 @@ bool load_file(const char* filename, std::vector<u8>& data, int offset, int size
 	return res;
 }
 
-u8 rb(u16 addr)
+u8 rb(u16 addr, u8 cycles)
 {
 	read_addr = addr;
 
 	if (addr >= 0x2000 && addr <= 0x2fff)
 	{
 		if ((addr & 0x7) == 0x02)
-			return ppu_status();
+			return ppu_status(cycles);
 		if ((addr & 0x7) == 0x07)
 			return ppu_data_rb();
 	}
@@ -184,6 +187,9 @@ void wb(u16 addr, u8 v)
 				break;
 			case 2:
 				mapper002_update(addr, v);
+				break;
+			case 4:
+				mapper004_update(addr, v);
 				break;
 			default:
 				break;
@@ -283,12 +289,16 @@ void ppuwb(u16 addr, u8 v)
 
 void mem_rom(vector<u8>& dst, u16 addr, int offset, int size)
 {
+	if (offset >= rom.size())
+		return;
 	memcpy(dst.data() + addr, rom.data() + offset, size);
 }
 
 void mem_vrom(vector<u8>& dst, u16 addr, int offset, int size)
 {
 	if (!header.chrnum)
+		return;
+	if (offset >= vrom.size())
 		return;
 	memcpy(dst.data() + addr, vrom.data() + offset, size);
 }

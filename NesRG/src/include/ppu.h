@@ -5,7 +5,7 @@
 void ppu_step(int num);
 void ppu_ctrl(u8 v);
 void ppu_mask(u8 v);
-u8 ppu_status();
+u8 ppu_status(u8 cycles);
 void ppu_oam_addr(u8 v);
 void ppu_oam_data(u8 v);
 void ppu_scroll(u8 v);

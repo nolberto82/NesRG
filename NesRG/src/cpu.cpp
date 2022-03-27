@@ -14,7 +14,9 @@ int cpu_step()
 
 	int mode = disasm[op].mode;
 	u16 addr = 0;
-	u16 pc = reg.pc;
+	u16 pc = reg.old_pc = reg.pc;
+	reg.pc += disasm[op].size;
+
 	switch (mode)
 	{
 		case impl:
@@ -83,7 +85,7 @@ int cpu_step()
 			break;
 		}
 		case erro:
-			cpu.state = cstate::crashed;
+			//cpu.state = cstate::crashed;
 			break;
 	}
 
@@ -149,7 +151,7 @@ int cpu_step()
 		}
 		case opcid::BIT:
 		{
-			u8 v = rb(addr);
+			u8 v = rb(addr, disasm[op].cycles);
 			u8 b = reg.a & v;
 			set_flag(b == 0, FZ);
 			set_flag(v & 0x80, FN);
@@ -173,13 +175,7 @@ int cpu_step()
 		}
 		case opcid::BRK:
 		{
-			u8 pb = rb(reg.pc);
-			pb = rb(reg.pc);
-			op_push(reg.sp--, (reg.pc + 2) >> 8);
-			op_push(reg.sp--, (reg.pc + 2) & 0xff);
-			op_push(reg.sp--, reg.ps | FB | FU);
-			reg.pc = rw(INT_BRK);
-			reg.ps |= FI;
+			op_brk(pc);
 			cpu.jumptaken = 1;
 			break;
 		}
@@ -299,7 +295,7 @@ int cpu_step()
 		}
 		case opcid::JSR:
 		{
-			u16 pc = reg.pc + 2;
+			pc = pc + 2;
 			op_push(reg.sp--, pc >> 8);
 			op_push(reg.sp--, pc & 0xff);
 			reg.pc = addr;
@@ -308,21 +304,21 @@ int cpu_step()
 		}
 		case opcid::LDA:
 		{
-			reg.a = rb(addr);
+			reg.a = rb(addr, disasm[op].cycles);
 			set_flag(reg.a == 0, FZ);
 			set_flag(reg.a & 0x80, FN);
 			break;
 		}
 		case opcid::LDX:
 		{
-			reg.x = rb(addr);
+			reg.x = rb(addr, disasm[op].cycles);
 			set_flag(reg.x == 0, FZ);
 			set_flag(reg.x & 0x80, FN);
 			break;
 		}
 		case opcid::LDY:
 		{
-			reg.y = rb(addr);
+			reg.y = rb(addr, disasm[op].cycles);
 			set_flag(reg.y == 0, FZ);
 			set_flag(reg.y & 0x80, FN);
 			break;
@@ -537,15 +533,18 @@ int cpu_step()
 		{
 			//cpu.state = cstate::crashed;
 			reg.pc++;
-			return 3;
+			return 0;
 		}
 	}
 
+	if (mmc4.fire)
+	{
+		mmc4.fire = 0;
+		op_irq(pc);
+	}
+
 	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
-	int cycles = (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
-	if (!cpu.branchtaken && !cpu.jumptaken)
-		reg.pc += disasm[op].size;
-	return cycles;
+	return (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
 }
 
 void cpu_init()
@@ -590,13 +589,28 @@ void op_bra(u16 addr, u8 op, bool flag)
 {
 	if (flag)
 	{
-		reg.pc = addr;
 		cpu.branchtaken = 1;
+		reg.pc = addr;
 	}
-	else
-	{
-		cpu.branchtaken = 0;
-	}
+}
+
+void op_brk(u16 pc)
+{
+	op_push(reg.sp--, pc >> 8);
+	op_push(reg.sp--, (pc + 1) & 0xff);
+	op_push(reg.sp--, reg.ps | FB | FU);
+	reg.ps |= FI;
+	reg.pc = rw(INT_BRK);
+}
+
+void op_irq(u16 pc)
+{
+	op_push(reg.sp--, reg.pc >> 8);
+	op_push(reg.sp--, reg.pc & 0xff);
+	reg.ps &= ~(FB | FU);
+	op_push(reg.sp--, reg.ps | FB | FU);
+	reg.pc = rw(INT_BRK);
+	reg.ps |= FI;
 }
 
 void set_flag(bool flag, u8 v)

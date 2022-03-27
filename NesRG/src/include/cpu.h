@@ -23,6 +23,8 @@ void op_nmi();
 u8 op_pop();
 void op_push(u16 addr, u8 v);
 void op_bra(u16 addr, u8 op, bool flag);
+void op_brk(u16 pc);
+void op_irq(u16 pc);
 void set_flag(bool flag, u8 v);
 int cpu_step();
 void cpu_init();

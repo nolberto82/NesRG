@@ -1,6 +1,7 @@
 #include "ppu.h"
 #include "mem.h"
 #include "sdlcore.h"
+#include "mappers.h"
 
 SpriteData sprites[8];
 
@@ -8,8 +9,19 @@ void ppu_step(int num)
 {
 	while (num-- > 0)
 	{
-		if ((ppu.scanline >= 0 && ppu.scanline < 240) && ppu_rendering())
+		if ((ppu.scanline >= -1 && ppu.scanline < 240) && ppu.cycle == 260 && ppu_rendering())
 		{
+			if (header.mappernum == 4)
+			{
+				mapper004_scanline();
+			}
+		}
+
+		if ((ppu.scanline > 0 && ppu.scanline < 240) && ppu_rendering())
+		{
+			if (ppu.scanline == 0 && ppu.cycle == 0)
+				ppu.cycle = 1;
+
 			render_pixels();
 
 			u8 fx = (lp.x + (ppu.cycle)) & 7;
@@ -33,12 +45,11 @@ void ppu_step(int num)
 		}
 		else if (ppu.scanline == 240)
 		{
-			if (ppu.cycle == 0)
+			if (ppu.cycle == 1)
 			{
 				ppu.frame++;
 				ppu.frame_ready = true;
 			}
-
 		}
 		else if (ppu.scanline == 241)
 		{
@@ -78,14 +89,14 @@ void ppu_step(int num)
 		}
 
 		ppu.cycle++;
-		u8 c = ppu_rendering() && ppu_odd_frame() ? ppu.oddeven : 0;
-		if (ppu.cycle >= CYCLES_PER_LINE - c)
+		if (ppu.cycle >= 341)
 		{
-			ppu.cycle -= CYCLES_PER_LINE;
+			//ppu.cycle -= 341;
+			ppu.cycle -= 341;
 			ppu.scanline++;
 			if (ppu.scanline == 261)
 			{
-				//pctrl.nmi = false;
+
 				ppu.scanline = -1;
 				ppu.sprite_count = 0;
 				ppu.oddeven ^= 1;
@@ -122,9 +133,17 @@ void ppu_mask(u8 v)
 	pmask.sprite = (v >> 4) & 1;
 }
 
-u8 ppu_status()
+u8 ppu_status(u8 cycles)
 {
-	u8 v = pstatus.vblank << 7 | pstatus.sprite0hit << 6;
+	u8 v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
+		| (ppu.dummy2007 & 0x1f);
+
+	if (ppu.scanline == 240)
+	{
+		if (ppu.cycle + cycles * 3 > 340)
+			v |= 0x80;
+	}
+
 	if (ppu.scanline == 241)
 	{
 		if (ppu.cycle == 0)
@@ -132,11 +151,10 @@ u8 ppu_status()
 			ppu.no_nmi = ppu.no_vbl = 1;
 			pstatus.vblank = 1;
 		}
-		else if (ppu.cycle == 1 || ppu.cycle == 2)
+		else if (ppu.cycle <= 2)
 			ppu.no_nmi = 1;
 	}
 
-	pctrl.vaddr = (v & 4) >> 2;
 	ram[0x2000] |= v;
 	ram[0x2002] &= 0x7f;
 	pstatus.vblank = 0;
@@ -148,11 +166,15 @@ u8 ppu_status()
 void ppu_oam_addr(u8 v)
 {
 	ppu.p2003 = v;
+	ram[0x2003] = v;
 }
 
 void ppu_oam_data(u8 v)
 {
 	ppu.p2004 = v;
+	ram[0x2004] = v;
+	ram[0x2002] |= 0x1f;
+	ram[0x2003] = ppu.p2003++;
 }
 
 void ppu_scroll(u8 v)
@@ -243,6 +265,7 @@ void render_pixels()
 	int x = ppu.cycle - 1;
 	u8 bkg_pixel = 0;
 	u8 spr_pixel = 0;
+	u8 bg_pal = 0;
 
 	ppu.screen_pixels[y * 256 + x] = 0;
 
@@ -258,12 +281,12 @@ void render_pixels()
 
 			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + fy;
 			u8 attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
-			u8 att = (ppurb(attaddr) >> attr_shift) & 3;
-
+			bg_pal = (ppurb(attaddr) >> attr_shift) & 3;
 			bkg_pixel = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) * 2;
-			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 | att * 4 + bkg_pixel]];
 		}
 
+		u8 attrib = 0;
+		u8 spritenum = 0;
 		if (pmask.sprite && !(x < 8 && !pmask.spriteleft))
 		{
 			u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
@@ -272,14 +295,17 @@ void render_pixels()
 			for (auto& spr : sprites)
 			{
 				u8 tile = spr.tile;
-				u8 attrib = spr.attrib;
+				attrib = spr.attrib;
 				u8 sy = spr.y + 1;
 				u8 sx = spr.x;
 
-				if (sy > 239)
+				if (spr.spritenum == 0)
+					spritenum = spr.spritenum;
+
+				if (spr.y > 239)
 					continue;
 
-				if ((x - sx) < 0 || (x - sx) > 7)
+				if ((x - sx) <= -1 || (x - sx) >= 8)
 					continue;
 
 				u8 fx = (x - sx) & 7;
@@ -300,18 +326,33 @@ void render_pixels()
 				spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
 
 				if (spr_pixel)
-				{
-					if ((attrib & 0x20) == 0 || bkg_pixel == 0)
-						ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f10 | spr_pixel + (attrib & 3) * 4]];
+					break;
+			}
+		}
 
-					if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit)
-					{
-						pstatus.sprite0hit = 1;
-						ram[0x2002] |= 0x40;
-					}
+		u16 gaddr = 0x3f00;
+		if (!bkg_pixel && spr_pixel)
+			gaddr = spr_pixel + (attrib & 3) * 4 + 0x3f10;
+		else if (bkg_pixel && !spr_pixel)
+			gaddr = bkg_pixel + bg_pal * 4 + 0x3f00;
+		else if (bkg_pixel && spr_pixel)
+		{
+			if ((attrib & 0x20) == 0)
+				gaddr = spr_pixel + (attrib & 3) * 4 + 0x3f10;
+			else
+				gaddr = bkg_pixel + bg_pal * 4 + 0x3f00;
+
+			if (spr_pixel)
+			{
+				if (spritenum == 0 && bkg_pixel && spr_pixel && x != 255 && !pstatus.sprite0hit && ppu_rendering())
+				{
+					pstatus.sprite0hit = 1;
+					ram[0x2002] |= 0x40;
 				}
 			}
 		}
+
+		ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[gaddr]];
 	}
 }
 
@@ -424,8 +465,8 @@ void process_pattern()
 			{
 				for (int yy = 0; yy < 8; yy++)
 				{
-					u8 b1 = ppurb(bgaddr + tileid * 16 + yy + 0);
-					u8 b2 = ppurb(bgaddr + tileid * 16 + yy + 8);
+					u8 b1 = vram[bgaddr + tileid * 16 + yy + 0];
+					u8 b2 = vram[bgaddr + tileid * 16 + yy + 8];
 					for (int xx = 0; xx < 8; xx++)
 					{
 						int color = b1 >> (7 - xx) & 1 |
@@ -487,7 +528,7 @@ void ppu_eval_sprites()
 		memset(sprites, 0xff, sizeof(sprites));
 		int count = 0;
 
-		for (int i = 63; i >= 0; i--)
+		for (int i = 0; i < 64; i++)
 		{
 			if (count > 8)
 			{

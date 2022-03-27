@@ -116,6 +116,7 @@ void gui_show_disassembly()
 {
 	u16 pc = is_jump ? jumpaddr : reg.pc;
 	vector<disasmentry> entries;
+	int cyc = 0;
 
 	if (ImGui::Begin("Buttons"))
 	{
@@ -137,7 +138,7 @@ void gui_show_disassembly()
 				if (logging)
 					log_to_file(reg.pc);
 
-				int cyc = cpu_step();
+				cyc = cpu_step();
 				ppu_step(cyc);
 				cpu.state = cstate::running; is_jump = false;
 			}
@@ -291,14 +292,16 @@ void gui_show_registers()
 		ImGui::Text("%15s", "A"); ImGui::NextColumn(); ImGui::Text("%02X", reg.a); ImGui::NextColumn();
 		ImGui::Text("%15s", "X"); ImGui::NextColumn(); ImGui::Text("%02X", reg.x); ImGui::NextColumn();
 		ImGui::Text("%15s", "Y"); ImGui::NextColumn(); ImGui::Text("%02X", reg.y); ImGui::NextColumn();
+		ImGui::Text("%15s", "Status Flag"); ImGui::NextColumn(); ImGui::Text("%02X", reg.ps); ImGui::NextColumn();
 		ImGui::Text("%15s", "Scanline"); ImGui::NextColumn(); ImGui::Text("%d", ppu.scanline); ImGui::NextColumn();
-		ImGui::Text("%15s", "Pixel"); ImGui::NextColumn(); ImGui::Text("%d", ppu.cycle); ImGui::NextColumn();
-		ImGui::Text("%15s", "Cycles"); ImGui::NextColumn(); ImGui::Text("%d", ppu.totalcycles); ImGui::NextColumn();
+		ImGui::Text("%15s", "Cycle"); ImGui::NextColumn(); ImGui::Text("%d", ppu.cycle); ImGui::NextColumn();
+		ImGui::Text("%15s", "Cpu Cycles"); ImGui::NextColumn(); ImGui::Text("%d", ppu.totalcycles); ImGui::NextColumn();
 		ImGui::Text("%15s", "Frames"); ImGui::NextColumn(); ImGui::Text("%d", ppu.frame); ImGui::NextColumn();
 		ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.v); ImGui::NextColumn();
 		ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 		ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();
 		ImGui::Text("%15s", "Sprite 0 Hit"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.sprite0hit); ImGui::NextColumn();
+		ImGui::Text("%15s", "mmc4 counter"); ImGui::NextColumn(); ImGui::Text("%02X", mmc4.counter); ImGui::NextColumn();
 
 		ImGui::Columns(1);
 
@@ -316,6 +319,16 @@ void gui_show_registers()
 			if (i != 3)
 				ImGui::SameLine();
 			shift >>= 1;
+		}
+
+		set_spacing(10);
+
+		if (header.mappernum == 4)
+		{
+			for (int i = 0; i < sizeof(mmc4.chr); i++)
+			{
+				ImGui::Text("chr%02X=", i); ImGui::SameLine(); ImGui::Text("%02X", mmc4.chr[i]);
+			}
 		}
 	}
 	ImGui::End();

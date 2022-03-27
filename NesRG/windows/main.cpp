@@ -5,6 +5,7 @@
 #include "tracer.h"
 #include "breakpoints.h"
 #include "main.h"
+#include "mappers.h"
 
 Cpu cpu;
 Ppu ppu;
@@ -147,7 +148,7 @@ void main_update()
 	//if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step over
 	//	debug_step_over();
 
-	if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step into
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F11)) //step into
 	{
 		if (logging)
 			log_to_file(reg.pc);
@@ -165,6 +166,7 @@ void main_step()
 {
 	follow_pc = true;
 	ppu.frame_ready = false;
+	int cyc = 0;
 	while (!ppu.frame_ready)
 	{
 		u16 pc = reg.pc;
@@ -193,10 +195,10 @@ void main_step()
 		if (logging)
 			log_to_file(pc);
 
-		int cyc = cpu_step();
 		if (cpu.state == cstate::crashed)
 			return;
-		ppu_step(cyc);
+
+		ppu_step(cpu_step());
 	}
 }
 
@@ -242,6 +244,8 @@ void main_save_state(u8 slot)
 		ofstream state(header.name + "." + to_string(slot), ios::binary);
 		state.write((char*)ram.data(), ram.size());
 		state.write((char*)vram.data(), vram.size());
+		if (header.mappernum==4)
+			state.write((char*)&mmc4, sizeof(mmc4));
 		state.close();
 	}
 }
@@ -256,6 +260,8 @@ void main_load_state(u8 slot)
 			ifstream state(file, ios::binary);
 			state.read((char*)ram.data(), ram.size());
 			state.read((char*)vram.data(), vram.size());
+			if (header.mappernum == 4)
+				state.read((char*)&mmc4, sizeof(mmc4));
 			state.close();
 		}
 	}
