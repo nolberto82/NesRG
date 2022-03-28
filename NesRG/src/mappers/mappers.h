@@ -36,7 +36,7 @@ struct UxROM
 	int chrrom;
 };
 
-struct MMC4
+struct MMC3
 {
 	u8 fire;
 	u8 irq;
@@ -58,4 +58,4 @@ inline u8 sram_disabled;
 
 extern MMC1 mmc1;
 extern UxROM uxrom;
-extern MMC4 mmc4;
+extern MMC3 mmc3;

@@ -2,7 +2,7 @@
 #include "mem.h"
 #include  "ppu.h"
 
-MMC4 mmc4;
+MMC3 mmc3;
 
 void mapper004_update(u16 addr, u8 v)
 {
@@ -10,57 +10,60 @@ void mapper004_update(u16 addr, u8 v)
 	{
 		if ((addr % 2) == 0)
 		{
-			mmc4.chrreg = v & 0x7;
-			mmc4.chrmode = (v >> 7) & 1;
-			mmc4.prgmode = (v >> 6) & 1;;
-			mmc4.prgbank = v & 0x7;
-			mmc4.bankreg[mmc4.chrreg];
+			mmc3.chrreg = v & 0x7;
+			mmc3.chrmode = (v >> 7) & 1;
+			mmc3.prgmode = (v >> 6) & 1;;
+			mmc3.prgbank = v & 0x7;
+			mmc3.bankreg[mmc3.chrreg];
 		}
 		else
 		{
-			mmc4.bankreg[mmc4.chrreg] = v;
+			mmc3.bankreg[mmc3.chrreg] = v;
 		}
 
-		if (mmc4.chrmode == 0)
+		if (mmc3.chrmode == 0)
 		{
-			mmc4.chr[0] = mmc4.bankreg[0] & 0xfe;
-			mmc4.chr[1] = mmc4.bankreg[0] + 1;
-			mmc4.chr[2] = mmc4.bankreg[1] & 0xfe;
-			mmc4.chr[3] = mmc4.bankreg[1] + 1;
-			mmc4.chr[4] = mmc4.bankreg[2];
-			mmc4.chr[5] = mmc4.bankreg[3];
-			mmc4.chr[6] = mmc4.bankreg[4];
-			mmc4.chr[7] = mmc4.bankreg[5];
+			mmc3.chr[0] = mmc3.bankreg[0] & 0xfe;
+			mmc3.chr[1] = mmc3.bankreg[0] + 1;
+			mmc3.chr[2] = mmc3.bankreg[1] & 0xfe;
+			mmc3.chr[3] = mmc3.bankreg[1] + 1;
+			mmc3.chr[4] = mmc3.bankreg[2];
+			mmc3.chr[5] = mmc3.bankreg[3];
+			mmc3.chr[6] = mmc3.bankreg[4];
+			mmc3.chr[7] = mmc3.bankreg[5];
 		}
 		else
 		{
-			mmc4.chr[0] = mmc4.bankreg[2];
-			mmc4.chr[1] = mmc4.bankreg[3];
-			mmc4.chr[2] = mmc4.bankreg[4];
-			mmc4.chr[3] = mmc4.bankreg[5];
-			mmc4.chr[4] = mmc4.bankreg[0] & 0xfe;
-			mmc4.chr[5] = mmc4.bankreg[0] + 1;
-			mmc4.chr[6] = mmc4.bankreg[1] & 0xfe;
-			mmc4.chr[7] = mmc4.bankreg[1] + 1;
+			mmc3.chr[0] = mmc3.bankreg[2];
+			mmc3.chr[1] = mmc3.bankreg[3];
+			mmc3.chr[2] = mmc3.bankreg[4];
+			mmc3.chr[3] = mmc3.bankreg[5];
+			mmc3.chr[4] = mmc3.bankreg[0] & 0xfe;
+			mmc3.chr[5] = mmc3.bankreg[0] + 1;
+			mmc3.chr[6] = mmc3.bankreg[1] & 0xfe;
+			mmc3.chr[7] = mmc3.bankreg[1] + 1;
 		}
 
-			for (int i = 0; i < 8; i++)
-				mem_vrom(vram, i * 0x400, mmc4.chr[i] * 0x400, 0x0400);
+		for (int i = 0; i < sizeof(mmc3.chr); i++)
+			mem_vrom(vram, i * 0x400, mmc3.chr[i] * 0x400, 0x0400);
 
-		if (mmc4.prgmode == 0)
+		if (mmc3.prgmode == 0)
 		{
-			mem_rom(ram, 0x8000, 0x10 + mmc4.bankreg[6] * 0x2000, 0x2000);
-			mem_rom(ram, 0xa000, 0x10 + mmc4.bankreg[7] * 0x2000, 0x2000);
-			mem_rom(ram, 0xc000, rom.size() - 0x4000, 0x2000);
-			mem_rom(ram, 0xe000, rom.size() - 0x2000, 0x2000);
+			mmc3.prg[0] = mmc3.bankreg[6];
+			mmc3.prg[1] = mmc3.bankreg[7];
+			mmc3.prg[2] = (header.prgnum * 2) - 2;
+			mmc3.prg[3] = (header.prgnum * 2) - 1;
 		}
 		else
 		{
-			mem_rom(ram, 0x8000, rom.size() - 0x4000, 0x2000);
-			mem_rom(ram, 0xa000, 0x10 + mmc4.bankreg[7] * 0x2000, 0x2000);
-			mem_rom(ram, 0xc000, 0x10 + mmc4.bankreg[6] * 0x2000, 0x2000);
-			mem_rom(ram, 0xe000, rom.size() - 0x2000, 0x2000);
+			mmc3.prg[0] = (header.prgnum * 2) - 2;
+			mmc3.prg[1] = mmc3.bankreg[7];
+			mmc3.prg[2] = mmc3.bankreg[6];
+			mmc3.prg[3] = (header.prgnum * 2) - 1;
 		}
+
+		for (int i = 0; i <sizeof(mmc3.prg); i++)
+			mem_rom(ram, 0x8000 + i * 0x2000, 0x10 + mmc3.prg[i] * 0x2000, 0x2000);
 	}
 	else if (addr >= 0xa000 && addr <= 0xbfff)
 	{
@@ -70,55 +73,55 @@ void mapper004_update(u16 addr, u8 v)
 		}
 		else
 		{
-			mmc4.write_prot = (v >> 6) & 1;
-			mmc4.prg_ram = (v >> 7) & 1;
+			mmc3.write_prot = (v >> 6) & 1;
+			mmc3.prg_ram = (v >> 7) & 1;
 		}
 	}
 	else if (addr >= 0xc000 && addr <= 0xdfff)
 	{
 		if ((addr % 2) == 0)
 		{
-			mmc4.rvalue = v;
+			mmc3.rvalue = v;
 		}
 		else
 		{
-			mmc4.counter = 0;
-			mmc4.reload = 1;
+			mmc3.counter = 0;
+			mmc3.reload = 1;
 		}
 	}
 	else if (addr >= 0xe000 && addr <= 0xffff)
 	{
 		if ((addr % 2) == 0)
 		{
-			mmc4.irq = 0;
+			mmc3.irq = 0;
 		}
 		else
 		{
-			mmc4.irq = 1;
+			mmc3.irq = 1;
 		}
 	}
 }
 
 void mapper004_scanline()
 {
-	if (mmc4.counter == 0)
+	if (mmc3.counter == 0)
 	{
-		mmc4.counter = mmc4.rvalue;
-		mmc4.reload = 0;
+		mmc3.counter = mmc3.rvalue;
+		mmc3.reload = 0;
 	}
 	else
 	{
-		mmc4.counter--;
+		mmc3.counter--;
 	}
 
-	if (mmc4.counter == 0 && mmc4.irq)
+	if (mmc3.counter == 0 && mmc3.irq)
 	{
 		if ((reg.ps & FI) == 0)
-			mmc4.fire = 1;
+			mmc3.fire = 1;
 	}
 }
 
 void mapper004_reset()
 {
-	memset(&mmc4, 0x00, sizeof(mmc4));
+	memset(&mmc3, 0x00, sizeof(mmc3));
 }

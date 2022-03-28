@@ -41,10 +41,8 @@ void gui_update()
 	gui_show_memory();
 	gui_show_display();
 	gui_show_registers();
-	gui_show_rom_info();
 	gui_show_breakpoints();
 	gui_show_logger();
-	//gui_show_buttons();
 	gui_show_menu();
 
 	ImGui::End();
@@ -67,7 +65,7 @@ void gui_show_display()
 	{
 		if (cpu.state == cstate::scanlines || cpu.state == cstate::cycles)
 			sdl_frame(ppu.screen_pixels, cpu.state);
-		ImGui::Image((void*)sdl.screen, ImVec2(256 * 2, 240 * 2));
+		ImGui::Image((void*)sdl.screen, ImVec2(256 * 2, 240 * 1.75f));
 	}
 	ImGui::End();
 
@@ -81,7 +79,7 @@ void gui_show_display()
 				for (int i = 0; i < 4; i++)
 				{
 					u16 ntaddr = 0;
-					switch (mirrornametable)
+					switch (header.mirror)
 					{
 						case mirrortype::single_nt0: ntaddr = mirrornt0[i]; break;
 						case mirrortype::single_nt1: ntaddr = mirrornt1[i]; break;
@@ -93,7 +91,7 @@ void gui_show_display()
 
 				sdl_nttable();
 
-				ImGui::Image((void*)sdl.ntscreen, ImVec2(128 * 4, 128 * 4));
+				ImGui::Image((void*)sdl.ntscreen, ImVec2(256 * 2, 240 * 2));
 				ImGui::EndTabItem();
 			}
 			if (ImGui::BeginTabItem("Pattern Tables"))
@@ -276,17 +274,11 @@ void gui_show_registers()
 {
 	if (ImGui::Begin("Registers", NULL, ImGuiWindowFlags_NoScrollbar))
 	{
-		ImGui::Text(" Frame Per Seconds = %.1f", ImGui::GetIO().Framerate);
-
-		ImGui::Spacing();
-		ImGui::Separator();
-
-		for (int i = 0; i < 3; i++)
-			ImGui::Spacing();
-
+		ImGui::BeginChild("##regs", ImVec2(300,240));
 		ImGui::Columns(2);
-		ImGui::SetColumnWidth(0, 120);
+		ImGui::SetColumnWidth(0, 125);
 
+		ImGui::Text("%15s","FPS"); ImGui::NextColumn(); ImGui::Text("%.1f", ImGui::GetIO().Framerate); ImGui::NextColumn();
 		ImGui::Text("%15s", "PC"); ImGui::NextColumn(); ImGui::Text("%04X", reg.pc); ImGui::NextColumn();
 		ImGui::Text("%15s", "SP"); ImGui::NextColumn(); ImGui::Text("%04X", reg.sp | 0x100); ImGui::NextColumn();
 		ImGui::Text("%15s", "A"); ImGui::NextColumn(); ImGui::Text("%02X", reg.a); ImGui::NextColumn();
@@ -301,14 +293,14 @@ void gui_show_registers()
 		ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 		ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();
 		ImGui::Text("%15s", "Sprite 0 Hit"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.sprite0hit); ImGui::NextColumn();
-		ImGui::Text("%15s", "mmc4 counter"); ImGui::NextColumn(); ImGui::Text("%02X", mmc4.counter); ImGui::NextColumn();
+		ImGui::Text("%15s", "mmc4 counter"); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.counter); ImGui::NextColumn();
 
 		ImGui::Columns(1);
+		ImGui::EndChild();
 
-		ImGui::Separator();
-		for (int i = 0; i < 3; i++)
-			ImGui::Spacing();
+		ImGui::SameLine();
 
+		ImGui::Begin("Flags");
 		u8 shift = 0x80;
 		for (int i = 0; i < 8; i++)
 		{
@@ -320,24 +312,36 @@ void gui_show_registers()
 				ImGui::SameLine();
 			shift >>= 1;
 		}
+		ImGui::End();
 
-		set_spacing(10);
+		ImGui::Separator();
+		set_spacing(3);
 
+		ImGui::Begin("Mapper Info");
+		ImGui::Columns(2);
 		if (header.mappernum == 4)
 		{
-			for (int i = 0; i < sizeof(mmc4.chr); i++)
+			for (int i = 0; i < sizeof(mmc3.prg); i++)
 			{
-				ImGui::Text("chr%02X=", i); ImGui::SameLine(); ImGui::Text("%02X", mmc4.chr[i]);
+				ImGui::Text("prg%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.prg[i]); ImGui::NextColumn();
 			}
 		}
-	}
-	ImGui::End();
-}
+		ImGui::Columns(1);
 
-void gui_show_rom_info()
-{
-	if (ImGui::Begin("Rom Info", NULL, ImGuiWindowFlags_NoScrollbar))
-	{
+		ImGui::Separator();
+
+		ImGui::Columns(2);
+		if (header.mappernum == 4)
+		{
+			for (int i = 0; i < sizeof(mmc3.chr); i++)
+			{
+				ImGui::Text("chr%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.chr[i]); ImGui::NextColumn();
+			}
+		}
+		ImGui::Columns(1);
+		ImGui::End();
+
+		ImGui::Begin("Rom Info");
 		ImGui::Columns(2);
 		ImGui::SetColumnWidth(0, 130);
 
@@ -345,16 +349,18 @@ void gui_show_rom_info()
 		ImGui::Text("%15s", "Mapper Number"); ImGui::NextColumn(); ImGui::Text("%d", header.mappernum); ImGui::NextColumn();
 		ImGui::Text("%15s", "PRG Banks"); ImGui::NextColumn(); ImGui::Text("%d", header.prgnum); ImGui::NextColumn();
 		ImGui::Text("%15s", "CHR Banks"); ImGui::NextColumn(); ImGui::Text("%d", header.chrnum); ImGui::NextColumn();
-		ImGui::Text("%15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[mirrornametable]); ImGui::NextColumn();
+		ImGui::Text("%15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[header.mirror]); ImGui::NextColumn();
 
 		ImGui::Columns(1);
+
+		set_spacing(10);
 
 		if (!rom_loaded)
 		{
 			set_spacing(5);
 			ImGui::TextColored(RED, "Mapper not supported");
 		}
-
+		ImGui::End();
 	}
 	ImGui::End();
 }
@@ -401,7 +407,7 @@ void gui_show_breakpoints()
 				ImGui::SameLine();
 
 				string bps = bptype & bp_read ? "R" : ".";
-				bps += bptype & bp_write ? "W" : ".";
+				bps += bptype & (bp_write || bp_vwrite) ? "W" : ".";
 				bps += bptype & bp_exec ? "X" : ".";
 
 				ImGui::Text(bps.c_str());
@@ -545,7 +551,7 @@ void gui_open_dialog()
 {
 	if (ImGui::BeginPopupModal("Add breakpoint", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 	{
-		ImGui::PushItemWidth(40);
+		ImGui::PushItemWidth(90);
 		if (ImGui::InputText("##bpadd", (char*)bpaddrtext, IM_ARRAYSIZE(bpaddrtext), INPUT_FLAGS))
 		{
 			std::istringstream ss(bpaddrtext);
@@ -553,6 +559,8 @@ void gui_open_dialog()
 			lineoffset = 0;
 		}
 		ImGui::PopItemWidth();
+
+		set_spacing(5);
 
 		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Cpu Read", ImVec2(BUTTON_W, 0)))
@@ -569,7 +577,19 @@ void gui_open_dialog()
 		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Cpu Exec", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_exec;
+		ImGui::PopStyleColor();
+
+		set_spacing(5);
+
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? BLUE : DEFCOLOR);
+		if (ImGui::Button("Ppu Read", ImVec2(BUTTON_W, 0)))
+			bptype ^= bp_vread;
+		ImGui::PopStyleColor();
 		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vwrite ? BLUE : DEFCOLOR);
+		if (ImGui::Button("Ppu Write", ImVec2(BUTTON_W, 0)))
+			bptype ^= bp_vwrite;
 		ImGui::PopStyleColor();
 
 		set_spacing(15);

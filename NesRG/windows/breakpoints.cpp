@@ -42,6 +42,15 @@ bool bp_write_access(u16 addr)
 	return it != breakpoints.end();
 }
 
+bool bp_ppu_write_access(u16 addr)
+{
+	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)
+		{
+			return (obj.addr == addr && obj.enabled && obj.type & bp_vwrite);
+		});
+	return it != breakpoints.end();
+}
+
 bool bp_exec_access(u16 addr)
 {
 	auto it = find_if(breakpoints.begin(), breakpoints.end(), [&](const bplist& obj)

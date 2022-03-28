@@ -33,17 +33,16 @@ bool set_mapper()
 	int prgsize = prgbanks * 0x4000;
 	int chrsize = chrbanks * 0x2000;
 	int mappernum = header.mappernum = (rom[6] & 0xf0) >> 4 | (rom[7] & 0xf0);
-	mirrornametable = 0;
+	header.mirror = 0;
 
 	int control = 0;
 	int shift = 0;
 
 	if (rom[6] & 0x01)
-		mirrornametable = mirrortype::vertical;
+		header.mirror = mirrortype::vertical;
 	else
-		mirrornametable = mirrortype::horizontal;
+		header.mirror = mirrortype::horizontal;
 
-	header.mirror = mirrornametable;
 	header.battery = (rom[6] >> 1) & 1;
 	header.trainer = (rom[6] >> 2) & 1;
 
@@ -212,22 +211,22 @@ u8 ppurb(u16 addr)
 
 	v = vram[addr];
 
-	if (mirrornametable == mirrortype::horizontal)
+	if (header.mirror == mirrortype::horizontal)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			v = vram[0x2000 + (a % 0x400) + mirrorhor[(a >> 10) - 8] * 0x400];
 	}
-	if (mirrornametable == mirrortype::vertical)
+	if (header.mirror == mirrortype::vertical)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			v = vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x400];
 	}
-	else if (mirrornametable == mirrortype::single_nt0)
+	else if (header.mirror == mirrortype::single_nt0)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			v = vram[0x2000 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400];
 	}
-	else if (mirrornametable == mirrortype::single_nt1)
+	else if (header.mirror == mirrortype::single_nt1)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			v = vram[0x2000 + (a % 0x400) + mirrornt1[(a >> 10) - 8] * 0x400];
@@ -237,9 +236,8 @@ u8 ppurb(u16 addr)
 
 void ppuwb(u16 addr, u8 v)
 {
-	ppu_write_addr = addr;
-
 	addr &= 0x3fff;
+	ppu_write_addr = addr; //ppu breakpoint address
 	u16 a = addr;
 
 	if (a < 0x2000)
@@ -249,12 +247,12 @@ void ppuwb(u16 addr, u8 v)
 
 	vram[a] = v;
 
-	if (mirrornametable == mirrortype::horizontal)
+	if (header.mirror == mirrortype::horizontal)
 	{
 		if (a >= 0x2000 && a < 0x3f00)
 			vram[0x2000 + (a % 0x400) + mirrorhor[(a >> 10) - 8] * 0x400] = v;
 	}
-	if (mirrornametable == mirrortype::vertical)
+	if (header.mirror == mirrortype::vertical)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 		{
@@ -262,12 +260,12 @@ void ppuwb(u16 addr, u8 v)
 		}
 
 	}
-	if (mirrornametable == mirrortype::single_nt0)
+	if (header.mirror == mirrortype::single_nt0)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			vram[0x2000 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
 	}
-	if (mirrornametable == mirrortype::single_nt1)
+	if (header.mirror == mirrortype::single_nt1)
 	{
 		if (a >= 0x2000 && a < 0x3000)
 			vram[0x2000 + (a % 0x400) + mirrornt1[(a >> 10) - 8] * 0x400] = v;

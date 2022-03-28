@@ -137,16 +137,16 @@ void main_update()
 	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F7)) //run one scanline
-		main_step_scanline();
+		main_step_scanline(0);
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F8)) //run one frame
 		main_step_frame();
 
-	//if (ImGui::IsKeyDown(SDL_SCANCODE_F9)) //step into fast
-	//	gui_step(true, cstate::debugging);
+	if (ImGui::IsKeyDown(SDL_SCANCODE_F9)) //run 240 scanlines
+		main_step_scanline(240);
 
-	//if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step over
-	//	debug_step_over();
+	if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step over
+		main_step_over();
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F11)) //step into
 	{
@@ -170,26 +170,35 @@ void main_step()
 	while (!ppu.frame_ready)
 	{
 		u16 pc = reg.pc;
-		for (auto& it : breakpoints)
+		if (cpu.stepoveraddr == -1)
 		{
-			if (!it.enabled)
-				continue;
-			if (bp_exec_access(reg.pc))
+			for (auto& it : breakpoints)
 			{
-				cpu.state = cstate::debugging;
-				return;
-			}
-			else if (bp_read_access(read_addr))
-			{
-				read_addr = -1;
-				cpu.state = cstate::debugging;
-				return;
-			}
-			else if (bp_write_access(write_addr))
-			{
-				write_addr = -1;
-				cpu.state = cstate::debugging;
-				return;
+				if (!it.enabled)
+					continue;
+				if (bp_exec_access(reg.pc))
+				{
+					cpu.state = cstate::debugging;
+					return;
+				}
+				else if (bp_read_access(read_addr))
+				{
+					read_addr = -1;
+					cpu.state = cstate::debugging;
+					return;
+				}
+				else if (bp_write_access(write_addr))
+				{
+					write_addr = -1;
+					cpu.state = cstate::debugging;
+					return;
+				}
+				else if (bp_ppu_write_access(ppu_write_addr))
+				{
+					ppu_write_addr = -1;
+					cpu.state = cstate::debugging;
+					return;
+				}
 			}
 		}
 		if (logging)
@@ -199,6 +208,29 @@ void main_step()
 			return;
 
 		ppu_step(cpu_step());
+
+		if ((u16)cpu.stepoveraddr == reg.pc)
+		{
+			cpu.state = cstate::debugging;
+			cpu.stepoveraddr = -1;
+			return;
+		}
+	}
+}
+
+void main_step_over()
+{
+	u8 op = ram[reg.pc];
+	if (op == 0x00 || op == 0x20)
+	{
+		cpu.stepoveraddr = reg.pc + disasm[op].size;
+		cpu.state = cstate::running;
+	}
+	else
+	{
+		ppu_step(cpu_step());
+		follow_pc = true;
+		cpu.state = cstate::debugging;
 	}
 }
 
@@ -219,21 +251,44 @@ void main_step_frame()
 	}
 }
 
-void main_step_scanline()
+void main_step_scanline(u16 lines)
 {
 	u16 pc = reg.pc;
 	cpu.state = cstate::scanlines;
 	if (logging)
 		log_to_file(pc);
 
-	int old_scanline = ppu.scanline;
-	while (old_scanline == ppu.scanline)
+	if (lines > 0)
 	{
-		int cyc = cpu_step();
-		ppu_step(cyc);
-		if (cpu.state == cstate::crashed)
-			return;
+		int old_scanline = ppu.scanline;
+		while (old_scanline == ppu.scanline)
+		{
+			int cyc = cpu_step();
+			ppu_step(cyc);
+			if (cpu.state == cstate::crashed)
+				return;
+		}
+
+		while (ppu.scanline != lines)
+		{
+			int cyc = cpu_step();
+			ppu_step(cyc);
+			if (cpu.state == cstate::crashed)
+				return;
+		}
 	}
+	else
+	{
+		int old_scanline = ppu.scanline;
+		while (old_scanline == ppu.scanline)
+		{
+			int cyc = cpu_step();
+			ppu_step(cyc);
+			if (cpu.state == cstate::crashed)
+				return;
+		}
+	}
+
 }
 
 
@@ -244,8 +299,8 @@ void main_save_state(u8 slot)
 		ofstream state(header.name + "." + to_string(slot), ios::binary);
 		state.write((char*)ram.data(), ram.size());
 		state.write((char*)vram.data(), vram.size());
-		if (header.mappernum==4)
-			state.write((char*)&mmc4, sizeof(mmc4));
+		if (header.mappernum == 4)
+			state.write((char*)&mmc3, sizeof(mmc3));
 		state.close();
 	}
 }
@@ -261,7 +316,7 @@ void main_load_state(u8 slot)
 			state.read((char*)ram.data(), ram.size());
 			state.read((char*)vram.data(), vram.size());
 			if (header.mappernum == 4)
-				state.read((char*)&mmc4, sizeof(mmc4));
+				state.read((char*)&mmc3, sizeof(mmc3));
 			state.close();
 		}
 	}

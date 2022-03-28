@@ -7,7 +7,8 @@ SpriteData sprites[8];
 
 void ppu_step(int num)
 {
-	while (num-- > 0)
+	int cycle_scanline = 341;
+	for (int n = 0; n < num; n++)
 	{
 		if ((ppu.scanline >= -1 && ppu.scanline < 240) && ppu.cycle == 260 && ppu_rendering())
 		{
@@ -19,9 +20,6 @@ void ppu_step(int num)
 
 		if ((ppu.scanline > 0 && ppu.scanline < 240) && ppu_rendering())
 		{
-			if (ppu.scanline == 0 && ppu.cycle == 0)
-				ppu.cycle = 1;
-
 			render_pixels();
 
 			u8 fx = (lp.x + (ppu.cycle)) & 7;
@@ -81,22 +79,24 @@ void ppu_step(int num)
 
 				ppu.frame_ready = false;
 			}
-
-			if (ppu.cycle == 1)
-			{
-
-			}
 		}
 
 		ppu.cycle++;
-		if (ppu.cycle >= 341)
+		if (ppu.cycle >= 340)
 		{
-			//ppu.cycle -= 341;
-			ppu.cycle -= 341;
+			if (ppu.scanline == 0)
+			{
+				ppu.cycle = 1;
+			}
+			else
+			{
+				ppu.cycle = 0;
+			}
+
 			ppu.scanline++;
+
 			if (ppu.scanline == 261)
 			{
-
 				ppu.scanline = -1;
 				ppu.sprite_count = 0;
 				ppu.oddeven ^= 1;
@@ -105,7 +105,6 @@ void ppu_step(int num)
 				pstatus.sproverflow = 0;
 				ppu.no_nmi = ppu.no_vbl = 0;
 				ram[0x2002] &= 0x1f;
-				//memset(ppu.screen_pixels, 0x00, sizeof(ppu.screen_pixels));
 			}
 		}
 	}
@@ -127,6 +126,7 @@ void ppu_ctrl(u8 v) //2000
 void ppu_mask(u8 v)
 {
 	ram[0x2001] = v;
+	ram[0x2002] = v;
 	pmask.backgroundleft = (v >> 1) & 1;
 	pmask.spriteleft = (v >> 2) & 1;
 	pmask.background = (v >> 3) & 1;
@@ -138,11 +138,11 @@ u8 ppu_status(u8 cycles)
 	u8 v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
 		| (ppu.dummy2007 & 0x1f);
 
-	if (ppu.scanline == 240)
-	{
-		if (ppu.cycle + cycles * 3 > 340)
-			v |= 0x80;
-	}
+	//if (ppu.scanline == 240)
+	//{
+	//	if (ppu.cycle + cycles * 3 > 341)
+	//		v |= 0x80;
+	//}
 
 	if (ppu.scanline == 241)
 	{
@@ -153,6 +153,8 @@ u8 ppu_status(u8 cycles)
 		}
 		else if (ppu.cycle <= 2)
 			ppu.no_nmi = 1;
+		else if (ppu.cycle == 3)
+			v |= 0x80;
 	}
 
 	ram[0x2000] |= v;
@@ -241,10 +243,6 @@ void ppu_reset()
 	for (int i = 0; i < sizeof(ppu.palbuffer); i += 3)
 		ppu.palettes[i / 3] = ppu.palbuffer[i] | ppu.palbuffer[i + 1] << 8 | ppu.palbuffer[i + 2] << 16 | 0xff000000;
 
-	//memset(pattrn[0].data(), 0x00, pattrn[0].size());
-	//memset(pattrn[1].data(), 0x00, pattrn[1].size());
-	//memset(ntable[0].data(), 0x00, ntable[0].size());
-	//memset(ntable[1].data(), 0x00, ntable[1].size());
 	memset(vram.data(), 0x00, vram.size());
 	memset(&pctrl, 0x00, sizeof(pctrl));
 	memset(&pmask, 0x00, sizeof(pmask));
@@ -302,18 +300,20 @@ void render_pixels()
 				if (spr.spritenum == 0)
 					spritenum = spr.spritenum;
 
-				if (spr.y > 239)
-					continue;
-
-				if ((x - sx) <= -1 || (x - sx) >= 8)
-					continue;
-
 				u8 fx = (x - sx) & 7;
 				u8 fy = (y - sy) & (pctrl.spritesize ? 15 : 7);
 
+				if (spr.y > 239)
+					continue;
+
+				if ((x - sx) < 0 || (x - sx) > 7)
+					continue;
+
 				u16 spraddr = 0;
-				if (!(attrib & 0x40)) fx = 7 - fx;
-				if (attrib & 0x80) fy = 7 - fy;
+				if (!(attrib & 0x40))
+					fx = 7 - fx;
+				if (attrib & 0x80)
+					fy = (pctrl.spritesize ? 15 : 7) - fy;
 
 				if (pctrl.spritesize)
 				{
@@ -344,10 +344,13 @@ void render_pixels()
 
 			if (spr_pixel)
 			{
-				if (spritenum == 0 && bkg_pixel && spr_pixel && x != 255 && !pstatus.sprite0hit && ppu_rendering())
+				if (spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit && ppu_rendering())
 				{
-					pstatus.sprite0hit = 1;
-					ram[0x2002] |= 0x40;
+					if (pmask.sprite && !(x < 8 && !pmask.spriteleft))
+					{
+						pstatus.sprite0hit = 1;
+						ram[0x2002] |= 0x40;
+					}
 				}
 			}
 		}
@@ -539,7 +542,7 @@ void ppu_eval_sprites()
 			int yp = ppu.scanline - oam[i * 4 + 0];
 			u8 size = pctrl.spritesize ? 16 : 8;
 
-			if (yp >= 0 && yp < size)
+			if (yp > -1 && yp < size)
 			{
 				sprites[count].y = oam[i * 4 + 0];
 				sprites[count].tile = oam[i * 4 + 1];

@@ -537,14 +537,15 @@ int cpu_step()
 		}
 	}
 
-	if (mmc4.fire)
+	if (mmc3.fire)
 	{
-		mmc4.fire = 0;
+		mmc3.fire = 0;
 		op_irq(pc);
 	}
 
-	ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
-	return (disasm[op].cycles + cpu.branchtaken) * 3 + cpu.pagecrossed;
+	int c = disasm[op].cycles;
+	ppu.totalcycles += c + cpu.branchtaken + cpu.pagecrossed;
+	return (c + cpu.branchtaken) * 3 + cpu.pagecrossed;
 }
 
 void cpu_init()
@@ -564,6 +565,7 @@ void cpu_reset()
 	reg.y = 0x00;
 	memset(ram.data(), 0x00, 0x8000);
 	cpu.state = cstate::debugging;
+	cpu.stepoveraddr = -1;
 }
 
 void op_nmi()
@@ -572,7 +574,6 @@ void op_nmi()
 	op_push(reg.sp--, reg.pc & 0xff);
 	op_push(reg.sp--, reg.ps);
 	reg.pc = rw(INT_NMI);
-	//pctrl.nmi = false;
 }
 
 u8 op_pop()

@@ -35,7 +35,7 @@ typedef char s8;
 typedef short s16;
 typedef int s32;
 
-const int APP_WIDTH = 1600;
+const int APP_WIDTH = 1400;
 const int APP_HEIGHT = 975;
 
 const int NES_SCREEN_WIDTH = 256;
@@ -68,6 +68,7 @@ struct Cpu
 	u8 jumptaken = 0;
 	int state;
 	u32 cycles;
+	s16 stepoveraddr = -1;
 };
 
 struct RAddr
