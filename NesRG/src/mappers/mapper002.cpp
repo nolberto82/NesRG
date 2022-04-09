@@ -3,7 +3,7 @@
 
 UxROM uxrom;
 
-void mapper002_update(u16 addr, u8 v)
+void UxROM::update(u16 addr, u8 v)
 {
 	if (addr >= 0xc000 && addr <= 0xffff)
 	{
@@ -12,7 +12,7 @@ void mapper002_update(u16 addr, u8 v)
 	}
 }
 
-void mapper002_reset()
+void UxROM::reset()
 {
 
 }

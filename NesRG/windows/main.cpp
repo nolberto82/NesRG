@@ -142,7 +142,7 @@ void main_update()
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F8)) //run one frame
 		main_step_frame();
 
-	if (ImGui::IsKeyDown(SDL_SCANCODE_F9)) //run 240 scanlines
+	if (newkeys.f9 && !oldkeys.f9) //run 240 scanlines
 		main_step_scanline(240);
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step over
@@ -201,13 +201,19 @@ void main_step()
 				}
 			}
 		}
-		if (logging)
-			log_to_file(pc);
+
+
 
 		if (cpu.state == cstate::crashed)
 			return;
 
-		ppu_step(cpu_step());
+		if (logging)
+			log_to_file(pc);
+
+		cyc = cpu_step();
+		ppu_step(cyc);
+
+		//ppu_step(cpu_step());
 
 		if ((u16)cpu.stepoveraddr == reg.pc)
 		{
@@ -253,6 +259,9 @@ void main_step_frame()
 
 void main_step_scanline(u16 lines)
 {
+	if (!rom_loaded)
+		return;
+
 	u16 pc = reg.pc;
 	cpu.state = cstate::scanlines;
 	if (logging)
@@ -290,7 +299,6 @@ void main_step_scanline(u16 lines)
 	}
 
 }
-
 
 void main_save_state(u8 slot)
 {

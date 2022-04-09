@@ -3,85 +3,85 @@
 
 MMC1 mmc1;
 
-void mapper001_update(u16 addr, u8 v)
+void MMC1::update(u16 addr, u8 v)
 {
 	if (addr >= 0x8000 && addr <= 0xffff)
 	{
 		if (v & 0x80)
-			mapper001_reset();
+			reset();
 		else
 		{
-			mmc1.control = mmc1.control >> 1 | (v & 0x01) << 4;
-			mmc1.writes++;
+			control = control >> 1 | (v & 0x01) << 4;
+			writes++;
 		}
 
-		if (mmc1.writes == 5)
+		if (writes == 5)
 		{
-			mmc1.reg = (addr >> 13) & 3;
-			if (mmc1.reg == 0)
+			if (addr >= 0x8000 && addr <= 0x9fff)
 			{
-				mirrornametable = mmc1.control & 3;
-				mmc1.prgmode = (mmc1.control >> 2) & 3;
-				mmc1.chrmode = (mmc1.control >> 4) & 1;
-				mmc1.prgbank = (mmc1.control >> 3) & 1 ? 0x4000 : 0x8000;
-				mmc1.chrbank = (mmc1.control >> 4) & 1 ? 0x1000 : 0x2000;
-				mmc1.prgrom = mmc1.prgbank * header.prgnum;
-				mmc1.chrrom = mmc1.chrbank * header.chrnum;
+				header.mirror = control & 3;
+				prgmode = (control >> 2) & 3;
+				chrmode = (control >> 4) & 1;
+				prgbank = (control >> 3) & 1 ? 0x4000 : 0x8000;
+				chrbank = (control >> 4) & 1 ? 0x1000 : 0x2000;
 			}
-			else if (mmc1.reg == 1)
+			else if (addr >= 0xa000 && addr <= 0xbfff)
 			{
-				if (mmc1.chrmode == 0)
-				{
-					int chr = mmc1.chrbank * ((mmc1.control & 0x1e) >> 1);
-					mem_vrom(vram, 0x0000, chr, mmc1.chrbank);
-				}
+				if (chrmode == 0)
+					chr[0] = (control & 0x1e) >> 1;
 				else
-				{
-					int chr = mmc1.chrbank * (mmc1.control & 0x1f);
-					mem_vrom(vram, 0x0000, chr, mmc1.chrbank);
-				}
+					chr[0] = (control & 0x1f);
+				mem_vrom(vram, 0x0000, chr[0] * chrbank, chrbank);
 			}
-			else if (mmc1.reg == 2)
+			else if (addr >= 0xc000 && addr <= 0xdfff)
 			{
-				if (mmc1.chrmode == 0)
-				{
-					int chr = mmc1.chrbank * ((mmc1.control & 0x1e) >> 1);
-					mem_vrom(vram, 0x1000, chr, mmc1.chrbank);
-				}
+				if (chrmode == 0)
+					chr[1] = (control & 0x1e) >> 1;
 				else
-				{
-					int chr = mmc1.chrbank * (mmc1.control & 0x1f);
-					mem_vrom(vram, 0x1000, chr, mmc1.chrbank);
-				}
+					chr[1] = control & 0x1f;
+				mem_vrom(vram, 0x1000, chr[1] * 0x1000,0x1000);
 			}
-			else if (mmc1.reg == 3)
+			else if (addr >= 0xe000 && addr <= 0xffff)
 			{
-				if (mmc1.prgmode == 0 || mmc1.prgmode == 1)
+				if (prgmode == 0 || prgmode == 1)
 				{
-					int prg = 0x10 + mmc1.prgbank * (mmc1.control & 0xe);
-					mem_rom(ram, 0x8000, prg, mmc1.prgbank);
+					prg[0] = control & 0xe;
+					prg[1] = header.prgnum - 1;
+					int prg = 0x10 + prgbank * (control & 0xe);
+					mem_rom(ram, 0x8000, prg, prgbank);
 				}
-				else if (mmc1.prgmode == 2)
+				else if (prgmode == 2)
 				{
-					int prg = 0x10 + mmc1.prgbank * (mmc1.control & 0xf);
-					mem_rom(ram, 0xc000, prg, mmc1.prgbank);
+					prg[0] = header.prgnum - 1;
+					prg[1] = control & 0xf;
+					int prg = 0x10 + prgbank * (control & 0xf);
+					mem_rom(ram, 0xc000, prg, prgbank);
 				}
-				else if (mmc1.prgmode == 3)
+				else if (prgmode == 3)
 				{
-					int prg = 0x10 + mmc1.prgbank * (mmc1.control & 0xf);
-					mem_rom(ram, 0x8000, prg, mmc1.prgbank);
+					prg[0] = control & 0xf;
+					prg[1] = header.prgnum - 1;
+					int prg = 0x10 + prgbank * (control & 0xf);
+					mem_rom(ram, 0x8000, prg, prgbank);
 				}
-				sram_disabled = (mmc1.control >> 4) & 1;
+				sram_disabled = (control >> 4) & 1;
 			}
-			mmc1.writes = 0;
+			writes = 0;
 		}
 	}
 }
 
-void mapper001_reset()
+void MMC1::reset()
 {
 	memset(&mmc1, 0x00, sizeof(mmc1));
-	mmc1.prgmode = 3;
-	mmc1.prgbank = 0x4000;
-	mmc1.chrbank = 0x2000;
+	prgmode = 3;
+	prgbank = 0x4000;
+	chrbank = 0x2000;
+	prg.resize(2);
+	chr.resize(2);
+}
+
+vector<u8> MMC1::get_prg()
+{
+	return vector<u8>();
 }

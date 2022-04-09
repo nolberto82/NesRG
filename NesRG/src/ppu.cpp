@@ -7,18 +7,25 @@ SpriteData sprites[8];
 
 void ppu_step(int num)
 {
-	int cycle_scanline = 341;
 	for (int n = 0; n < num; n++)
 	{
-		if ((ppu.scanline >= -1 && ppu.scanline < 240) && ppu.cycle == 260 && ppu_rendering())
+		rendering = pmask.background || pmask.sprite;
+		u8 viewcycles = ppu.cycle > 0 && ppu.cycle <= 256;
+		u8 precycles = ppu.cycle >= 321 && ppu.cycle <= 336;
+		u8 viewscanlines = ppu.scanline >= 0 && ppu.scanline < 240;
+		u8 emptyscanline = ppu.scanline == 240;
+		u8 vblankscanline = ppu.scanline == 241;
+		u8 prescanline = ppu.scanline == 261;
+
+		if ((ppu.scanline >= -1 && ppu.scanline < 240) && ppu.cycle == 260 && rendering)
 		{
 			if (header.mappernum == 4)
 			{
-				mapper004_scanline();
+				mmc3.scanline();
 			}
 		}
 
-		if ((ppu.scanline > 0 && ppu.scanline < 240) && ppu_rendering())
+		if (viewscanlines && rendering)
 		{
 			render_pixels();
 
@@ -65,7 +72,7 @@ void ppu_step(int num)
 		}
 		else if (ppu.scanline == -1)
 		{
-			if (ppu_rendering())
+			if (rendering)
 			{
 				//copy horizontal bits
 				if (ppu.cycle == 257)
@@ -99,7 +106,6 @@ void ppu_step(int num)
 			{
 				ppu.scanline = -1;
 				ppu.sprite_count = 0;
-				ppu.oddeven ^= 1;
 				pstatus.vblank = 0;
 				pstatus.sprite0hit = 0;
 				pstatus.sproverflow = 0;
@@ -232,11 +238,10 @@ u8 ppu_data_rb()
 
 void ppu_reset()
 {
-	ppu.scanline = ppu.tile_shift = ppu.oddeven = 0;
+	ppu.scanline = ppu.tile_shift = 0;
 	lp.v = lp.t = pmask.background = ppu.dummy2007 = 0;
 	ppu.cycle = 27;
 	ppu.totalcycles = 8;
-	ppu.oddeven = 0;
 	ppu.frame = 1;
 	ppu.frame_ready = true;
 
@@ -264,6 +269,7 @@ void render_pixels()
 	u8 bkg_pixel = 0;
 	u8 spr_pixel = 0;
 	u8 bg_pal = 0;
+	u8 sp_pal = 0;
 
 	ppu.screen_pixels[y * 256 + x] = 0;
 
@@ -297,65 +303,57 @@ void render_pixels()
 				u8 sy = spr.y + 1;
 				u8 sx = spr.x;
 
-				if (spr.spritenum == 0)
-					spritenum = spr.spritenum;
-
-				u8 fx = (x - sx) & 7;
+				u8 fx = (x - sx);
 				u8 fy = (y - sy) & (pctrl.spritesize ? 15 : 7);
 
-				if (spr.y > 239)
+				if (spr.y >= 239)
 					continue;
 
-				if ((x - sx) < 0 || (x - sx) > 7)
-					continue;
-
-				u16 spraddr = 0;
-				if (!(attrib & 0x40))
-					fx = 7 - fx;
-				if (attrib & 0x80)
-					fy = (pctrl.spritesize ? 15 : 7) - fy;
-
-				if (pctrl.spritesize)
+				if (fx >= 0 && fx <= 7)
 				{
-					spraddr = ((tile & 1) * 0x1000) +
-						(tile & 0xfe) * 16 + fy + (fy & 8);
-				}
-				else
-					spraddr = bgaddr + tile * 16 + fy;
+					u16 spraddr = 0;
+					if (!(attrib & 0x40))
+						fx = 7 - fx;
+					if (attrib & 0x80)
+						fy = (pctrl.spritesize ? 15 : 7) - fy;
 
-				spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
-
-				if (spr_pixel)
-					break;
-			}
-		}
-
-		u16 gaddr = 0x3f00;
-		if (!bkg_pixel && spr_pixel)
-			gaddr = spr_pixel + (attrib & 3) * 4 + 0x3f10;
-		else if (bkg_pixel && !spr_pixel)
-			gaddr = bkg_pixel + bg_pal * 4 + 0x3f00;
-		else if (bkg_pixel && spr_pixel)
-		{
-			if ((attrib & 0x20) == 0)
-				gaddr = spr_pixel + (attrib & 3) * 4 + 0x3f10;
-			else
-				gaddr = bkg_pixel + bg_pal * 4 + 0x3f00;
-
-			if (spr_pixel)
-			{
-				if (spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit && ppu_rendering())
-				{
-					if (pmask.sprite && !(x < 8 && !pmask.spriteleft))
+					if (pctrl.spritesize)
 					{
-						pstatus.sprite0hit = 1;
-						ram[0x2002] |= 0x40;
+						spraddr = ((tile & 1) * 0x1000) +
+							(tile & 0xfe) * 16 + fy + (fy & 8);
+					}
+					else
+						spraddr = bgaddr + tile * 16 + fy;
+
+					sp_pal = attrib & 3;
+					spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
+
+					if (spr_pixel)
+					{
+						if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit)
+						{
+							ram[0x2002] |= 0x40; pstatus.sprite0hit = 1;
+						}
+						break;
 					}
 				}
 			}
 		}
 
-		ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[gaddr]];
+		u8 offset = 0;
+		if (bkg_pixel)
+			offset = bkg_pixel + bg_pal * 4;
+		else if (spr_pixel)
+			offset = spr_pixel + sp_pal * 4 + 0x10;
+		if (bkg_pixel && spr_pixel)
+		{
+			if ((attrib & 0x20))
+				offset = bkg_pixel + bg_pal * 4;
+			else
+				offset = spr_pixel + sp_pal * 4 + 0x10;
+		}
+
+		ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 + offset]];
 	}
 }
 

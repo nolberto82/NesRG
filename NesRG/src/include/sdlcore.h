@@ -13,7 +13,7 @@ void sdl_clean();
 
 struct Keys
 {
-	bool f1, lshift;
+	bool f1, f9, lshift;
 };
 
 struct SdlCore
@@ -24,7 +24,7 @@ struct SdlCore
 	FPSmanager fpsman;
 	SDL_Texture* screen;
 	SDL_Texture* ntscreen;
-	SDL_Texture* patscreen[2];
+	SDL_Texture* patscreen[3];
 	SDL_Texture* sprscreen;
 	SDL_Renderer* renderer;
 	SDL_Window* window;

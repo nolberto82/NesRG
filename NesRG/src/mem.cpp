@@ -47,6 +47,7 @@ bool set_mapper()
 	header.trainer = (rom[6] >> 2) & 1;
 
 	ppu_reset();
+	mmc3.counter = 0;
 
 	switch (mappernum)
 	{
@@ -74,7 +75,7 @@ bool set_mapper()
 			}
 
 			if (mappernum == 4)
-				mapper004_reset();
+				mmc3.reset();
 			break;
 		}
 		default:
@@ -100,8 +101,6 @@ bool load_file(const char* filename, std::vector<u8>& data, int offset, int size
 		return false;
 	}
 
-	//fseek(fp, 0, SEEK_END);
-	//size = ftell(fp);
 	fseek(fp, offset, SEEK_SET);
 
 	if (data.size())
@@ -182,13 +181,13 @@ void wb(u16 addr, u8 v)
 		switch (header.mappernum)
 		{
 			case 1:
-				mapper001_update(addr, v);
+				mmc1.update(addr, v);
 				break;
 			case 2:
-				mapper002_update(addr, v);
+				uxrom.update(addr, v);
 				break;
 			case 4:
-				mapper004_update(addr, v);
+				mmc3.update(addr, v);
 				break;
 			default:
 				break;

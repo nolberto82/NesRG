@@ -86,6 +86,7 @@ int cpu_step()
 		}
 		case erro:
 			//cpu.state = cstate::crashed;
+			printf("%04X\n", reg.pc);
 			break;
 	}
 
@@ -156,6 +157,11 @@ int cpu_step()
 			set_flag(b == 0, FZ);
 			set_flag(v & 0x80, FN);
 			set_flag(v & 0x40, FV);
+			if (v > 0)
+			{
+				ppu.totalcycles += disasm[op].cycles + cpu.branchtaken + cpu.pagecrossed;
+				return 0;
+			}
 			break;
 		}
 		case opcid::BMI:
@@ -532,8 +538,9 @@ int cpu_step()
 		case opcid::ERR:
 		{
 			//cpu.state = cstate::crashed;
-			reg.pc++;
-			return 0;
+			//reg.pc++;
+			printf("%04X\n", reg.pc);
+			break;;
 		}
 	}
 

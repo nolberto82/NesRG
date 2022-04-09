@@ -54,7 +54,7 @@ bool sdl_init()
 		return false;
 	}
 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		sdl.patscreen[i] = SDL_CreateTexture(sdl.renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, PATTERN_WIDTH, PATTERN_HEIGHT);
 
@@ -177,12 +177,14 @@ void sdl_input_new()
 {
 	sdl.ctrl_keys = SDL_GetKeyboardState(NULL);
 	newkeys.f1 = sdl.ctrl_keys[SDL_SCANCODE_F1];
+	newkeys.f9 = sdl.ctrl_keys[SDL_SCANCODE_F9];
 	newkeys.lshift = sdl.ctrl_keys[SDL_SCANCODE_LSHIFT];
 }
 
 void sdl_input_old()
 {
 	oldkeys.f1 = newkeys.f1;
+	oldkeys.f9 = newkeys.f9;
 }
 
 void sdl_clean()
@@ -193,7 +195,7 @@ void sdl_clean()
 	if (sdl.ntscreen)
 		SDL_DestroyTexture(sdl.ntscreen);
 
-	for (int i = 0; i < 2; i++)
+	for (int i = 0; i < 3; i++)
 	{
 		if (sdl.patscreen[i])
 			SDL_DestroyTexture(sdl.patscreen[i]);

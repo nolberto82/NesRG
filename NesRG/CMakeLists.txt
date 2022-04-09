@@ -20,7 +20,7 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/${PROJECT_NAME})
 set(APP_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 include_directories(${SRC_DIR}/src/include)
-include_directories(${SRC_DIR}/src/mappers)
+include_directories(${SRC_DIR}/src/mappers/include)
 
 file(GLOB_RECURSE EMU_SRC
 ${SRC_DIR}/src/cpu.cpp

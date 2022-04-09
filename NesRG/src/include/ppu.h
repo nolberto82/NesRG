@@ -3,6 +3,7 @@
 #include "types.h"
 
 void ppu_step(int num);
+void ppu_set_vblank();
 void ppu_ctrl(u8 v);
 void ppu_mask(u8 v);
 u8 ppu_status(u8 cycles);
@@ -14,6 +15,7 @@ void ppu_data_wb(u8 v);
 u8 ppu_data_rb();
 void ppu_reset();
 void clear_pixels();
+void ppu_pixels(u16 x, u16 y, u8 at, u8 fx);
 void render_pixels();
 void process_nametables(u16 addrnt, int i, u32* pixels);
 void process_sprites();
@@ -21,8 +23,6 @@ void process_pattern();
 void x_inc();
 void y_inc();
 void ppu_eval_sprites();
-bool ppu_rendering();
-bool ppu_clipping();
 bool ppu_odd_frame();
 
 struct Ppu
@@ -37,21 +37,21 @@ struct Ppu
 	u8 p2005;
 	u8 p2006;
 	u8 p2007;
-	u8 tile_id;
-	u8 tile_att;
-	u8 tile_lo;
-	u8 tile_hi;
-	u8 bits_lo[8];
-	u8 bits_hi[8];
+	u8 ntbyte;
+	u8 atbyte;
+	u8 lobg;
+	u8 hibg;
+	u8 lobits;
+	u16 shiftreg;
 	u8 sprite_count = 0;
+	u8 sprite_0_line = 0;
 	u16 scroll = 0;
+	u64 pixeldata = 0;
 
 	u16 nametableaddr;
 
 	int scanline;
 	int cycle;
-	int vblank_cycle = 0;
-	int oddeven = 0;
 
 	u32 frame;
 	u32 tempcolor[8];
@@ -86,7 +86,7 @@ struct Ppu
 	};
 };
 
-
+inline u8 rendering = 0;
 
 extern PpuRegisters lp;
 extern Ppu ppu;

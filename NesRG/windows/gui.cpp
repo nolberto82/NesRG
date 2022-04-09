@@ -75,7 +75,6 @@ void gui_show_display()
 		{
 			if (ImGui::BeginTabItem("Name Tables"))
 			{
-				//ImGui::SetNextWindowSize(ImVec2(256 * 4, 256 * 4));
 				for (int i = 0; i < 4; i++)
 				{
 					u16 ntaddr = 0;
@@ -90,18 +89,61 @@ void gui_show_display()
 				}
 
 				sdl_nttable();
+				//ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
 				ImGui::Image((void*)sdl.ntscreen, ImVec2(256 * 2, 240 * 2));
 				ImGui::EndTabItem();
 			}
 			if (ImGui::BeginTabItem("Pattern Tables"))
 			{
+				ImDrawList* list = ImGui::GetWindowDrawList();
+
 				process_pattern();
-				ImVec2 pos = ImGui::GetCursorPos();
-				ImGui::Image((void*)sdl.patscreen[0], ImVec2(256, 256));
-				pos.x += 260;
-				ImGui::SetCursorPos(pos);
-				ImGui::Image((void*)sdl.patscreen[1], ImVec2(256, 256));
+				ImVec2 pos = ImGui::GetCursorScreenPos();
+				float startx = pos.x;
+				float starty = pos.y;
+				float x = startx;
+				float y = starty;
+
+				for (int i = 0; i < 2; i++)
+				{
+					for (int j = 0; j < PATTERN_WIDTH * PATTERN_HEIGHT; j++)
+					{
+						u8 r = ppu.pattern_pixels[i][j] & 0xff;
+						u8 g = ppu.pattern_pixels[i][j] >> 8;
+						u8 b = ppu.pattern_pixels[i][j] >> 16;
+						ImU32 color = ImColor(r, g, b);
+						list->AddRectFilled(ImVec2(x, y), ImVec2(x + 2, y + 2), color);
+						x += 2;
+						if ((j + 1) % PATTERN_WIDTH == 0)
+						{
+							if (i == 0)
+								x = startx;
+							else
+								x = startx + PATTERN_WIDTH * 2 + 5;
+							y += 2;
+						}
+					}
+					x = startx + PATTERN_WIDTH * 2 + 5; y = starty;
+				}
+
+				pos = ImGui::GetCursorScreenPos();
+				startx = pos.x;
+				starty = pos.y += PATTERN_HEIGHT * 2 + 15;
+				for (int i = 0; i < 16; i++)
+				{
+					u8 r = ppu.palettes[vram[0x3f00 + i]] & 0xff;
+					u8 g = ppu.palettes[vram[0x3f00 + i]] >> 8;
+					u8 b = ppu.palettes[vram[0x3f00 + i]] >> 16;
+					ImU32 color = ImColor(r, g, b);
+					list->AddRectFilled(ImVec2(pos.x, pos.y), ImVec2(pos.x + 24, pos.y + 24), color);
+					r = ppu.palettes[vram[0x3f10 + i]] & 0xff;
+					g = ppu.palettes[vram[0x3f10 + i]] >> 8;
+					b = ppu.palettes[vram[0x3f10 + i]] >> 16;
+					color = ImColor(r, g, b);
+					list->AddRectFilled(ImVec2(pos.x, pos.y + 48), ImVec2(pos.x + 24, pos.y + 25), color);
+					pos.x += 27;
+				}
 				ImGui::EndTabItem();
 			}
 			ImGui::EndTabBar();
@@ -274,11 +316,11 @@ void gui_show_registers()
 {
 	if (ImGui::Begin("Registers", NULL, ImGuiWindowFlags_NoScrollbar))
 	{
-		ImGui::BeginChild("##regs", ImVec2(300,240));
+		ImGui::BeginChild("##regs", ImVec2(300, 240));
 		ImGui::Columns(2);
 		ImGui::SetColumnWidth(0, 125);
 
-		ImGui::Text("%15s","FPS"); ImGui::NextColumn(); ImGui::Text("%.1f", ImGui::GetIO().Framerate); ImGui::NextColumn();
+		ImGui::Text("%15s", "FPS"); ImGui::NextColumn(); ImGui::Text("%.1f", ImGui::GetIO().Framerate); ImGui::NextColumn();
 		ImGui::Text("%15s", "PC"); ImGui::NextColumn(); ImGui::Text("%04X", reg.pc); ImGui::NextColumn();
 		ImGui::Text("%15s", "SP"); ImGui::NextColumn(); ImGui::Text("%04X", reg.sp | 0x100); ImGui::NextColumn();
 		ImGui::Text("%15s", "A"); ImGui::NextColumn(); ImGui::Text("%02X", reg.a); ImGui::NextColumn();
@@ -300,7 +342,7 @@ void gui_show_registers()
 
 		ImGui::SameLine();
 
-		ImGui::Begin("Flags");
+		ImGui::Begin("Flags", NULL, ImGuiWindowFlags_NoScrollbar);
 		u8 shift = 0x80;
 		for (int i = 0; i < 8; i++)
 		{
@@ -317,13 +359,14 @@ void gui_show_registers()
 		ImGui::Separator();
 		set_spacing(3);
 
-		ImGui::Begin("Mapper Info");
+		ImGui::Begin("Mapper Info", NULL, ImGuiWindowFlags_NoScrollbar);
 		ImGui::Columns(2);
-		if (header.mappernum == 4)
+		if (header.mappernum > 0)
 		{
-			for (int i = 0; i < sizeof(mmc3.prg); i++)
+			vector<u8> prg = mappers_get_prg(header.mappernum);
+			for (int i = 0; i < prg.size(); i++)
 			{
-				ImGui::Text("prg%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.prg[i]); ImGui::NextColumn();
+				ImGui::Text("prg%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", prg[i]); ImGui::NextColumn();
 			}
 		}
 		ImGui::Columns(1);
@@ -331,17 +374,18 @@ void gui_show_registers()
 		ImGui::Separator();
 
 		ImGui::Columns(2);
-		if (header.mappernum == 4)
+		if (header.mappernum > 0)
 		{
-			for (int i = 0; i < sizeof(mmc3.chr); i++)
+			vector<u8> chr = mappers_get_chr(header.mappernum);
+			for (int i = 0; i < chr.size(); i++)
 			{
-				ImGui::Text("chr%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.chr[i]); ImGui::NextColumn();
+				ImGui::Text("chr%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", chr[i]); ImGui::NextColumn();
 			}
 		}
 		ImGui::Columns(1);
 		ImGui::End();
 
-		ImGui::Begin("Rom Info");
+		ImGui::Begin("Rom Info", NULL, ImGuiWindowFlags_NoScrollbar);
 		ImGui::Columns(2);
 		ImGui::SetColumnWidth(0, 130);
 
@@ -352,8 +396,6 @@ void gui_show_registers()
 		ImGui::Text("%15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[header.mirror]); ImGui::NextColumn();
 
 		ImGui::Columns(1);
-
-		set_spacing(10);
 
 		if (!rom_loaded)
 		{
@@ -406,8 +448,8 @@ void gui_show_breakpoints()
 
 				ImGui::SameLine();
 
-				string bps = bptype & bp_read ? "R" : ".";
-				bps += bptype & (bp_write || bp_vwrite) ? "W" : ".";
+				string bps = bptype & bp_read || bptype & bp_vread ? "R" : ".";
+				bps += bptype & bp_write || bptype & bp_vwrite ? "W" : ".";
 				bps += bptype & bp_exec ? "X" : ".";
 
 				ImGui::Text(bps.c_str());
@@ -581,7 +623,7 @@ void gui_open_dialog()
 
 		set_spacing(5);
 
-		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? BLUE : DEFCOLOR);
+		ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vread ? BLUE : DEFCOLOR);
 		if (ImGui::Button("Ppu Read", ImVec2(BUTTON_W, 0)))
 			bptype ^= bp_vread;
 		ImGui::PopStyleColor();
