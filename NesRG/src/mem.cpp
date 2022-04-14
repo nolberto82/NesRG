@@ -119,6 +119,8 @@ u8 rb(u16 addr, u8 cycles)
 {
 	read_addr = addr;
 
+	ppu_step(3, addr);
+	ppu.totalcycles++;
 	if (addr >= 0x2000 && addr <= 0x2fff)
 	{
 		if ((addr & 0x7) == 0x02)
@@ -148,6 +150,9 @@ void wb(u16 addr, u8 v)
 {
 	write_addr = addr;
 
+	ppu_step(3, addr);
+	ppu.totalcycles++;
+
 	if (addr >= 0x0000 && addr <= 0x1fff)
 		ram[addr & 0x7ff] = v;
 	else if (addr == 0x2000)
@@ -169,8 +174,15 @@ void wb(u16 addr, u8 v)
 		ppu.oamdma = v;
 		int oamaddr = v << 8;
 		for (int i = 0; i < 256; i++)
+		{
 			oam[i] = ram[oamaddr + i];
-		ppu.cycle += 513;
+			ppu_step(3, 0);
+			ppu_step(3, 0);
+			ppu.totalcycles += 2;
+		}
+		ppu_step(3, 0);
+		if (ppu.cycle & 1)
+			ppu.totalcycles++;
 	}
 	else if (addr == 0x4016)
 		controls_write(v);

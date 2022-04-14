@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-void ppu_step(int num);
+u8 ppu_step(int num, u16 addr);
 void ppu_set_vblank();
 void ppu_ctrl(u8 v);
 void ppu_mask(u8 v);

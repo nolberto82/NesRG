@@ -179,7 +179,7 @@ void gui_show_disassembly()
 					log_to_file(reg.pc);
 
 				cyc = cpu_step();
-				ppu_step(cyc);
+				//ppu_step(cyc);
 				cpu.state = cstate::running; is_jump = false;
 			}
 		}
@@ -523,7 +523,7 @@ void gui_show_buttons()
 					log_to_file(reg.pc);
 
 				int cyc = cpu_step();
-				ppu_step(cyc);
+				//ppu_step(cyc);
 				cpu.state = cstate::running; is_jump = false;
 			}
 		}

@@ -53,7 +53,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::zerp:
 		{
-			u16 a = rw(pc + 1);
+			u16 a = rbd(pc + 1);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], name, b[1], rbd(a));
 			break;
 		}
@@ -93,14 +93,18 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::indx:
 		{
-			u16 a = ((b[1] + reg.x) << 8) | (u8)(b[1] + 1 + reg.x);
+			u8 lo = rbd(b[1] + reg.x & 0xff);
+			u8 hi = rbd(b[1] + 1 + reg.x & 0xff);
+			u16 a = lo | hi << 8;
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, b[1], a, rbd(a));
 			break;
 		}
 		case addrmode::indy:
 		{
-			u16 a = rw(b[1]) + reg.y;
+			u8 lo = rbd((b[1] & 0xff));
+			u8 hi = rbd(b[1] + 1 & 0xff);
+			u16 a = (hi << 8 | lo) + reg.y;
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1],
 				name, b[1], a, rbd(a));
 			break;

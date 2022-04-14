@@ -99,8 +99,8 @@ void sdl_frame(u32* screen_pixels, int state)
 void sdl_nttable()
 {
 	int x = 0, y = 0;
-	int sx = (lp.t & 0x1f);
-	int sy = (lp.t & 0x3e0) >> 5;
+	int sx = (lp.v & 0x1f);
+	int sy = (lp.v & 0x3e0) >> 5;
 
 	SDL_SetRenderTarget(sdl.renderer, sdl.ntscreen);
 

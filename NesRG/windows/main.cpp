@@ -117,7 +117,7 @@ void main_update()
 			log_to_file(reg.pc);
 
 		int cyc = cpu_step();
-		ppu_step(cyc);
+		//ppu_step(cyc);
 		cpu.state = cstate::running;
 	}
 
@@ -132,7 +132,7 @@ void main_update()
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6)) //run one ppu cycle
 	{
-		ppu_step(1);
+		//ppu_step(1);
 		cpu.state = cstate::cycles;
 	}
 
@@ -154,7 +154,7 @@ void main_update()
 			log_to_file(reg.pc);
 
 		int cyc = cpu_step();
-		ppu_step(cyc);
+		//ppu_step(cyc);
 		follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
@@ -211,7 +211,7 @@ void main_step()
 			log_to_file(pc);
 
 		cyc = cpu_step();
-		ppu_step(cyc);
+		//ppu_step(cyc);
 
 		//ppu_step(cpu_step());
 
@@ -234,7 +234,7 @@ void main_step_over()
 	}
 	else
 	{
-		ppu_step(cpu_step());
+		cpu_step();
 		follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
@@ -251,7 +251,7 @@ void main_step_frame()
 	while (old_frame == ppu.frame)
 	{
 		int cyc = cpu_step();
-		ppu_step(cyc);
+		//ppu_step(cyc);
 		if (cpu.state == cstate::crashed)
 			return;
 	}
@@ -273,7 +273,7 @@ void main_step_scanline(u16 lines)
 		while (old_scanline == ppu.scanline)
 		{
 			int cyc = cpu_step();
-			ppu_step(cyc);
+			//ppu_step(cyc);
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -281,7 +281,7 @@ void main_step_scanline(u16 lines)
 		while (ppu.scanline != lines)
 		{
 			int cyc = cpu_step();
-			ppu_step(cyc);
+			//ppu_step(cyc);
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -292,7 +292,7 @@ void main_step_scanline(u16 lines)
 		while (old_scanline == ppu.scanline)
 		{
 			int cyc = cpu_step();
-			ppu_step(cyc);
+			//ppu_step(cyc);
 			if (cpu.state == cstate::crashed)
 				return;
 		}

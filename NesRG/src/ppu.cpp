@@ -5,8 +5,9 @@
 
 SpriteData sprites[8];
 
-void ppu_step(int num)
+u8 ppu_step(int num, u16 addr)
 {
+	u8 v = 0;
 	for (int n = 0; n < num; n++)
 	{
 		rendering = pmask.background || pmask.sprite;
@@ -66,7 +67,7 @@ void ppu_step(int num)
 
 				ram[0x2002] |= 0x80;
 				if (pctrl.nmi && !ppu.no_nmi)
-					op_nmi();
+					nmi_triggered = 1;
 				//}
 			}
 		}
@@ -78,7 +79,7 @@ void ppu_step(int num)
 				if (ppu.cycle == 257)
 					lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 
-				if ((ppu.cycle >= 280 && ppu.cycle <= 304))
+				if ((ppu.cycle > 280 && ppu.cycle <= 304))
 					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 				if (ppu.cycle == 1)
@@ -89,17 +90,12 @@ void ppu_step(int num)
 		}
 
 		ppu.cycle++;
-		if (ppu.cycle >= 340)
+		if (ppu.cycle > 340)
 		{
-			if (ppu.scanline == 0)
-			{
+			if (ppu_odd_frame() && rendering && ppu.scanline == 0)
 				ppu.cycle = 1;
-			}
 			else
-			{
 				ppu.cycle = 0;
-			}
-
 			ppu.scanline++;
 
 			if (ppu.scanline == 261)
@@ -114,6 +110,7 @@ void ppu_step(int num)
 			}
 		}
 	}
+	return v;
 }
 
 void ppu_ctrl(u8 v) //2000
@@ -209,7 +206,7 @@ void ppu_addr(u8 v)
 	else
 	{
 		//ppu.p2000 &= 0xfc;
-		lp.t = lp.t & 0xff00 | v;
+		lp.t = (lp.t & 0xff00) | v;
 		lp.v = lp.t;
 	}
 	lp.w ^= 1;
@@ -271,7 +268,7 @@ void render_pixels()
 	u8 bg_pal = 0;
 	u8 sp_pal = 0;
 
-	ppu.screen_pixels[y * 256 + x] = 0;
+	//ppu.screen_pixels[y * 256 + x] = 0;
 
 	if (ppu.cycle >= 1 && ppu.cycle < 256)
 	{
@@ -279,11 +276,8 @@ void render_pixels()
 		{
 			u16 ppuaddr = 0x2000 | (lp.v & 0xfff);
 			u16 attaddr = 0x23c0 | (lp.v & 0xc00) | ((lp.v >> 4) & 0x38) | ((lp.v >> 2) & 0x07);
-
 			u8 fx = (lp.x + x) & 7;
-			u8 fy = (lp.v & 0x7000) >> 12;
-
-			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + fy;
+			u16 bgaddr = patternaddr + ppurb(ppuaddr) * 16 + ((lp.v & 0x7000) >> 12);//fy
 			u8 attr_shift = (lp.v >> 4) & 4 | (lp.v & 2);
 			bg_pal = (ppurb(attaddr) >> attr_shift) & 3;
 			bkg_pixel = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) * 2;
@@ -330,7 +324,7 @@ void render_pixels()
 
 					if (spr_pixel)
 					{
-						if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit)
+						if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit && pmask.background)
 						{
 							ram[0x2002] |= 0x40; pstatus.sprite0hit = 1;
 						}
@@ -353,7 +347,10 @@ void render_pixels()
 				offset = spr_pixel + sp_pal * 4 + 0x10;
 		}
 
-		ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 + offset]];
+		if (rendering)
+			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 + offset]];
+		else
+			ppu.screen_pixels[y * 256 + x] = 0;
 	}
 }
 

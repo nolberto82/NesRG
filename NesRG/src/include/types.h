@@ -59,14 +59,12 @@ enum cstate
 struct Registers
 {
 	u8 a, x, y, ps, sp;
-	u16 pc, old_pc;
+	u16 pc, npc;
 };
 
 struct Cpu
 {
 	bool pagecrossed = false;
-	u8 branchtaken = 0;
-	u8 jumptaken = 0;
 	int state;
 	u32 cycles;
 	s16 stepoveraddr = -1;
