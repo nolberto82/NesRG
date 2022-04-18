@@ -116,8 +116,7 @@ void main_update()
 		if (logging)
 			log_to_file(reg.pc);
 
-		int cyc = cpu_step();
-		//ppu_step(cyc);
+		cpu_step();
 		cpu.state = cstate::running;
 	}
 
@@ -153,8 +152,7 @@ void main_update()
 		if (logging)
 			log_to_file(reg.pc);
 
-		int cyc = cpu_step();
-		//ppu_step(cyc);
+		cpu_step();
 		follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
@@ -202,18 +200,13 @@ void main_step()
 			}
 		}
 
-
-
 		if (cpu.state == cstate::crashed)
 			return;
 
 		if (logging)
 			log_to_file(pc);
 
-		cyc = cpu_step();
-		//ppu_step(cyc);
-
-		//ppu_step(cpu_step());
+		cpu_step();
 
 		if ((u16)cpu.stepoveraddr == reg.pc)
 		{
@@ -250,7 +243,7 @@ void main_step_frame()
 	int old_frame = ppu.frame;
 	while (old_frame == ppu.frame)
 	{
-		int cyc = cpu_step();
+		cpu_step();
 		//ppu_step(cyc);
 		if (cpu.state == cstate::crashed)
 			return;
@@ -272,16 +265,14 @@ void main_step_scanline(u16 lines)
 		int old_scanline = ppu.scanline;
 		while (old_scanline == ppu.scanline)
 		{
-			int cyc = cpu_step();
-			//ppu_step(cyc);
+			cpu_step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
 
 		while (ppu.scanline != lines)
 		{
-			int cyc = cpu_step();
-			//ppu_step(cyc);
+			cpu_step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -291,8 +282,7 @@ void main_step_scanline(u16 lines)
 		int old_scanline = ppu.scanline;
 		while (old_scanline == ppu.scanline)
 		{
-			int cyc = cpu_step();
-			//ppu_step(cyc);
+			cpu_step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -307,8 +297,8 @@ void main_save_state(u8 slot)
 		ofstream state(header.name + "." + to_string(slot), ios::binary);
 		state.write((char*)ram.data(), ram.size());
 		state.write((char*)vram.data(), vram.size());
-		if (header.mappernum == 4)
-			state.write((char*)&mmc3, sizeof(mmc3));
+		//if (header.mappernum == 4)
+		//	state.write((char*)&mmc3, sizeof(mmc3));
 		state.close();
 	}
 }
@@ -323,9 +313,10 @@ void main_load_state(u8 slot)
 			ifstream state(file, ios::binary);
 			state.read((char*)ram.data(), ram.size());
 			state.read((char*)vram.data(), vram.size());
-			if (header.mappernum == 4)
-				state.read((char*)&mmc3, sizeof(mmc3));
+			//if (header.mappernum == 4)
+			//	state.read((char*)&mmc3, sizeof(mmc3));
 			state.close();
+			cpu.state_loaded = 1;
 		}
 	}
 }

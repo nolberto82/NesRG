@@ -4,14 +4,14 @@
 
 u8 op = 0;
 
-int cpu_step()
+void cpu_step()
 {
 	reg.npc = reg.pc;
 	op = rb(reg.npc++);
 	int mode = disasm[op].mode;
 
 	if (cpu.state == cstate::crashed)
-		return 0;
+		return;
 
 	switch (disasm[op].id)
 	{
@@ -73,9 +73,10 @@ int cpu_step()
 		case opcid::TYA: op_tya(mode); break;
 		case opcid::ERR:
 		{
-			cpu.state = cstate::debugging;
-			printf("%04X\n", reg.pc);
-			break;
+			if (!cpu.state_loaded)
+				cpu.state = cstate::debugging;
+			printf("%04X\n", reg.npc);
+			cpu.state_loaded = 0;
 		}
 	}
 
@@ -92,7 +93,6 @@ int cpu_step()
 	}
 
 	reg.pc = reg.npc;
-	return 0;
 }
 
 void op_adc(int mode)
@@ -518,21 +518,26 @@ u16 addr_mode_r(int mode)
 		case indi:
 		{
 			u16 addr = rb(reg.npc++) | rb(reg.npc++) << 8;
+			u8 h, l = 0;
 			if ((addr & 0xff) == 0xff)
-				++addr;
+			{
+				l = rb(addr++);
+				h = rb(addr - 0x100 & 0xff00);
+				addr = (h << 8) | l;
+			}
 			else
 				addr = rw(addr);
-			rb(reg.npc); rb(reg.npc);
+
 			return addr;
 		}
 		case rela:
 		{
 			return rb(reg.npc++);
 		}
-		case erro:
-			//cpu.state = cstate::crashed;
-			printf("%04X\n", reg.pc);
-			break;
+		//case erro:
+		//	//cpu.state = cstate::crashed;
+		//	printf("%04X\n", reg.pc);
+		//	break;
 	}
 	return 0;
 }
@@ -618,11 +623,12 @@ void op_push(u16 addr, u8 v)
 
 void op_brk(u16 pc)
 {
+	reg.ps |= FB | FU; rb(reg.npc++);
 	op_push(reg.sp--, pc >> 8);
 	op_push(reg.sp--, (pc + 1) & 0xff);
-	op_push(reg.sp--, reg.ps | FB | FU);
+	op_push(reg.sp--, reg.ps);
 	reg.ps |= FI;
-	reg.pc = rw(INT_BRK);
+	reg.npc = rw(INT_BRK); rb(reg.npc); rb(reg.npc);
 }
 
 void op_irq(u16 pc)

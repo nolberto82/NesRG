@@ -27,7 +27,7 @@ void op_push(u16 addr, u8 v);
 void op_brk(u16 pc);
 void op_irq(u16 pc);
 void set_flag(bool flag, u8 v);
-int cpu_step();
+void cpu_step();
 void op_adc(int mode);
 void op_and(int mode);
 void op_asl(int mode);

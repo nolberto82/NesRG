@@ -171,8 +171,7 @@ void wb(u16 addr, u8 v)
 		ppu_data_wb(v);
 	else if (addr == 0x4014)
 	{
-		ppu.oamdma = v;
-		int oamaddr = v << 8;
+		u16 oamaddr = v << 8; ppu.oamdma = v;
 		for (int i = 0; i < 256; i++)
 		{
 			oam[i] = ram[oamaddr + i];

@@ -89,8 +89,6 @@ void gui_show_display()
 				}
 
 				sdl_nttable();
-				//ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
 				ImGui::Image((void*)sdl.ntscreen, ImVec2(256 * 2, 240 * 2));
 				ImGui::EndTabItem();
 			}
@@ -178,7 +176,7 @@ void gui_show_disassembly()
 				if (logging)
 					log_to_file(reg.pc);
 
-				cyc = cpu_step();
+				cpu_step();
 				//ppu_step(cyc);
 				cpu.state = cstate::running; is_jump = false;
 			}
@@ -522,8 +520,7 @@ void gui_show_buttons()
 				if (logging)
 					log_to_file(reg.pc);
 
-				int cyc = cpu_step();
-				//ppu_step(cyc);
+				cpu_step();
 				cpu.state = cstate::running; is_jump = false;
 			}
 		}

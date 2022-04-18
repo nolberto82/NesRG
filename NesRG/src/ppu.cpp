@@ -11,7 +11,7 @@ u8 ppu_step(int num, u16 addr)
 	for (int n = 0; n < num; n++)
 	{
 		rendering = pmask.background || pmask.sprite;
-		u8 viewcycles = ppu.cycle > 0 && ppu.cycle <= 256;
+		u8 viewcycles = ppu.cycle > 0 && ppu.cycle < 258;
 		u8 precycles = ppu.cycle >= 321 && ppu.cycle <= 336;
 		u8 viewscanlines = ppu.scanline >= 0 && ppu.scanline < 240;
 		u8 emptyscanline = ppu.scanline == 240;
@@ -33,18 +33,18 @@ u8 ppu_step(int num, u16 addr)
 			u8 fx = (lp.x + (ppu.cycle)) & 7;
 
 			//increment x scroll
-			if ((ppu.cycle > 0 && ppu.cycle < 256) && (fx == 0))
+			if ((ppu.cycle > 0 && ppu.cycle < 255) && (fx == 0))
 				x_inc();
 
 			//increment y scroll
-			if (ppu.cycle == 256)
+			if (ppu.cycle == 257)
 				y_inc();
 
 			//if (ppu.cycle == 328 || ppu.cycle == 336)
 			//	x_inc();
 
 			//copy horizontal bits
-			if (ppu.cycle == 257)
+			if (ppu.cycle == 256)
 				lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 
 			ppu_eval_sprites();
@@ -86,6 +86,8 @@ u8 ppu_step(int num, u16 addr)
 					sdl_frame(ppu.screen_pixels, cpu.state);
 
 				ppu.frame_ready = false;
+
+				ppu_eval_sprites();
 			}
 		}
 
@@ -141,24 +143,18 @@ u8 ppu_status(u8 cycles)
 	u8 v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
 		| (ppu.dummy2007 & 0x1f);
 
-	//if (ppu.scanline == 240)
+	//if (ppu.scanline == 241)
 	//{
-	//	if (ppu.cycle + cycles * 3 > 341)
+	//	if (ppu.cycle == 0)
+	//	{
+	//		ppu.no_nmi = ppu.no_vbl = 1;
+	//		pstatus.vblank = 1;
+	//	}
+	//	else if (ppu.cycle <= 2)
+	//		ppu.no_nmi = 1;
+	//	else if (ppu.cycle == 3)
 	//		v |= 0x80;
 	//}
-
-	if (ppu.scanline == 241)
-	{
-		if (ppu.cycle == 0)
-		{
-			ppu.no_nmi = ppu.no_vbl = 1;
-			pstatus.vblank = 1;
-		}
-		else if (ppu.cycle <= 2)
-			ppu.no_nmi = 1;
-		else if (ppu.cycle == 3)
-			v |= 0x80;
-	}
 
 	ram[0x2000] |= v;
 	ram[0x2002] &= 0x7f;
@@ -263,14 +259,13 @@ void render_pixels()
 	int patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
 	int y = ppu.scanline;
 	int x = ppu.cycle - 1;
-	u8 bkg_pixel = 0;
-	u8 spr_pixel = 0;
-	u8 bg_pal = 0;
-	u8 sp_pal = 0;
+	u8 bkg_pixel = 0; u8 spr_pixel = 0;
+	u8 bg_pal = 0; u8 sp_pal = 0;
+	u8 attrib = 0; u8 spritenum = 0;
+	u8 spx = 0;
+	u8 sprleftclip = !(x < 8 && !pmask.spriteleft);
 
-	//ppu.screen_pixels[y * 256 + x] = 0;
-
-	if (ppu.cycle >= 1 && ppu.cycle < 256)
+	if (ppu.cycle > 0 && ppu.cycle < 258)
 	{
 		if (pmask.background && !(x < 8 && !pmask.backgroundleft))
 		{
@@ -283,74 +278,62 @@ void render_pixels()
 			bkg_pixel = ((ppurb(bgaddr) >> (7 - fx)) & 1) | ((ppurb(bgaddr + 8) >> (7 - fx)) & 1) * 2;
 		}
 
-		u8 attrib = 0;
-		u8 spritenum = 0;
 		if (pmask.sprite && !(x < 8 && !pmask.spriteleft))
 		{
 			u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
 			u16 oamaddr = 0x0100 * ppu.oamdma;
+			//ram[0x0787] = 9;
 
 			for (auto& spr : sprites)
 			{
 				u8 tile = spr.tile;
 				attrib = spr.attrib;
 				u8 sy = spr.y + 1;
-				u8 sx = spr.x;
-
+				u8 sx = spx = spr.x;
 				u8 fx = (x - sx);
 				u8 fy = (y - sy) & (pctrl.spritesize ? 15 : 7);
+				if (spr.y >= 239) continue;
+				if (fx < 0 || fx > 7) continue;
 
-				if (spr.y >= 239)
-					continue;
+				u16 spraddr = 0;
+				if (!(attrib & 0x40)) fx = 7 - fx;
+				if (attrib & 0x80) fy = (pctrl.spritesize ? 15 : 7) - fy;
 
-				if (fx >= 0 && fx <= 7)
+				if (pctrl.spritesize)
+					spraddr = ((tile & 1) * 0x1000) + (tile & 0xfe) * 16 + fy + (fy & 8);
+				else
+					spraddr = bgaddr + tile * 16 + fy;
+
+				spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
+				if (!spr_pixel) continue;
+				sp_pal = attrib & 3;
+
+				if (spr.spritenum == 0 && bkg_pixel && sx != 255 && x != 255 && x < 255 && !pstatus.sprite0hit)
 				{
-					u16 spraddr = 0;
-					if (!(attrib & 0x40))
-						fx = 7 - fx;
-					if (attrib & 0x80)
-						fy = (pctrl.spritesize ? 15 : 7) - fy;
-
-					if (pctrl.spritesize)
-					{
-						spraddr = ((tile & 1) * 0x1000) +
-							(tile & 0xfe) * 16 + fy + (fy & 8);
-					}
-					else
-						spraddr = bgaddr + tile * 16 + fy;
-
-					sp_pal = attrib & 3;
-					spr_pixel = (ppurb(spraddr) >> fx & 1) | (ppurb(spraddr + 8) >> fx & 1) * 2;
-
-					if (spr_pixel)
-					{
-						if (spr.spritenum == 0 && bkg_pixel && x != 255 && !pstatus.sprite0hit && pmask.background)
-						{
-							ram[0x2002] |= 0x40; pstatus.sprite0hit = 1;
-						}
-						break;
-					}
+					ram[0x2002] |= 0x40;
+					pstatus.sprite0hit = 1;
 				}
+				break;
 			}
 		}
 
+		ppu.screen_pixels[y * 256 + x] = 0;
 		u8 offset = 0;
-		if (bkg_pixel)
-			offset = bkg_pixel + bg_pal * 4;
-		else if (spr_pixel)
-			offset = spr_pixel + sp_pal * 4 + 0x10;
+
 		if (bkg_pixel && spr_pixel)
 		{
-			if ((attrib & 0x20))
-				offset = bkg_pixel + bg_pal * 4;
-			else
+			if ((attrib & 0x20) == 0 && spx < 249)
 				offset = spr_pixel + sp_pal * 4 + 0x10;
+			else
+				offset = bkg_pixel + bg_pal * 4;
 		}
+		else if (bkg_pixel)
+			offset = bkg_pixel + bg_pal * 4;
+		else if (spr_pixel && spx < 249)
+			offset = spr_pixel + sp_pal * 4 + 0x10;
 
-		if (rendering)
-			ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 + offset]];
-		else
-			ppu.screen_pixels[y * 256 + x] = 0;
+
+		ppu.screen_pixels[y * 256 + x] = ppu.palettes[vram[0x3f00 + offset]];
 	}
 }
 
@@ -524,27 +507,25 @@ void ppu_eval_sprites()
 	if (ppu.cycle == 257)
 	{
 		memset(sprites, 0xff, sizeof(sprites));
-		int count = 0;
+		int c = 0;
 
 		for (int i = 0; i < 64; i++)
 		{
-			if (count > 8)
+			if (c >= 8)
 			{
-				ram[0x2002] |= (pstatus.sproverflow) << 5;
-				break;
+				ram[0x2002] |= (pstatus.sproverflow) << 5; break;
 			}
 
 			int yp = ppu.scanline - oam[i * 4 + 0];
 			u8 size = pctrl.spritesize ? 16 : 8;
-
 			if (yp > -1 && yp < size)
 			{
-				sprites[count].y = oam[i * 4 + 0];
-				sprites[count].tile = oam[i * 4 + 1];
-				sprites[count].attrib = oam[i * 4 + 2];
-				sprites[count].x = oam[i * 4 + 3];
-				sprites[count].spritenum = i;
-				count++;
+				sprites[c].y = oam[i * 4 + 0];
+				sprites[c].tile = oam[i * 4 + 1];
+				sprites[c].attrib = oam[i * 4 + 2];
+				sprites[c].x = oam[i * 4 + 3];
+				sprites[c].spritenum = i;
+				c++;
 			}
 		}
 	}

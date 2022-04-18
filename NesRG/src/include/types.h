@@ -66,6 +66,7 @@ struct Cpu
 {
 	bool pagecrossed = false;
 	int state;
+	u8 state_loaded;
 	u32 cycles;
 	s16 stepoveraddr = -1;
 };
