@@ -83,7 +83,7 @@ struct PpuRegisters
 {
 	u16 v;
 	u16 t;
-	u8 x;
+	u8 fx;
 	u8 w;
 };
 

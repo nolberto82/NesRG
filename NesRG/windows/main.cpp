@@ -8,7 +8,6 @@
 #include "mappers.h"
 
 Cpu cpu;
-Ppu ppu;
 SdlCore sdl;
 Registers reg;
 PpuRegisters lp;
@@ -131,7 +130,7 @@ void main_update()
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6)) //run one ppu cycle
 	{
-		//ppu_step(1);
+		PPU::step();
 		cpu.state = cstate::cycles;
 	}
 
@@ -163,9 +162,9 @@ void main_update()
 void main_step()
 {
 	follow_pc = true;
-	ppu.frame_ready = false;
+	PPU::frame_ready = false;
 	int cyc = 0;
-	while (!ppu.frame_ready)
+	while (!PPU::frame_ready)
 	{
 		u16 pc = reg.pc;
 		if (cpu.stepoveraddr == -1)
@@ -240,8 +239,8 @@ void main_step_frame()
 	if (logging)
 		log_to_file(pc);
 
-	int old_frame = ppu.frame;
-	while (old_frame == ppu.frame)
+	int old_frame = PPU::frame;
+	while (old_frame == PPU::frame)
 	{
 		cpu_step();
 		//ppu_step(cyc);
@@ -262,15 +261,15 @@ void main_step_scanline(u16 lines)
 
 	if (lines > 0)
 	{
-		int old_scanline = ppu.scanline;
-		while (old_scanline == ppu.scanline)
+		int old_scanline = PPU::scanline;
+		while (old_scanline == PPU::scanline)
 		{
 			cpu_step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
 
-		while (ppu.scanline != lines)
+		while (PPU::scanline != lines)
 		{
 			cpu_step();
 			if (cpu.state == cstate::crashed)
@@ -279,8 +278,8 @@ void main_step_scanline(u16 lines)
 	}
 	else
 	{
-		int old_scanline = ppu.scanline;
-		while (old_scanline == ppu.scanline)
+		int old_scanline = PPU::scanline;
+		while (old_scanline == PPU::scanline)
 		{
 			cpu_step();
 			if (cpu.state == cstate::crashed)

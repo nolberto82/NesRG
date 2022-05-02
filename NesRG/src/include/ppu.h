@@ -2,74 +2,91 @@
 
 #include "types.h"
 
-u8 ppu_step(int num, u16 addr);
-void ppu_set_vblank();
-void ppu_ctrl(u8 v);
-void ppu_mask(u8 v);
-u8 ppu_status(u8 cycles);
-void ppu_oam_addr(u8 v);
-void ppu_oam_data(u8 v);
-void ppu_scroll(u8 v);
-void ppu_addr(u8 v);
-void ppu_data_wb(u8 v);
-u8 ppu_data_rb();
-void ppu_reset();
-void clear_pixels();
-void ppu_pixels(u16 x, u16 y, u8 at, u8 fx);
-void render_pixels();
-void process_nametables(u16 addrnt, int i, u32* pixels);
-void process_sprites();
-void process_pattern();
-void x_inc();
-void y_inc();
-void ppu_eval_sprites();
-bool ppu_odd_frame();
+#define PPU_STEP PPU::step(); PPU::step(); PPU::step();
+#define BACKGROUND_LEFT (x > 7 || pmask.backgroundleft)
 
-struct Ppu
+namespace PPU
 {
-	u8 dummy2007;
-	u8 oamdma;
-	u8 tile_shift;
-	u8 scroll_x;
-	u8 scroll_y;
-	u8 p2003;
-	u8 p2004;
-	u8 p2005;
-	u8 p2006;
-	u8 p2007;
-	u8 ntbyte;
-	u8 atbyte;
-	u8 lobg;
-	u8 hibg;
-	u8 lobits;
-	u16 shiftreg;
-	u8 sprite_count = 0;
-	u8 sprite_0_line = 0;
-	u16 scroll = 0;
-	u64 pixeldata = 0;
+	void step();
+	void ctrl(u8 v);
+	void mask(u8 v);
+	u8 status(u8 cycles);
+	void oam_addr(u8 v);
+	void oam_data(u8 v);
+	void scroll(u8 v);
+	void addr(u8 v);
+	void data_wb(u8 v);
+	u8 data_rb();
+	void reset();
+	void clear_pixels();
+	void pixels();
+	void render_pixels();
+	void render_nametables(u16 addrnt, int i, u32* pixels);
+	void render_sprites();
+	void render_pattern();
+	void x_inc();
+	void y_inc();
+	void eval_sprites();
+	bool odd_frame();
+	u16 get_nt_addr();
+	u8 get_nt_byte(u16 a);
+	u16 get_at_addr();
+	u8 get_at_byte(u16 a);
+	u16 get_bg_addr(u8 fy);
+	u8 get_bg_lo_byte(u16 addr);
+	u8 get_bg_hi_byte(u16 addr);
+	void load_registers();
+	void update_registers();
 
-	u16 nametableaddr;
+	inline u8 dummy2007;
+	inline u8 oamdma;
+	inline u8 p2003;
+	inline u8 p2004;
+	inline u8 p2005;
+	inline u8 p2006;
+	inline u8 p2007;
+	inline u16 ntaddr = 0;
+	inline u16 ataddr = 0;
+	inline u16 bgaddr = 0;
+	inline u8 ntbyte;
+	inline u8 atbyte;
+	inline u8 lobg;
+	inline u8 hibg;
+	inline u8 lobits;
+	inline u16 bgshiftlo;
+	inline u16 bgshifthi;
+	inline u8 atshiftlo;
+	inline u8 atshifthi;
+	inline u8 atlo;
+	inline u8 athi;
+	inline u8 sprite_count = 0;
+	inline u8 sprite_0_line = 0;
+	inline u8 scrolldata = 0;
+	inline u64 pixeldata = 0;
 
-	int scanline;
-	int cycle;
+	inline u16 nametableaddr;
 
-	u32 frame;
-	u32 tempcolor[8];
-	u32 totalcycles;
+	inline int scanline;
+	inline int cycle;
 
-	bool frame_ready;
-	bool tabkey;
-	bool oldtabkey;
-	bool no_vbl;
-	bool no_nmi;
+	inline u32 frame;
+	inline u32 tempcolor[8];
+	inline u32 totalcycles;
 
-	u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	u32 sprite_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	u32 pattern_pixels[2][PATTERN_WIDTH * PATTERN_HEIGHT] = {};
-	u32 palettes[192 / 3] = {};
+	inline bool frame_ready;
+	inline bool tabkey;
+	inline bool oldtabkey;
+	inline bool no_vbl;
+	inline bool no_nmi;
+	inline bool rendering = 0;
 
-	u8 palbuffer[192] =
+	inline u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+	inline u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+	inline u32 sprite_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
+	inline u32 pattern_pixels[2][PATTERN_WIDTH * PATTERN_HEIGHT] = {};
+	inline u32 palettes[192 / 3] = {};
+
+	inline u8 palbuffer[192] =
 	{
 		0x61,0x61,0x61,0x00,0x00,0x88,0x1F,0x0D,0x99,0x37,0x13,0x79,0x56,0x12,0x60,0x5D,
 		0x00,0x10,0x52,0x0E,0x00,0x3A,0x23,0x08,0x21,0x35,0x0C,0x0D,0x41,0x0E,0x17,0x44,
@@ -86,8 +103,5 @@ struct Ppu
 	};
 };
 
-inline u8 rendering = 0;
-
 extern PpuRegisters lp;
-extern Ppu ppu;
 extern SpriteData sprites[8];

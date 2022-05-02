@@ -46,7 +46,7 @@ bool set_mapper()
 	header.battery = (rom[6] >> 1) & 1;
 	header.trainer = (rom[6] >> 2) & 1;
 
-	ppu_reset();
+	PPU::reset();
 	mmc3.counter = 0;
 
 	switch (mappernum)
@@ -76,6 +76,18 @@ bool set_mapper()
 
 			if (mappernum == 4)
 				mmc3.reset();
+			break;
+		}
+		case 9:
+		{
+			memcpy(&ram[0xa000], rom.data() + 0x10 + prgsize - 0x6000, prgsize / prgbanks / 2);
+			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
+			if (chrbanks > 0)
+			{
+				memcpy(&vram[0x0000], vrom.data() + 0x8000, chrsize / chrbanks / 2);
+				memcpy(&vram[0x1000], vrom.data() + 0x7000, chrsize / chrbanks / 2);
+			}
+			mmc2.reset();
 			break;
 		}
 		default:
@@ -119,14 +131,14 @@ u8 rb(u16 addr, u8 cycles)
 {
 	read_addr = addr;
 
-	ppu_step(3, addr);
-	ppu.totalcycles++;
+	PPU_STEP;
+	PPU::totalcycles++;
 	if (addr >= 0x2000 && addr <= 0x2fff)
 	{
 		if ((addr & 0x7) == 0x02)
-			return ppu_status(cycles);
+			return PPU::status(cycles);
 		if ((addr & 0x7) == 0x07)
-			return ppu_data_rb();
+			return PPU::data_rb();
 	}
 	else if (addr == 0x4016)
 		return controls_read();
@@ -150,38 +162,38 @@ void wb(u16 addr, u8 v)
 {
 	write_addr = addr;
 
-	ppu_step(3, addr);
-	ppu.totalcycles++;
+	PPU_STEP;
+	PPU::totalcycles++;
 
 	if (addr >= 0x0000 && addr <= 0x1fff)
 		ram[addr & 0x7ff] = v;
 	else if (addr == 0x2000)
-		ppu_ctrl(v);
+		PPU::ctrl(v);
 	else if (addr == 0x2001)
-		ppu_mask(v);
+		PPU::mask(v);
 	else if (addr == 0x2003)
-		ppu_oam_addr(v);
+		PPU::oam_addr(v);
 	else if (addr == 0x2004)
-		ppu_oam_data(v);
+		PPU::oam_data(v);
 	else if (addr == 0x2005)
-		ppu_scroll(v);
+		PPU::scroll(v);
 	else if (addr == 0x2006)
-		ppu_addr(v);
+		PPU::addr(v);
 	else if (addr == 0x2007)
-		ppu_data_wb(v);
+		PPU::data_wb(v);
 	else if (addr == 0x4014)
 	{
-		u16 oamaddr = v << 8; ppu.oamdma = v;
+		u16 oamaddr = v << 8; PPU::oamdma = v;
 		for (int i = 0; i < 256; i++)
 		{
 			oam[i] = ram[oamaddr + i];
-			ppu_step(3, 0);
-			ppu_step(3, 0);
-			ppu.totalcycles += 2;
+			PPU_STEP;
+			PPU_STEP;
+			PPU::totalcycles += 2;
 		}
-		ppu_step(3, 0);
-		if (ppu.cycle & 1)
-			ppu.totalcycles++;
+		PPU_STEP;
+		if (PPU::cycle & 1)
+			PPU::totalcycles++;
 	}
 	else if (addr == 0x4016)
 		controls_write(v);
@@ -199,6 +211,9 @@ void wb(u16 addr, u8 v)
 				break;
 			case 4:
 				mmc3.update(addr, v);
+				break;
+			case 9:
+				mmc2.update(addr, v);
 				break;
 			default:
 				break;
@@ -220,6 +235,9 @@ u8 ppurb(u16 addr)
 	ppu_read_addr = addr;
 
 	v = vram[addr];
+
+	if (header.mappernum == 9 && addr < 0x2000)
+		mmc2.set_latch(addr, v);
 
 	if (header.mirror == mirrortype::horizontal)
 	{

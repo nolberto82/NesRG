@@ -60,37 +60,29 @@ void MMC3::update(u16 addr, u8 v)
 	else if (addr >= 0xa000 && addr <= 0xbfff)
 	{
 		if ((addr % 2) == 0)
-		{
 			header.mirror = (v & 1) + 2;
-		}
 		else
 		{
-			write_prot = (v >> 6) & 1;
+			write_prot = (v >> 6) & 1; 
 			prg_ram = (v >> 7) & 1;
 		}
 	}
 	else if (addr >= 0xc000 && addr <= 0xdfff)
 	{
-		if ((addr % 2) == 0)
-		{
+		if ((addr % 2) == 0) 
 			rvalue = v;
-		}
 		else
 		{
-			counter = 0;
+			counter = 0; 
 			reload = 1;
 		}
 	}
 	else if (addr >= 0xe000 && addr <= 0xffff)
 	{
-		if ((addr % 2) == 0)
-		{
+		if ((addr % 2) == 0) 
 			irq = 0;
-		}
-		else
-		{
+		else 
 			irq = 1;
-		}
 	}
 }
 
@@ -102,9 +94,7 @@ void MMC3::scanline()
 		reload = 0;
 	}
 	else
-	{
 		counter--;
-	}
 
 	if (counter == 0 && irq)
 	{

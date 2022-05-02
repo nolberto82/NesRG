@@ -82,8 +82,8 @@ void sdl_frame(u32* screen_pixels, int state)
 		int y = (lp.v & 0x3e0) >> 5;
 
 		SDL_SetRenderTarget(sdl.renderer, sdl.screen);
-		SDL_Rect rect = { 0,  ppu.scanline + 1, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-		SDL_Rect rect2 = { ppu.cycle,  ppu.scanline, NES_SCREEN_WIDTH, 1 };
+		SDL_Rect rect = { 0,  PPU::scanline + 1, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
+		SDL_Rect rect2 = { PPU::cycle,  PPU::scanline, NES_SCREEN_WIDTH, 1 };
 		SDL_UpdateTexture(sdl.screen, NULL, screen_pixels, NES_SCREEN_WIDTH * sizeof(unsigned int));
 		SDL_RenderCopy(sdl.renderer, sdl.screen, NULL, NULL);
 		sdl_overlay(rect, rect2);
@@ -99,7 +99,7 @@ void sdl_frame(u32* screen_pixels, int state)
 void sdl_nttable()
 {
 	int x = 0, y = 0;
-	int sx = (lp.v & 0x1f);
+	int sx = (lp.v - 2 & 0x1f);
 	int sy = (lp.v & 0x3e0) >> 5;
 
 	SDL_SetRenderTarget(sdl.renderer, sdl.ntscreen);
@@ -107,7 +107,7 @@ void sdl_nttable()
 	for (int i = 0; i < 4; i++)
 	{
 		SDL_Rect rect = { x, y, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-		SDL_UpdateTexture(sdl.ntscreen, &rect, ppu.ntable_pixels[i], NES_SCREEN_WIDTH * sizeof(unsigned int));
+		SDL_UpdateTexture(sdl.ntscreen, &rect, PPU::ntable_pixels[i], NES_SCREEN_WIDTH * sizeof(unsigned int));
 		SDL_RenderCopy(sdl.renderer, sdl.ntscreen, NULL, NULL);
 
 		x = 256;
@@ -120,7 +120,7 @@ void sdl_nttable()
 
 	u8 nametable = (lp.t & 0xc00) >> 10;
 	s16 fy = (lp.t & 0x7000) >> 12;
-	s16 fx = (lp.x & 7);
+	s16 fx = (lp.fx & 7);
 	u16 xp = (sx * 8 + fx) + (nametable & 1) * 256;
 	u16 yp = (sy * 8 + fy) + ((nametable & 2) >> 1) * 240;
 	SDL_Rect overlay = { xp, yp, 256, 240 };
@@ -159,7 +159,7 @@ void sdl_sprites()
 	SDL_SetRenderTarget(sdl.renderer, sdl.sprscreen);
 
 	//SDL_Rect rect = { x, y, NES_SCREEN_WIDTH, NES_SCREEN_HEIGHT };
-	SDL_UpdateTexture(sdl.sprscreen, NULL, ppu.sprite_pixels, 256 * sizeof(unsigned int));
+	SDL_UpdateTexture(sdl.sprscreen, NULL, PPU::sprite_pixels, 256 * sizeof(unsigned int));
 	SDL_RenderCopy(sdl.renderer, sdl.sprscreen, NULL, NULL);
 
 	SDL_SetRenderTarget(sdl.renderer, NULL);

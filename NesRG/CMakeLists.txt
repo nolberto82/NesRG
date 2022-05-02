@@ -31,6 +31,7 @@ ${SRC_DIR}/src/controls.cpp
 ${SRC_DIR}/src/mappers/mapper001.cpp
 ${SRC_DIR}/src/mappers/mapper002.cpp
 ${SRC_DIR}/src/mappers/mapper004.cpp
+${SRC_DIR}/src/mappers/mapper009.cpp
 )
 
 if(WIN32)

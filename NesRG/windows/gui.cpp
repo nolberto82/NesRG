@@ -64,7 +64,7 @@ void gui_show_display()
 	if (ImGui::Begin("Display"))
 	{
 		if (cpu.state == cstate::scanlines || cpu.state == cstate::cycles)
-			sdl_frame(ppu.screen_pixels, cpu.state);
+			sdl_frame(PPU::screen_pixels, cpu.state);
 		ImGui::Image((void*)sdl.screen, ImVec2(256 * 2, 240 * 1.75f));
 	}
 	ImGui::End();
@@ -85,7 +85,7 @@ void gui_show_display()
 						case mirrortype::vertical: ntaddr = mirrorver[i] * 0x400; break;
 						case mirrortype::horizontal: ntaddr = mirrorhor[i] * 0x400; break;
 					}
-					process_nametables(ntaddr, 0, ppu.ntable_pixels[i]);
+					PPU::render_nametables(ntaddr, 0, PPU::ntable_pixels[i]);
 				}
 
 				sdl_nttable();
@@ -96,7 +96,7 @@ void gui_show_display()
 			{
 				ImDrawList* list = ImGui::GetWindowDrawList();
 
-				process_pattern();
+				PPU::render_pattern();
 				ImVec2 pos = ImGui::GetCursorScreenPos();
 				float startx = pos.x;
 				float starty = pos.y;
@@ -107,9 +107,9 @@ void gui_show_display()
 				{
 					for (int j = 0; j < PATTERN_WIDTH * PATTERN_HEIGHT; j++)
 					{
-						u8 r = ppu.pattern_pixels[i][j] & 0xff;
-						u8 g = ppu.pattern_pixels[i][j] >> 8;
-						u8 b = ppu.pattern_pixels[i][j] >> 16;
+						u8 r = PPU::pattern_pixels[i][j] & 0xff;
+						u8 g = PPU::pattern_pixels[i][j] >> 8;
+						u8 b = PPU::pattern_pixels[i][j] >> 16;
 						ImU32 color = ImColor(r, g, b);
 						list->AddRectFilled(ImVec2(x, y), ImVec2(x + 2, y + 2), color);
 						x += 2;
@@ -130,14 +130,14 @@ void gui_show_display()
 				starty = pos.y += PATTERN_HEIGHT * 2 + 15;
 				for (int i = 0; i < 16; i++)
 				{
-					u8 r = ppu.palettes[vram[0x3f00 + i]] & 0xff;
-					u8 g = ppu.palettes[vram[0x3f00 + i]] >> 8;
-					u8 b = ppu.palettes[vram[0x3f00 + i]] >> 16;
+					u8 r = PPU::palettes[vram[0x3f00 + i]] & 0xff;
+					u8 g = PPU::palettes[vram[0x3f00 + i]] >> 8;
+					u8 b = PPU::palettes[vram[0x3f00 + i]] >> 16;
 					ImU32 color = ImColor(r, g, b);
 					list->AddRectFilled(ImVec2(pos.x, pos.y), ImVec2(pos.x + 24, pos.y + 24), color);
-					r = ppu.palettes[vram[0x3f10 + i]] & 0xff;
-					g = ppu.palettes[vram[0x3f10 + i]] >> 8;
-					b = ppu.palettes[vram[0x3f10 + i]] >> 16;
+					r = PPU::palettes[vram[0x3f10 + i]] & 0xff;
+					g = PPU::palettes[vram[0x3f10 + i]] >> 8;
+					b = PPU::palettes[vram[0x3f10 + i]] >> 16;
 					color = ImColor(r, g, b);
 					list->AddRectFilled(ImVec2(pos.x, pos.y + 48), ImVec2(pos.x + 24, pos.y + 25), color);
 					pos.x += 27;
@@ -325,10 +325,10 @@ void gui_show_registers()
 		ImGui::Text("%15s", "X"); ImGui::NextColumn(); ImGui::Text("%02X", reg.x); ImGui::NextColumn();
 		ImGui::Text("%15s", "Y"); ImGui::NextColumn(); ImGui::Text("%02X", reg.y); ImGui::NextColumn();
 		ImGui::Text("%15s", "Status Flag"); ImGui::NextColumn(); ImGui::Text("%02X", reg.ps); ImGui::NextColumn();
-		ImGui::Text("%15s", "Scanline"); ImGui::NextColumn(); ImGui::Text("%d", ppu.scanline); ImGui::NextColumn();
-		ImGui::Text("%15s", "Cycle"); ImGui::NextColumn(); ImGui::Text("%d", ppu.cycle); ImGui::NextColumn();
-		ImGui::Text("%15s", "Cpu Cycles"); ImGui::NextColumn(); ImGui::Text("%d", ppu.totalcycles); ImGui::NextColumn();
-		ImGui::Text("%15s", "Frames"); ImGui::NextColumn(); ImGui::Text("%d", ppu.frame); ImGui::NextColumn();
+		ImGui::Text("%15s", "Scanline"); ImGui::NextColumn(); ImGui::Text("%d", PPU::scanline); ImGui::NextColumn();
+		ImGui::Text("%15s", "Cycle"); ImGui::NextColumn(); ImGui::Text("%d", PPU::cycle); ImGui::NextColumn();
+		ImGui::Text("%15s", "Cpu Cycles"); ImGui::NextColumn(); ImGui::Text("%d", PPU::totalcycles); ImGui::NextColumn();
+		ImGui::Text("%15s", "Frames"); ImGui::NextColumn(); ImGui::Text("%d", PPU::frame); ImGui::NextColumn();
 		ImGui::Text("%15s", "V Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.v); ImGui::NextColumn();
 		ImGui::Text("%15s", "T Address"); ImGui::NextColumn(); ImGui::Text("%04X", lp.t); ImGui::NextColumn();
 		ImGui::Text("%15s", "VBlank"); ImGui::NextColumn(); ImGui::Text("%d", pstatus.vblank); ImGui::NextColumn();

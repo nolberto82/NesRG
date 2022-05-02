@@ -4,7 +4,6 @@
 
 struct UxROM
 {
-	vector<u8> get_prg();
 	void update(u16 addr, u8 v);
 	void reset();
 	
