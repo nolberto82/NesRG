@@ -1,5 +1,6 @@
 ﻿#include "cpu.h"
 #include "ppu.h"
+#include "apu.h"
 #include "gui.h"
 #include "sdlcore.h"
 #include "tracer.h"
@@ -8,6 +9,7 @@
 #include "mappers.h"
 
 Cpu cpu;
+APU apu;
 SdlCore sdl;
 Registers reg;
 PpuRegisters lp;
@@ -19,7 +21,7 @@ Keys newkeys, oldkeys;
 
 int main(int argc, char* argv[])
 {
-	if (sdl_init())
+	if (sdl_init() && apu.init())
 	{
 		IMGUI_CHECKVERSION();
 		if (ImGui::CreateContext())
@@ -39,9 +41,8 @@ int main(int argc, char* argv[])
 
 			io.IniFilename = "assets\\imgui.ini";
 
-			mem_init();
-			cpu_init();
-
+			MEM::init();
+			CPU::init();
 			gui_running = 1;
 
 			for (int i = 0; i < SDL_NumJoysticks(); i++)
@@ -106,16 +107,20 @@ void main_update()
 	sdl_input_new();
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_TAB)) //frame limit
+	{
 		sdl.frame_limit = false;
+	}
 	else if (ImGui::IsKeyReleased(SDL_SCANCODE_TAB))
+	{
 		sdl.frame_limit = true;
+	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F5)) //run
 	{
 		if (logging)
 			log_to_file(reg.pc);
 
-		cpu_step();
+		CPU::step();
 		cpu.state = cstate::running;
 	}
 
@@ -151,7 +156,7 @@ void main_update()
 		if (logging)
 			log_to_file(reg.pc);
 
-		cpu_step();
+		CPU::step();
 		follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
@@ -163,7 +168,7 @@ void main_step()
 {
 	follow_pc = true;
 	PPU::frame_ready = false;
-	int cyc = 0;
+	cpu.cpucycles = FRAME_CYCLES;
 	while (!PPU::frame_ready)
 	{
 		u16 pc = reg.pc;
@@ -178,21 +183,21 @@ void main_step()
 					cpu.state = cstate::debugging;
 					return;
 				}
-				else if (bp_read_access(read_addr))
+				else if (bp_read_access(MEM::read_addr))
 				{
-					read_addr = -1;
+					MEM::read_addr = -1;
 					cpu.state = cstate::debugging;
 					return;
 				}
-				else if (bp_write_access(write_addr))
+				else if (bp_write_access(MEM::write_addr))
 				{
-					write_addr = -1;
+					MEM::write_addr = -1;
 					cpu.state = cstate::debugging;
 					return;
 				}
-				else if (bp_ppu_write_access(ppu_write_addr))
+				else if (bp_ppu_write_access(MEM::ppu_write_addr))
 				{
-					ppu_write_addr = -1;
+					MEM::ppu_write_addr = -1;
 					cpu.state = cstate::debugging;
 					return;
 				}
@@ -205,7 +210,7 @@ void main_step()
 		if (logging)
 			log_to_file(pc);
 
-		cpu_step();
+		CPU::step();
 
 		if ((u16)cpu.stepoveraddr == reg.pc)
 		{
@@ -214,11 +219,13 @@ void main_step()
 			return;
 		}
 	}
+
+	apu.step();
 }
 
 void main_step_over()
 {
-	u8 op = ram[reg.pc];
+	u8 op = MEM::ram[reg.pc];
 	if (op == 0x00 || op == 0x20)
 	{
 		cpu.stepoveraddr = reg.pc + disasm[op].size;
@@ -226,7 +233,7 @@ void main_step_over()
 	}
 	else
 	{
-		cpu_step();
+		CPU::step();
 		follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
@@ -242,7 +249,7 @@ void main_step_frame()
 	int old_frame = PPU::frame;
 	while (old_frame == PPU::frame)
 	{
-		cpu_step();
+		CPU::step();
 		//ppu_step(cyc);
 		if (cpu.state == cstate::crashed)
 			return;
@@ -251,7 +258,7 @@ void main_step_frame()
 
 void main_step_scanline(u16 lines)
 {
-	if (!rom_loaded)
+	if (!MEM::rom_loaded)
 		return;
 
 	u16 pc = reg.pc;
@@ -264,14 +271,14 @@ void main_step_scanline(u16 lines)
 		int old_scanline = PPU::scanline;
 		while (old_scanline == PPU::scanline)
 		{
-			cpu_step();
+			CPU::step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
 
 		while (PPU::scanline != lines)
 		{
-			cpu_step();
+			CPU::step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -281,7 +288,7 @@ void main_step_scanline(u16 lines)
 		int old_scanline = PPU::scanline;
 		while (old_scanline == PPU::scanline)
 		{
-			cpu_step();
+			CPU::step();
 			if (cpu.state == cstate::crashed)
 				return;
 		}
@@ -291,11 +298,11 @@ void main_step_scanline(u16 lines)
 
 void main_save_state(u8 slot)
 {
-	if (rom_loaded)
+	if (MEM::rom_loaded)
 	{
 		ofstream state(header.name + "." + to_string(slot), ios::binary);
-		state.write((char*)ram.data(), ram.size());
-		state.write((char*)vram.data(), vram.size());
+		state.write((char*)MEM::ram.data(), MEM::ram.size());
+		state.write((char*)MEM::vram.data(), MEM::vram.size());
 		//if (header.mappernum == 4)
 		//	state.write((char*)&mmc3, sizeof(mmc3));
 		state.close();
@@ -304,14 +311,14 @@ void main_save_state(u8 slot)
 
 void main_load_state(u8 slot)
 {
-	if (rom_loaded)
+	if (MEM::rom_loaded)
 	{
 		string file = header.name + "." + to_string(slot);
 		if (fs::exists(file))
 		{
 			ifstream state(file, ios::binary);
-			state.read((char*)ram.data(), ram.size());
-			state.read((char*)vram.data(), vram.size());
+			state.read((char*)MEM::ram.data(), MEM::ram.size());
+			state.read((char*)MEM::vram.data(), MEM::vram.size());
 			//if (header.mappernum == 4)
 			//	state.read((char*)&mmc3, sizeof(mmc3));
 			state.close();

@@ -9,6 +9,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	set(CMAKE_SHARED_LINKER_FLAGS "/SAFESEH:NO")
 	set(CMAKE_EXE_LINKER_FLAGS "/SAFESEH:NO")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	add_definitions(-DHAVE_STDINT_H)	
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -21,17 +22,30 @@ set(APP_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 include_directories(${SRC_DIR}/src/include)
 include_directories(${SRC_DIR}/src/mappers/include)
+include_directories(${SRC_DIR}/nes_apu_emu)
 
 file(GLOB_RECURSE EMU_SRC
 ${SRC_DIR}/src/cpu.cpp
 ${SRC_DIR}/src/mem.cpp
 ${SRC_DIR}/src/ppu.cpp
+${SRC_DIR}/src/apu.cpp
 ${SRC_DIR}/src/sdlcore.cpp
 ${SRC_DIR}/src/controls.cpp
 ${SRC_DIR}/src/mappers/mapper001.cpp
 ${SRC_DIR}/src/mappers/mapper002.cpp
 ${SRC_DIR}/src/mappers/mapper004.cpp
 ${SRC_DIR}/src/mappers/mapper009.cpp
+${SRC_DIR}/src/mappers/mapper009.cpp
+${SRC_DIR}/Simple_Apu.cpp
+${SRC_DIR}/Sound_Queue.cpp
+${SRC_DIR}/nes_apu_emu/apu_snapshot.cpp
+${SRC_DIR}/nes_apu_emu/Blip_Buffer.cpp
+${SRC_DIR}/nes_apu_emu/Multi_Buffer.cpp
+${SRC_DIR}/nes_apu_emu/Nes_Apu.cpp
+${SRC_DIR}/nes_apu_emu/Nes_Namco.cpp
+${SRC_DIR}/nes_apu_emu/Nes_Oscs.cpp
+${SRC_DIR}/nes_apu_emu/Nes_Vrc6.cpp
+${SRC_DIR}/nes_apu_emu/Nonlinear_Buffer.cpp
 )
 
 if(WIN32)

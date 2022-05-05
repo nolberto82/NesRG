@@ -5,6 +5,8 @@
 #define PPU_STEP PPU::step(); PPU::step(); PPU::step();
 #define BACKGROUND_LEFT (x > 7 || pmask.backgroundleft)
 
+#define FETCH_CYCLES cycle > 0 && cycle < 257 || cycle >= 321 && cycle <= 336
+
 namespace PPU
 {
 	void step();
@@ -13,8 +15,8 @@ namespace PPU
 	u8 status(u8 cycles);
 	void oam_addr(u8 v);
 	void oam_data(u8 v);
-	void scroll(u8 v);
-	void addr(u8 v);
+	void ppuscroll(u8 v);
+	void ppuaddr(u8 v);
 	void data_wb(u8 v);
 	u8 data_rb();
 	void reset();

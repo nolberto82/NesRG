@@ -37,7 +37,7 @@ void MMC3::update(u16 addr, u8 v)
 		}
 
 		for (int i = 0; i < chr.size(); i++)
-			mem_vrom(vram, i * 0x400, chr[i] * 0x400, 0x0400);
+			MEM::mem_vrom(MEM::vram, i * 0x400, chr[i] * 0x400, 0x0400);
 
 		if (prgmode == 0)
 		{
@@ -55,7 +55,7 @@ void MMC3::update(u16 addr, u8 v)
 		}
 
 		for (int i = 0; i < prg.size(); i++)
-			mem_rom(ram, 0x8000 + i * 0x2000, 0x10 + prg[i] * 0x2000, 0x2000);
+			MEM::mem_rom(MEM::ram, 0x8000 + i * 0x2000, 0x10 + prg[i] * 0x2000, 0x2000);
 	}
 	else if (addr >= 0xa000 && addr <= 0xbfff)
 	{

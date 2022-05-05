@@ -31,7 +31,7 @@ void MMC1::update(u16 addr, u8 v)
 					chr[0] = (control & 0x1e) >> 1;
 				else
 					chr[0] = (control & 0x1f);
-				mem_vrom(vram, 0x0000, chr[0] * chrbank, chrbank);
+				MEM::mem_vrom(MEM::vram, 0x0000, chr[0] * chrbank, chrbank);
 			}
 			else if (addr >= 0xc000 && addr <= 0xdfff)
 			{
@@ -39,7 +39,7 @@ void MMC1::update(u16 addr, u8 v)
 					chr[1] = (control & 0x1e) >> 1;
 				else
 					chr[1] = control & 0x1f;
-				mem_vrom(vram, 0x1000, chr[1] * 0x1000,0x1000);
+				MEM::mem_vrom(MEM::vram, 0x1000, chr[1] * 0x1000,0x1000);
 			}
 			else if (addr >= 0xe000 && addr <= 0xffff)
 			{
@@ -48,21 +48,21 @@ void MMC1::update(u16 addr, u8 v)
 					prg[0] = control & 0xe;
 					prg[1] = header.prgnum - 1;
 					int prg = 0x10 + prgbank * (control & 0xe);
-					mem_rom(ram, 0x8000, prg, prgbank);
+					MEM::mem_rom(MEM::ram, 0x8000, prg, prgbank);
 				}
 				else if (prgmode == 2)
 				{
 					prg[0] = header.prgnum - 1;
 					prg[1] = control & 0xf;
 					int prg = 0x10 + prgbank * (control & 0xf);
-					mem_rom(ram, 0xc000, prg, prgbank);
+					MEM::mem_rom(MEM::ram, 0xc000, prg, prgbank);
 				}
 				else if (prgmode == 3)
 				{
 					prg[0] = control & 0xf;
 					prg[1] = header.prgnum - 1;
 					int prg = 0x10 + prgbank * (control & 0xf);
-					mem_rom(ram, 0x8000, prg, prgbank);
+					MEM::mem_rom(MEM::ram, 0x8000, prg, prgbank);
 				}
 				sram_disabled = (control >> 4) & 1;
 			}

@@ -6,9 +6,8 @@
 
 #define TEXTSIZE 128
 
+#include <cstdint>
 #include <iostream>
-#include <stdio.h>
-#include <stdbool.h>
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -16,8 +15,6 @@
 #include <map>
 #include <iomanip>
 #include <filesystem>
-#include <any>
-#include <utility>
 
 #include "opcodes.h"
 
@@ -27,14 +24,14 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef unsigned long u64;
+typedef unsigned __int8 u8;
+typedef unsigned __int16 u16;
+typedef unsigned __int32 u32;
+typedef unsigned __int64 u64;
 
-typedef char s8;
-typedef short s16;
-typedef int s32;
+typedef __int8 s8;
+typedef __int16 s16;
+typedef __int32 s32;
 
 const int APP_WIDTH = 1400;
 const int APP_HEIGHT = 975;
@@ -44,6 +41,8 @@ const int NES_SCREEN_HEIGHT = 240;
 
 const int PATTERN_WIDTH = 128;
 const int PATTERN_HEIGHT = 128;
+
+const int FRAME_CYCLES = 29780;
 
 enum cstate
 {
@@ -66,6 +65,7 @@ struct Cpu
 {
 	bool pagecrossed = false;
 	int state;
+	int cpucycles;
 	u8 state_loaded;
 	u32 cycles;
 	s16 stepoveraddr = -1;

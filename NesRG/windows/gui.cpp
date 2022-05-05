@@ -20,10 +20,10 @@ void gui_update()
 
 	if (fileDialog.HasSelected())
 	{
-		if (!load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
+		if (!MEM::load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
 		{
 			cpu.state = cstate::debugging;
-			rom.clear();
+			MEM::rom.clear();
 		}
 		fileDialog.ClearSelected();
 	}
@@ -80,10 +80,10 @@ void gui_show_display()
 					u16 ntaddr = 0;
 					switch (header.mirror)
 					{
-						case mirrortype::single_nt0: ntaddr = mirrornt0[i]; break;
-						case mirrortype::single_nt1: ntaddr = mirrornt1[i]; break;
-						case mirrortype::vertical: ntaddr = mirrorver[i] * 0x400; break;
-						case mirrortype::horizontal: ntaddr = mirrorhor[i] * 0x400; break;
+						case mirrortype::single_nt0: ntaddr = MEM::mirrornt0[i]; break;
+						case mirrortype::single_nt1: ntaddr = MEM::mirrornt1[i]; break;
+						case mirrortype::vertical: ntaddr = MEM::mirrorver[i] * 0x400; break;
+						case mirrortype::horizontal: ntaddr = MEM::mirrorhor[i] * 0x400; break;
 					}
 					PPU::render_nametables(ntaddr, 0, PPU::ntable_pixels[i]);
 				}
@@ -130,14 +130,14 @@ void gui_show_display()
 				starty = pos.y += PATTERN_HEIGHT * 2 + 15;
 				for (int i = 0; i < 16; i++)
 				{
-					u8 r = PPU::palettes[vram[0x3f00 + i]] & 0xff;
-					u8 g = PPU::palettes[vram[0x3f00 + i]] >> 8;
-					u8 b = PPU::palettes[vram[0x3f00 + i]] >> 16;
+					u8 r = PPU::palettes[MEM::vram[0x3f00 + i]] & 0xff;
+					u8 g = PPU::palettes[MEM::vram[0x3f00 + i]] >> 8;
+					u8 b = PPU::palettes[MEM::vram[0x3f00 + i]] >> 16;
 					ImU32 color = ImColor(r, g, b);
 					list->AddRectFilled(ImVec2(pos.x, pos.y), ImVec2(pos.x + 24, pos.y + 24), color);
-					r = PPU::palettes[vram[0x3f10 + i]] & 0xff;
-					g = PPU::palettes[vram[0x3f10 + i]] >> 8;
-					b = PPU::palettes[vram[0x3f10 + i]] >> 16;
+					r = PPU::palettes[MEM::vram[0x3f10 + i]] & 0xff;
+					g = PPU::palettes[MEM::vram[0x3f10 + i]] >> 8;
+					b = PPU::palettes[MEM::vram[0x3f10 + i]] >> 16;
 					color = ImColor(r, g, b);
 					list->AddRectFilled(ImVec2(pos.x, pos.y + 48), ImVec2(pos.x + 24, pos.y + 25), color);
 					pos.x += 27;
@@ -171,14 +171,14 @@ void gui_show_disassembly()
 
 		if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
 		{
-			if (rom_loaded)
+			if (MEM::rom_loaded)
 			{
 				if (logging)
 					log_to_file(reg.pc);
 
-				cpu_step();
-				//ppu_step(cyc);
-				cpu.state = cstate::running; is_jump = false;
+				CPU::step();
+				cpu.state = cstate::running; 
+				is_jump = false;
 			}
 		}
 
@@ -186,9 +186,9 @@ void gui_show_disassembly()
 
 		if (ImGui::Button("Reset", ImVec2(BUTTON_W, 0)))
 		{
-			if (rom_loaded)
+			if (MEM::rom_loaded)
 			{
-				set_mapper();
+				MEM::set_mapper();
 				create_close_log(false);
 				follow_pc = true;
 				cpu.state = cstate::debugging;
@@ -272,35 +272,35 @@ void gui_show_memory()
 			if (ImGui::BeginTabItem("RAM"))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
-				mem_edit.DrawContents(ram.data(), ram.size());
+				mem_edit.DrawContents(MEM::ram.data(), MEM::ram.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("VRAM")))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
-				mem_edit.DrawContents(vram.data(), vram.size());
+				mem_edit.DrawContents(MEM::vram.data(), MEM::vram.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("OAM")))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
-				mem_edit.DrawContents(oam.data(), oam.size());
+				mem_edit.DrawContents(MEM::oam.data(), MEM::oam.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("ROM")))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
-				mem_edit.DrawContents(rom.data(), rom.size());
+				mem_edit.DrawContents(MEM::rom.data(), MEM::rom.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
 			if ((ImGui::BeginTabItem("VROM")))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
-				mem_edit.DrawContents(vrom.data(), vrom.size());
+				mem_edit.DrawContents(MEM::vrom.data(), MEM::vrom.size());
 				ImGui::PopStyleColor(1);
 				ImGui::EndTabItem();
 			}
@@ -395,7 +395,7 @@ void gui_show_registers()
 
 		ImGui::Columns(1);
 
-		if (!rom_loaded)
+		if (!MEM::rom_loaded)
 		{
 			set_spacing(5);
 			ImGui::TextColored(RED, "Mapper not supported");
@@ -492,10 +492,10 @@ void gui_show_buttons()
 	if (fileDialog.HasSelected())
 	{
 		//ppu_reset(); clear_pixels();
-		if (!load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
+		if (!MEM::load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
 		{
 			cpu.state = cstate::debugging;
-			rom.clear();
+			MEM::rom.clear();
 		}
 		fileDialog.ClearSelected();
 	}
@@ -515,12 +515,12 @@ void gui_show_buttons()
 
 		if (ImGui::Button("Run", ImVec2(-1, 0)))
 		{
-			if (rom_loaded)
+			if (MEM::rom_loaded)
 			{
 				if (logging)
 					log_to_file(reg.pc);
 
-				cpu_step();
+				CPU::step();
 				cpu.state = cstate::running; is_jump = false;
 			}
 		}
@@ -529,9 +529,9 @@ void gui_show_buttons()
 
 		if (ImGui::Button("Reset", ImVec2(-1, 0)))
 		{
-			if (rom_loaded)
+			if (MEM::rom_loaded)
 			{
-				set_mapper();
+				MEM::set_mapper();
 				create_close_log(false);
 				follow_pc = true;
 				cpu.state = cstate::debugging;
@@ -542,10 +542,10 @@ void gui_show_buttons()
 
 		if (ImGui::Button("Dump VRAM", ImVec2(-1, 0)))
 		{
-			if (rom_loaded)
+			if (MEM::rom_loaded)
 			{
 				ofstream file("vram.bin", ios::binary);
-				file.write((char*)vram.data(), vram.size());
+				file.write((char*)MEM::vram.data(), MEM::vram.size());
 				file.close();
 			}
 		}

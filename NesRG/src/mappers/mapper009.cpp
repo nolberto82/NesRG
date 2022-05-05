@@ -15,27 +15,27 @@ void MMC2::update(u16 addr, u8 v)
 		prg[2] = (header.prgnum * 2) - 2;
 		prg[3] = (header.prgnum * 2) - 1;
 		for (int i = 0; i < prg.size(); i++)
-			mem_rom(ram, 0x8000 + i * 0x2000, 0x10 + prg[i] * 0x2000, 0x2000);
+			MEM::mem_rom(MEM::ram, 0x8000 + i * 0x2000, 0x10 + prg[i] * 0x2000, 0x2000);
 	}
 	else if (addr >= 0xb000 && addr <= 0xbfff)
 	{
 		chr1[0] = v & 0x1f;
-		mem_vrom(vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xc000 && addr <= 0xcfff)
 	{
 		chr1[1] = v & 0x1f;
-		mem_vrom(vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xd000 && addr <= 0xdfff)
 	{
 		chr2[0] = v & 0x1f;
-		mem_vrom(vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xe000 && addr <= 0xefff)
 	{
 		chr2[1] = v & 0x1f;
-		mem_vrom(vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xf000 && addr <= 0xffff)
 	{
@@ -69,8 +69,8 @@ void MMC2::set_latch(u16 addr, u8 v)
 
 	if (updatechr)
 	{
-		mem_vrom(vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
-		mem_vrom(vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x0000, chr1[latch1] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2] * 0x1000, 0x1000);
 		updatechr = 0;
 	}
 
