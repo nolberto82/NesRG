@@ -1,6 +1,6 @@
 #include "ppu.h"
 #include "mem.h"
-#include "sdlcore.h"
+#include "sdlgfx.h"
 #include "mappers.h"
 
 SpriteData sprites[8];
@@ -112,7 +112,7 @@ namespace PPU
 					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 				if (cycle == 1)
-					sdl_frame(screen_pixels, cpu.state);
+					SDL::draw_frame(screen_pixels, cpu.state);
 
 				frame_ready = false;
 
@@ -278,7 +278,7 @@ namespace PPU
 	void clear_pixels()
 	{
 		memset(screen_pixels, 0x00, sizeof(screen_pixels));
-		sdl_frame(screen_pixels, cpu.state);
+		SDL::draw_frame(screen_pixels, cpu.state);
 	}
 
 	void pixels()

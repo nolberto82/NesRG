@@ -2,7 +2,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "gui.h"
-#include "sdlcore.h"
+#include "sdlgfx.h"
 #include "tracer.h"
 #include "breakpoints.h"
 #include "main.h"
@@ -10,7 +10,7 @@
 
 Cpu cpu;
 APU apu;
-SdlCore sdl;
+SdlGfx sdl;
 Registers reg;
 PpuRegisters lp;
 Header header;
@@ -21,7 +21,7 @@ Keys newkeys, oldkeys;
 
 int main(int argc, char* argv[])
 {
-	if (sdl_init() && apu.init())
+	if (SDL::init() && apu.init())
 	{
 		IMGUI_CHECKVERSION();
 		if (ImGui::CreateContext())
@@ -37,13 +37,13 @@ int main(int argc, char* argv[])
 			style->FrameBorderSize = 1.0f;
 
 			ImGuiIO& io = ImGui::GetIO(); (void)io;
-			io.ConfigFlags = ImGuiConfigFlags_DockingEnable;
+			ImGui::GetIO().ConfigFlags = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable;
 
 			io.IniFilename = "assets\\imgui.ini";
 
 			MEM::init();
 			CPU::init();
-			gui_running = 1;
+			GUI::running = 1;
 
 			for (int i = 0; i < SDL_NumJoysticks(); i++)
 			{
@@ -60,15 +60,15 @@ int main(int argc, char* argv[])
 					else
 					{
 						printf("Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError());
-						gui_running = 0;
+						GUI::running = 0;
 					}
 				}
 			}
 
-			while (gui_running)
+			while (GUI::running)
 			{
 				main_update();
-				gui_update();
+				GUI::update(io);
 				if (cpu.state == cstate::running)
 					main_step();
 			}
@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 			ImGui_ImplSDL2_Shutdown();
 			ImGui::DestroyContext();
 		}
-		sdl_clean();
+		SDL::clean();
 	}
 
 	if (logging)
@@ -98,13 +98,13 @@ void main_update()
 	{
 		ImGui_ImplSDL2_ProcessEvent(&event);
 		if (event.type == SDL_QUIT)
-			gui_running = 0;
+			GUI::running = 0;
 		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
 			event.window.windowID == SDL_GetWindowID(sdl.window))
-			gui_running = 0;
+			GUI::running = 0;
 	}
 
-	sdl_input_new();
+	SDL::input_new();
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_TAB)) //frame limit
 	{
@@ -157,16 +157,16 @@ void main_update()
 			log_to_file(reg.pc);
 
 		CPU::step();
-		follow_pc = true;
+		GUI::follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
 
-	sdl_input_old();
+	SDL::input_old();
 }
 
 void main_step()
 {
-	follow_pc = true;
+	GUI::follow_pc = true;
 	PPU::frame_ready = false;
 	cpu.cpucycles = FRAME_CYCLES;
 	while (!PPU::frame_ready)
@@ -234,7 +234,7 @@ void main_step_over()
 	else
 	{
 		CPU::step();
-		follow_pc = true;
+		GUI::follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
 }

@@ -33,8 +33,8 @@ typedef __int8 s8;
 typedef __int16 s16;
 typedef __int32 s32;
 
-const int APP_WIDTH = 1400;
-const int APP_HEIGHT = 975;
+const int APP_WIDTH = 1138;
+const int APP_HEIGHT = 980;
 
 const int NES_SCREEN_WIDTH = 256;
 const int NES_SCREEN_HEIGHT = 240;

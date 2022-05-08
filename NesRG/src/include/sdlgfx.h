@@ -2,21 +2,24 @@
 
 #include "types.h"
 
-bool sdl_init();
-void sdl_frame(u32* screen_pixels, int state);
-void sdl_nttable();
-void sdl_sprites();
-void sdl_overlay(SDL_Rect rect, SDL_Rect rect2);
-void sdl_input_new();
-void sdl_input_old();
-void sdl_clean();
+namespace SDL
+{
+	bool init();
+	void draw_frame(u32* screen_pixels, int state);
+	void draw_nttable();
+	void draw_sprites();
+	void draw_overlay(SDL_Rect rect, SDL_Rect rect2);
+	void input_new();
+	void input_old();
+	void clean();
+}
 
 struct Keys
 {
 	bool f1, f9, lshift;
 };
 
-struct SdlCore
+struct SdlGfx
 {
 	const u8* ctrl_keys;
 	bool frame_limit = true;
@@ -31,5 +34,5 @@ struct SdlCore
 	SDL_GameController* controller;
 };
 
-extern SdlCore sdl;
+extern SdlGfx sdl;
 extern Keys newkeys, oldkeys;

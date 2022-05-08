@@ -1,10 +1,10 @@
 #include "apu.h"
 #include "mem.h"
-#include "sdlcore.h"
+#include "sdlgfx.h"
 
 const long sample_rate = 96000;
-const size_t OUT_SIZE = 4096;
-blip_sample_t buf[OUT_SIZE];
+const size_t bufsize = 4096;
+blip_sample_t buf[bufsize];
 Simple_Apu* sapu;
 Sound_Queue* sound_queue;
 
@@ -51,9 +51,9 @@ void APU::step()
 		return;
 	sapu->end_frame();
 
-	if (sapu->samples_avail() >= OUT_SIZE)
+	if (sapu->samples_avail() >= bufsize)
 	{
-		long count = sapu->read_samples(buf, OUT_SIZE);
+		long count = sapu->read_samples(buf, bufsize);
 		play(buf, count);
 	}
 }
@@ -65,6 +65,12 @@ int APU::read_dmc(void* _, cpu_addr_t addr)
 
 void APU::reset()
 {
-	
+	if (sapu && sound_queue)
+	{
+		delete sound_queue;
+		delete sapu;
+		init();
+	}
+
 }
 

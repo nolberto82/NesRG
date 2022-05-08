@@ -30,42 +30,57 @@
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | \
 ImGuiWindowFlags_NoMove
 
-inline u16 jumpaddr;
+namespace GUI
+{
+	inline u16 jumpaddr;
 
-inline int lineoffset;
-inline int gui_running;
+	inline bool releasemode;
 
-inline bool is_jump;
+	inline int lineoffset;
+	inline int running;
 
-inline int item_num = 0;
-inline bool is_pc = false;
+	inline bool is_jump;
 
-inline bool style_editor = false;
-inline bool trace_logger = false;
-inline bool open_rom = false;
-inline bool exec_rom = false;
+	inline int item_num = 0;
+	inline bool is_pc = false;
 
-inline string flag_names = "NVUBDIZC";
-inline bool flag_values[8] = { };
-inline char jumpto[5] = { 0 };
+	inline bool style_editor = false;
+	inline bool trace_logger = false;
+	inline bool mem_viewer = false;
+	inline bool debug_viewer = false;
+	inline bool emu_rom = false;
+	inline bool emu_run = false;
+	inline bool emu_reset = false;
+	inline bool open_rom = false;
+	inline bool exec_rom = false;
+	inline bool debug_enable = false;
 
-inline bool follow_pc;
+	inline string flag_names = "NVUBDIZC";
+	inline bool flag_values[8] = { };
+	inline char jumpto[5] = { 0 };
 
-inline u16 inputaddr;
-inline char bpaddrtext[5] = { 0 };
-inline int item_id = 0;
-inline u8 bptype = 0;
+	inline bool follow_pc;
 
-inline MemoryEditor mem_edit;
+	inline u16 inputaddr;
+	inline char bpaddrtext[5] = { 0 };
+	inline int item_id = 0;
+	inline u8 bptype = 0;
 
-inline ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+	inline MemoryEditor mem_edit;
 
-void gui_update();
-void gui_show_display();
-void gui_show_disassembly();
-void gui_show_memory();
-void gui_show_registers();
-void gui_show_breakpoints();
-void gui_show_logger();
-void gui_show_menu();
-void gui_open_dialog();
+	inline ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+	void update(ImGuiIO io);
+	void show_display();
+	void show_ppu_debug();
+	void show_disassembly();
+	void show_memory();
+	void show_registers();
+	void show_breakpoints();
+	void show_buttons();
+	void show_logger();
+	void show_menu();
+	void open_dialog();
+	void run_emu();
+	void reset_emu();
+}
