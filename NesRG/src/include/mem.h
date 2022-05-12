@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-#include "cpu.h"
+class Mapper;
 
 namespace MEM
 {
@@ -34,6 +34,8 @@ namespace MEM
 	inline s16 read_addr = -1;
 	inline s16 ppu_write_addr = -1;
 	inline s16 ppu_read_addr = -1;
+
+	inline shared_ptr<Mapper> mapper;
 
 	void init();
 	bool load_rom(const char* filename);

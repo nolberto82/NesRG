@@ -1,6 +1,7 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "apu.h"
+#include "mem.h"
 #include "mappers.h"
 
 namespace CPU
@@ -81,9 +82,9 @@ namespace CPU
 		}
 		}
 
-		if (mmc3.fire)
+		if (MEM::mapper->fire)
 		{
-			mmc3.fire = 0;
+			MEM::mapper->fire = 0;
 			op_irq(reg.npc);
 		}
 
@@ -601,7 +602,7 @@ namespace CPU
 		memset(MEM::ram.data(), 0x00, 0x8000);
 		cpu.state = cstate::debugging;
 		cpu.stepoveraddr = -1;
-		apu.reset();
+		APU::reset();
 	}
 
 	void op_nmi()

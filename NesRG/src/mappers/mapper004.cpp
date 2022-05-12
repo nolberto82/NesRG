@@ -1,12 +1,24 @@
 #include "mappers.h"
 #include "mem.h"
-#include "ppu.h"
+#include "cpu.h"
 
-MMC3 mmc3;
 u8 chrid[2][8] = { {0,0,1,1,2,3,4,5}, {2,3,4,5,0,0,1,1} };
 s8 masid[2][8] = { {-2,1,-2,1,-1,-1,-1,-1}, {-1,-1,-1,-1,-2,1,-2,1} };
 
-void MMC3::update(u16 addr, u8 v)
+void Mapper004::setup(struct Header h)
+{
+	int prgsize = h.prgnum * 0x4000;
+	int chrsize = h.chrnum * 0x2000;
+
+	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / h.prgnum);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
+	if (h.chrnum > 0)
+	{
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
+	}
+}
+
+void Mapper004::update(u16 addr, u8 v)
 {
 	if (addr >= 0x8000 && addr <= 0x9fff)
 	{
@@ -63,30 +75,36 @@ void MMC3::update(u16 addr, u8 v)
 			header.mirror = (v & 1) + 2;
 		else
 		{
-			write_prot = (v >> 6) & 1; 
+			write_prot = (v >> 6) & 1;
 			prg_ram = (v >> 7) & 1;
 		}
 	}
 	else if (addr >= 0xc000 && addr <= 0xdfff)
 	{
-		if ((addr % 2) == 0) 
+		if ((addr % 2) == 0)
 			rvalue = v;
 		else
 		{
-			counter = 0; 
+			counter = 0;
 			reload = 1;
 		}
 	}
 	else if (addr >= 0xe000 && addr <= 0xffff)
 	{
-		if ((addr % 2) == 0) 
+		if ((addr % 2) == 0)
 			irq = 0;
-		else 
+		else
 			irq = 1;
 	}
 }
 
-void MMC3::scanline()
+void Mapper004::reset()
+{
+	prg.resize(4);
+	chr.resize(8);
+}
+
+void Mapper004::scanline()
 {
 	if (counter == 0)
 	{
@@ -103,9 +121,12 @@ void MMC3::scanline()
 	}
 }
 
-void MMC3::reset()
+vector<u8> Mapper004::get_prg()
 {
-	memset(&mmc3, 0x00, sizeof(mmc3));
-	prg.resize(4);
-	chr.resize(8);
+	return prg;
+}
+
+vector<u8> Mapper004::get_chr()
+{
+	return chr;
 }

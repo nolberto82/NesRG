@@ -1,7 +1,6 @@
 #pragma once
 
 #include "types.h"
-#include "mem.h"
 
 #define FC 0x01
 #define FZ 0x02
@@ -75,6 +74,3 @@ namespace CPU
 	void init();
 	void reset();
 }
-
-extern Registers reg;
-extern Cpu cpu;

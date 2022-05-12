@@ -7,10 +7,10 @@
 #include "breakpoints.h"
 #include "main.h"
 #include "mappers.h"
+#include "mem.h"
+#include "types.h"
 
 Cpu cpu;
-APU apu;
-SdlGfx sdl;
 Registers reg;
 PpuRegisters lp;
 Header header;
@@ -21,68 +21,58 @@ Keys newkeys, oldkeys;
 
 int main(int argc, char* argv[])
 {
-	if (SDL::init() && apu.init())
+	GUI::running = 1;
+
+	if (SDL::init())
 	{
-		IMGUI_CHECKVERSION();
-		if (ImGui::CreateContext())
+		if (GUI::init())
 		{
-			ImGui_ImplSDL2_InitForSDLRenderer(sdl.window, sdl.renderer);
-			ImGui_ImplSDLRenderer_Init(sdl.renderer);
-
-			ImGui::StyleColorsLight();
-			ImGui::StyleColorsDark();
-			ImGuiStyle* style = &ImGui::GetStyle();
-			ImVec4 windowbgcol = ImVec4(0, 0, 0, 180 / 255.0f);
-			style->ItemSpacing = ImVec2(8, 1);
-			style->FrameBorderSize = 1.0f;
-
-			ImGuiIO& io = ImGui::GetIO(); (void)io;
-			ImGui::GetIO().ConfigFlags = ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable;
-
-			io.IniFilename = "assets\\imgui.ini";
-
-			MEM::init();
-			CPU::init();
-			GUI::running = 1;
-
-			for (int i = 0; i < SDL_NumJoysticks(); i++)
+			if (APU::init())
 			{
-				// Load joystick
-				if (SDL_IsGameController(i))
+				for (int i = 0; i < SDL_NumJoysticks(); i++)
 				{
-					sdl.controller = SDL_GameControllerOpen(i);
-					if (sdl.controller)
+					// Load joystick
+					if (SDL_IsGameController(i))
 					{
-						string cmapping = SDL_GameControllerMapping(sdl.controller);
-						SDL_GameControllerAddMapping(cmapping.c_str());
-						break;
-					}
-					else
-					{
-						printf("Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError());
-						GUI::running = 0;
+						SDL::controller = SDL_GameControllerOpen(i);
+						if (SDL::controller)
+						{
+							string cmapping = SDL_GameControllerMapping(SDL::controller);
+							SDL_GameControllerAddMapping(cmapping.c_str());
+							break;
+						}
+						else
+						{
+							printf("Unable to open game controller! SDL Error: %s\n", SDL_GetError());
+							GUI::running = 0;
+						}
 					}
 				}
+
+				MEM::init();
+				CPU::init();
 			}
-
-			while (GUI::running)
-			{
-				main_update();
-				GUI::update(io);
-				if (cpu.state == cstate::running)
-					main_step();
-			}
-
-			//Save imgui.ini
-			fs::path assets(fs::current_path().parent_path().parent_path()
-				.parent_path().parent_path() / io.IniFilename);
-			ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
-
-			ImGui_ImplSDLRenderer_Shutdown();
-			ImGui_ImplSDL2_Shutdown();
-			ImGui::DestroyContext();
 		}
+
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags = ImGuiConfigFlags_DockingEnable;
+		io.IniFilename = "assets\\imgui.ini";
+
+		while (GUI::running)
+		{
+			main_update();
+			GUI::update(io);
+			if (cpu.state == cstate::running)
+				main_step();
+		}
+
+		//Save imgui.ini
+		fs::path assets(fs::current_path().parent_path().parent_path()
+			.parent_path().parent_path() / io.IniFilename);
+		ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
+
 		SDL::clean();
+		APU::clean();
 	}
 
 	if (logging)
@@ -100,7 +90,7 @@ void main_update()
 		if (event.type == SDL_QUIT)
 			GUI::running = 0;
 		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
-			event.window.windowID == SDL_GetWindowID(sdl.window))
+			event.window.windowID == SDL_GetWindowID(SDL::window))
 			GUI::running = 0;
 	}
 
@@ -108,11 +98,11 @@ void main_update()
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_TAB)) //frame limit
 	{
-		sdl.frame_limit = false;
+		SDL::frame_limit = false;
 	}
 	else if (ImGui::IsKeyReleased(SDL_SCANCODE_TAB))
 	{
-		sdl.frame_limit = true;
+		SDL::frame_limit = true;
 	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F5)) //run
@@ -220,7 +210,7 @@ void main_step()
 		}
 	}
 
-	apu.step();
+	APU::step();
 }
 
 void main_step_over()

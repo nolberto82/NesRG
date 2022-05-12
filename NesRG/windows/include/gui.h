@@ -9,7 +9,7 @@
 #include "imgui_memory_editor.h"
 #include "imfilebrowser.h"
 
-#define DISASSEMBLY_LINES 60
+#define DISASSEMBLY_LINES 30
 
 //Color defines
 #define BUTTON_W 90
@@ -38,10 +38,9 @@ namespace GUI
 
 	inline int lineoffset;
 	inline int running;
+	inline int item_num = 0;
 
 	inline bool is_jump;
-
-	inline int item_num = 0;
 	inline bool is_pc = false;
 
 	inline bool style_editor = false;
@@ -51,9 +50,8 @@ namespace GUI
 	inline bool emu_rom = false;
 	inline bool emu_run = false;
 	inline bool emu_reset = false;
-	inline bool open_rom = false;
-	inline bool exec_rom = false;
 	inline bool debug_enable = false;
+	inline bool ppu_enable = false;
 
 	inline string flag_names = "NVUBDIZC";
 	inline bool flag_values[8] = { };
@@ -83,4 +81,5 @@ namespace GUI
 	void open_dialog();
 	void run_emu();
 	void reset_emu();
+	bool init();
 }

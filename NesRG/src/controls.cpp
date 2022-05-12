@@ -6,21 +6,21 @@ u8 controls_keys(u8 id)
 	switch (id)
 	{
 		case 0:
-			return sdl.ctrl_keys[SDL_SCANCODE_Z];
+			return SDL::ctrl_keys[SDL_SCANCODE_Z];
 		case 1:
-			return sdl.ctrl_keys[SDL_SCANCODE_X];
+			return SDL::ctrl_keys[SDL_SCANCODE_X];
 		case 2:
-			return sdl.ctrl_keys[SDL_SCANCODE_SPACE];
+			return SDL::ctrl_keys[SDL_SCANCODE_SPACE];
 		case 3:
-			return sdl.ctrl_keys[SDL_SCANCODE_RETURN];
+			return SDL::ctrl_keys[SDL_SCANCODE_RETURN];
 		case 4:
-			return sdl.ctrl_keys[SDL_SCANCODE_UP];
+			return SDL::ctrl_keys[SDL_SCANCODE_UP];
 		case 5:
-			return sdl.ctrl_keys[SDL_SCANCODE_DOWN];
+			return SDL::ctrl_keys[SDL_SCANCODE_DOWN];
 		case 6:
-			return sdl.ctrl_keys[SDL_SCANCODE_LEFT];
+			return SDL::ctrl_keys[SDL_SCANCODE_LEFT];
 		case 7:
-			return sdl.ctrl_keys[SDL_SCANCODE_RIGHT];
+			return SDL::ctrl_keys[SDL_SCANCODE_RIGHT];
 
 	}
 
@@ -32,21 +32,21 @@ u8 controls_pad(u8 id)
 	switch (id)
 	{
 		case 0:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_B);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_B);
 		case 1:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_A);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_A);
 		case 2:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_BACK);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_BACK);
 		case 3:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_START);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_START);
 		case 4:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_DPAD_UP);
 		case 5:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
 		case 6:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT);
 		case 7:
-			return SDL_GameControllerGetButton(sdl.controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);	
+			return SDL_GameControllerGetButton(SDL::controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT);	
 
 	}
 

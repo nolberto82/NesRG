@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "cpu.h"
 #include "ppu.h"
 #include "apu.h"
 #include "controls.h"
@@ -50,47 +51,40 @@ namespace MEM
 		header.trainer = (rom[6] >> 2) & 1;
 
 		PPU::reset();
-		mmc3.counter = 0;
+
+		mapper = nullptr;
 
 		switch (mappernum)
 		{
 		case 0:
 		{
-			if (prgbanks == 1)
-			{
-				memcpy(&ram[0xc000], rom.data() + 0x10, prgsize);
-				memcpy(&vram[0x0000], vrom.data(), chrsize);
-			}
-			else
-			{
-				memcpy(&ram[0x8000], rom.data() + 0x10, prgsize);
-				memcpy(&vram[0x0000], vrom.data(), chrsize);
-			}
+			mapper = make_shared<Mapper000>();
 			break;
 		}
-		case 1: case 2: case 4:
+		case 1:
 		{
-			memcpy(&ram[0x8000], rom.data() + 0x10, prgsize / prgbanks);
-			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
-			if (chrbanks > 0)
-			{
-				memcpy(&vram[0x0000], vrom.data(), chrsize / chrbanks);
-			}
-
-			if (mappernum == 4)
-				mmc3.reset();
+			mapper = make_shared<Mapper001>();
+			break;
+		}
+		case 2:
+		{
+			mapper = make_shared<Mapper002>();
+			break;
+		}
+		case 3:
+		{
+			mapper = make_shared<Mapper003>();
+			break;
+		}
+		case 4:
+		{
+			mapper = make_shared<Mapper004>();
+			mapper->counter = 0;
 			break;
 		}
 		case 9:
 		{
-			memcpy(&ram[0xa000], rom.data() + 0x10 + prgsize - 0x6000, prgsize / prgbanks / 2);
-			memcpy(&ram[0xc000], rom.data() + 0x10 + prgsize - (prgsize / prgbanks), prgsize / prgbanks);
-			if (chrbanks > 0)
-			{
-				memcpy(&vram[0x0000], vrom.data() + 0x8000, chrsize / chrbanks / 2);
-				memcpy(&vram[0x1000], vrom.data() + 0x7000, chrsize / chrbanks / 2);
-			}
-			mmc2.reset();
+			mapper = make_shared<Mapper009>();
 			break;
 		}
 		default:
@@ -98,6 +92,8 @@ namespace MEM
 			return false;
 		}
 
+		mapper->reset();
+		mapper->setup(header);
 		CPU::reset();
 
 		return true;
@@ -146,10 +142,10 @@ namespace MEM
 				return PPU::data_rb();
 		}
 		else if (addr == 0x4015)
-			return apu.rb();
+			return APU::rb();
 		else if (addr == 0x4016)
 			return controls_read();
-		else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
+		else if (addr >= 0x6000 && addr <= 0x7fff && !mapper->sram)
 			return ram[addr];
 
 		return ram[addr];
@@ -204,33 +200,15 @@ namespace MEM
 				PPU::totalcycles++;
 		}
 		else if ((addr >= 0x4000 && addr <= 0x4013) || (addr == 0x4015))
-			apu.wb(addr, v);
+			APU::wb(addr, v);
 		else if (addr == 0x4016)
 			controls_write(v);
 		else if (addr == 0x4017)
-			apu.wb(addr, v & 0xc0);
-		else if (addr >= 0x6000 && addr <= 0x7fff && !sram_disabled)
+			APU::wb(addr, v & 0xc0);
+		else if (addr >= 0x6000 && addr <= 0x7fff && !mapper->sram)
 			ram[addr] = v;
 		else if (addr >= 0x8000)
-		{
-			switch (header.mappernum)
-			{
-			case 1:
-				mmc1.update(addr, v);
-				break;
-			case 2:
-				uxrom.update(addr, v);
-				break;
-			case 4:
-				mmc3.update(addr, v);
-				break;
-			case 9:
-				mmc2.update(addr, v);
-				break;
-			default:
-				break;
-			}
-		}
+			mapper->update(addr, v);
 	}
 
 	void ww(u16 addr, u16 val)
@@ -249,7 +227,7 @@ namespace MEM
 		v = vram[addr];
 
 		if (header.mappernum == 9 && addr < 0x2000)
-			mmc2.set_latch(addr, v);
+			mapper->set_latch(addr, v);
 
 		if (header.mirror == mirrortype::horizontal)
 		{

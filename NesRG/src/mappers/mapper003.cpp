@@ -1,7 +1,7 @@
 #include "mappers.h"
 #include "mem.h"
 
-void Mapper002::setup(struct Header h)
+void Mapper003::setup(struct Header h)
 {
 	int prgsize = h.prgnum * 0x4000;
 	int chrsize = h.chrnum * 0x2000;
@@ -14,31 +14,29 @@ void Mapper002::setup(struct Header h)
 	}
 }
 
-void Mapper002::update(u16 addr, u8 v)
+void Mapper003::update(u16 addr, u8 v)
 {
-	if (addr >= 0xc000 && addr <= 0xffff)
-	{
-		int prg = 0x10 + 0x4000 * (v & 7);
-		MEM::mem_rom(MEM::ram, 0x8000, prg, 0x4000);
-	}
+	chr[0] = v & 3;
+	MEM::mem_vrom(MEM::vram, 0x0000, chr[0] * chrbank, chrbank);
 }
 
-void Mapper002::reset()
+void Mapper003::reset()
 {
-	prg.resize(2);
-	chr.resize(2);
+	chrbank = 0x2000;
+	prg.resize(1);
+	chr.resize(1);
 }
 
-void Mapper002::scanline()
+void Mapper003::scanline()
 {
 }
 
-vector<u8> Mapper002::get_prg()
+vector<u8> Mapper003::get_prg()
 {
 	return prg;
 }
 
-vector<u8> Mapper002::get_chr()
+vector<u8> Mapper003::get_chr()
 {
 	return chr;
 }

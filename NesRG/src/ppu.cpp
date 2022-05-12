@@ -1,4 +1,5 @@
 #include "ppu.h"
+#include "cpu.h"
 #include "mem.h"
 #include "sdlgfx.h"
 #include "mappers.h"
@@ -17,10 +18,7 @@ namespace PPU
 
 		if ((scanline >= -1 && scanline < 240) && cycle == 260 && rendering)
 		{
-			if (header.mappernum == 4)
-			{
-				mmc3.scanline();
-			}
+			MEM::mapper->scanline();
 		}
 
 		if (viewscanlines && rendering)
@@ -30,36 +28,36 @@ namespace PPU
 				pixels();
 				switch (cycle & 7)
 				{
-					case 1:
-						ntaddr = get_nt_addr();
-						load_registers();
-						break;
-					case 2:
-						ntbyte = get_nt_byte(ntaddr);
-						break;
-					case 3:
-						ataddr = get_at_addr();
-						break;
-					case 4:
-						atbyte = get_at_byte(ataddr);
-						if ((lp.v >> 5) & 2) 
-							atbyte >>= 4;
-						if (lp.v & 2) 
-							atbyte >>= 2;
-						break;
-					case 5:
-						bgaddr = get_bg_addr(fy);
-						break;
-					case 6:
-						lobg = get_bg_lo_byte(bgaddr);
-						break;
-					case 7:
-						bgaddr += 8;
-						break;
-					case 0:
-						hibg = get_bg_hi_byte(bgaddr);
-						x_inc();
-						break;
+				case 1:
+					ntaddr = get_nt_addr();
+					load_registers();
+					break;
+				case 2:
+					ntbyte = get_nt_byte(ntaddr);
+					break;
+				case 3:
+					ataddr = get_at_addr();
+					break;
+				case 4:
+					atbyte = get_at_byte(ataddr);
+					if ((lp.v >> 5) & 2)
+						atbyte >>= 4;
+					if (lp.v & 2)
+						atbyte >>= 2;
+					break;
+				case 5:
+					bgaddr = get_bg_addr(fy);
+					break;
+				case 6:
+					lobg = get_bg_lo_byte(bgaddr);
+					break;
+				case 7:
+					bgaddr += 8;
+					break;
+				case 0:
+					hibg = get_bg_hi_byte(bgaddr);
+					x_inc();
+					break;
 				}
 			}
 
@@ -111,8 +109,8 @@ namespace PPU
 				if ((cycle > 280 && cycle <= 304))
 					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
-				if (cycle == 1)
-					SDL::draw_frame(screen_pixels, cpu.state);
+				//if (cycle == 1)
+				//	SDL::draw_frame(screen_pixels, cpu.state);
 
 				frame_ready = false;
 
@@ -228,7 +226,6 @@ namespace PPU
 			lp.t = (u16)((lp.t & 0x80ff) | (v & 0x3f) << 8);
 		else
 		{
-			//p2000 &= 0xfc;
 			lp.t = (lp.t & 0xff00) | v;
 			lp.v = lp.t;
 		}
@@ -278,7 +275,8 @@ namespace PPU
 	void clear_pixels()
 	{
 		memset(screen_pixels, 0x00, sizeof(screen_pixels));
-		SDL::draw_frame(screen_pixels, cpu.state);
+		//dstrect = { 600, 25, 256, 240 };
+		//SDL::draw_frame(screen_pixels, cpu.state);
 	}
 
 	void pixels()
@@ -568,8 +566,8 @@ namespace PPU
 					tileid++;
 				}
 			}
-			SDL_UpdateTexture(sdl.patscreen[i], NULL, pattern_pixels[i], PATTERN_WIDTH * sizeof(unsigned int));
-			SDL_RenderCopy(sdl.renderer, sdl.patscreen[i], NULL, NULL);
+			//SDL_UpdateTexture(SDL::patscreen[i], NULL, pattern_pixels[i], PATTERN_WIDTH * sizeof(unsigned int));
+			//SDL_RenderCopy(SDL::renderer, SDL::patscreen[i], NULL, NULL);
 			tileid = 0;
 			bgaddr = 0x1000;
 		}

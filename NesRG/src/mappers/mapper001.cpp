@@ -1,9 +1,20 @@
 #include "mappers.h"
 #include "mem.h"
 
-MMC1 mmc1;
+void Mapper001::setup(Header h)
+{
+	int prgsize = h.prgnum * 0x4000;
+	int chrsize = h.chrnum * 0x2000;
 
-void MMC1::update(u16 addr, u8 v)
+	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / h.prgnum);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
+	if (h.chrnum > 0)
+	{
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
+	}
+}
+
+void Mapper001::update(u16 addr, u8 v)
 {
 	if (addr >= 0x8000 && addr <= 0xffff)
 	{
@@ -39,7 +50,7 @@ void MMC1::update(u16 addr, u8 v)
 					chr[1] = (control & 0x1e) >> 1;
 				else
 					chr[1] = control & 0x1f;
-				MEM::mem_vrom(MEM::vram, 0x1000, chr[1] * 0x1000,0x1000);
+				MEM::mem_vrom(MEM::vram, 0x1000, chr[1] * 0x1000, 0x1000);
 			}
 			else if (addr >= 0xe000 && addr <= 0xffff)
 			{
@@ -64,24 +75,35 @@ void MMC1::update(u16 addr, u8 v)
 					int prg = 0x10 + prgbank * (control & 0xf);
 					MEM::mem_rom(MEM::ram, 0x8000, prg, prgbank);
 				}
-				sram_disabled = (control >> 4) & 1;
+				sram = (control >> 4) & 1;
 			}
 			writes = 0;
 		}
 	}
 }
 
-void MMC1::reset()
+void Mapper001::reset()
 {
-	memset(&mmc1, 0x00, sizeof(mmc1));
-	prgmode = 3;
 	prgbank = 0x4000;
 	chrbank = 0x2000;
+	prgmode = 3;
+
 	prg.resize(2);
 	chr.resize(2);
 }
 
-vector<u8> MMC1::get_prg()
+void Mapper001::scanline()
 {
-	return vector<u8>();
 }
+
+vector<u8> Mapper001::get_prg()
+{
+	return prg;
+}
+
+vector<u8> Mapper001::get_chr()
+{
+	return chr;
+}
+
+

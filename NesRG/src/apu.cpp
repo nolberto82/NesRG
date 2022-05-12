@@ -2,75 +2,74 @@
 #include "mem.h"
 #include "sdlgfx.h"
 
-const long sample_rate = 96000;
-const size_t bufsize = 4096;
+const long sample_rate = 44000;
+const size_t bufsize = 2048;
 blip_sample_t buf[bufsize];
 Simple_Apu* sapu;
 Sound_Queue* sound_queue;
 
-APU::APU()
+namespace APU
 {
-}
-
-APU::~APU()
-{
-	delete sound_queue;
-	delete sapu;
-}
-
-bool APU::init()
-{
-	sapu = new Simple_Apu();
-	sound_queue = new Sound_Queue();
-	sapu->dmc_reader(read_dmc, NULL);
-	sound_queue->init(sample_rate);
-
-	if (sapu->sample_rate(sample_rate))
-		return false;
-	return true;
-}
-
-void APU::wb(u16 addr, u8 v)
-{
-	sapu->write_register(addr, v);
-}
-
-u8 APU::rb()
-{
-	return sapu->read_status();
-}
-
-void APU::play(const blip_sample_t* samples, int count)
-{
-	sound_queue->write(samples, count);
-}
-
-void APU::step()
-{
-	if (!sdl.frame_limit)
-		return;
-	sapu->end_frame();
-
-	if (sapu->samples_avail() >= bufsize)
+	bool init()
 	{
-		long count = sapu->read_samples(buf, bufsize);
-		play(buf, count);
+		sapu = new Simple_Apu();
+		sound_queue = new Sound_Queue();
+		sapu->dmc_reader(read_dmc, NULL);
+		sound_queue->init(sample_rate);
+
+		if (sapu->sample_rate(sample_rate))
+			return false;
+		return true;
 	}
-}
 
-int APU::read_dmc(void* _, cpu_addr_t addr)
-{
-	return MEM::rb(addr);
-}
+	void wb(u16 addr, u8 v)
+	{
+		if (!SDL::frame_limit)
+			return;
+		sapu->write_register(addr, v);
+	}
 
-void APU::reset()
-{
-	if (sapu && sound_queue)
+	u8 rb()
+	{
+		return sapu->read_status();
+	}
+
+	void play(const blip_sample_t* samples, int count)
+	{
+		sound_queue->write(samples, count);
+	}
+
+	void step()
+	{
+		if (!SDL::frame_limit)
+			return;
+		sapu->end_frame();
+
+		if (sapu->samples_avail() >= bufsize)
+		{
+			long count = sapu->read_samples(buf, bufsize);
+			play(buf, count);
+		}
+	}
+
+	int read_dmc(void* _, cpu_addr_t addr)
+	{
+		return MEM::rb(addr);
+	}
+
+	void reset()
+	{
+		if (sapu && sound_queue)
+		{
+			clean();
+			init();
+		}
+	}
+
+	void clean()
 	{
 		delete sound_queue;
 		delete sapu;
-		init();
 	}
-
 }
 

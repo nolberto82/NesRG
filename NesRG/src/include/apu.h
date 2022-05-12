@@ -4,11 +4,8 @@
 #include "Simple_Apu.h"
 #include "Sound_Queue.h"
 
-struct APU
+namespace APU
 {
-public:
-	APU();
-	~APU();
 	bool init();
 	void wb(u16 addr, u8 v);
 	u8 rb();
@@ -16,6 +13,5 @@ public:
 	void step();
 	static int read_dmc(void* _, cpu_addr_t addr);
 	void reset();
+	void clean();
 };
-
-extern APU apu;
