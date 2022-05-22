@@ -599,7 +599,7 @@ namespace CPU
 		reg.x = 0x00;
 		reg.a = 0x00;
 		reg.y = 0x00;
-		memset(MEM::ram.data(), 0x00, 0x8000);
+		memset(MEM::ram.data(), 0x00, 0x6000);
 		cpu.state = cstate::debugging;
 		cpu.stepoveraddr = -1;
 		APU::reset();

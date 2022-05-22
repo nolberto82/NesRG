@@ -18,7 +18,7 @@ void Mapper004::setup(struct Header h)
 	}
 }
 
-void Mapper004::update(u16 addr, u8 v)
+void Mapper004::wb(u16 addr, u8 v)
 {
 	if (addr >= 0x8000 && addr <= 0x9fff)
 	{
@@ -96,6 +96,11 @@ void Mapper004::update(u16 addr, u8 v)
 		else
 			irq = 1;
 	}
+}
+
+u8 Mapper004::rb(u16 addr)
+{
+	return u8();
 }
 
 void Mapper004::reset()

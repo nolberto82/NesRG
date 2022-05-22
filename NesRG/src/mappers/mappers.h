@@ -26,7 +26,8 @@ public:
 	u8 counter = 0;
 
 	virtual void setup(struct Header h) = 0;
-	virtual void update(u16 addr, u8 v) = 0;
+	virtual void wb(u16 addr, u8 v) = 0;
+	virtual u8 rb(u16 addr) = 0;
 	virtual void set_latch(u16 addr, u8 v) = 0;
 	virtual void reset() = 0;
 	virtual void scanline() = 0;
@@ -42,7 +43,8 @@ struct Mapper000 : public Mapper
 	vector<u8> chr;
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
 	void reset();
 	void scanline();
@@ -61,7 +63,8 @@ struct Mapper001 : public Mapper
 	u8 control = 0;
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
 	void reset();
 	void scanline();
@@ -77,7 +80,8 @@ struct Mapper002 : public Mapper
 	vector<u8> chr;
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
 	void reset();
 	void scanline();
@@ -93,7 +97,8 @@ struct Mapper003 : public Mapper
 	vector<u8> chr;
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
 	void reset();
 	void scanline();
@@ -117,7 +122,52 @@ struct Mapper004 : public Mapper
 	u8 bankreg[8] = { 0 };
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
+	void set_latch(u16 addr, u8 v) {};
+	void reset();
+	void scanline();
+	vector<u8> get_prg();
+	vector<u8> get_chr();
+};
+
+struct Mapper005 : public Mapper
+{
+	Mapper005() {}
+
+	vector<u8> prg;
+	vector<u8> chr;
+
+	u8 irq = 0;
+	u8 reload = 0;
+	u8 rvalue = 0;
+	u8 write_prot1 = 0;
+	u8 write_prot2 = 0;
+	u8 extended_ram = 0;
+	u8 prg_ram = 0;
+	u8 chrreg[8] = { 0 };
+
+	void setup(struct Header h);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
+	void switchchr(u16 addr, u8 v);
+	void set_latch(u16 addr, u8 v) {};
+	void reset();
+	void scanline();
+	vector<u8> get_prg();
+	vector<u8> get_chr();
+};
+
+struct Mapper007 : public Mapper
+{
+	Mapper007() {}
+
+	vector<u8> prg;
+	vector<u8> chr;
+
+	void setup(struct Header h);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
 	void reset();
 	void scanline();
@@ -134,11 +184,12 @@ struct Mapper009 : public Mapper
 	vector<u8> chr1;
 	vector<u8> chr2;
 
-	u8 latch1, latch2 = 1;
+	u8 latch1 = 1, latch2 = 1;
 	u8 updatechr = 0;
 
 	void setup(struct Header h);
-	void update(u16 addr, u8 v);
+	void wb(u16 addr, u8 v);
+	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v);
 	void reset();
 	void scanline();

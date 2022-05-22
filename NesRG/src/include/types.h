@@ -19,6 +19,7 @@
 #include "opcodes.h"
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 #include <SDL2_framerate.h>
 
 using namespace std;
@@ -33,8 +34,8 @@ typedef __int8 s8;
 typedef __int16 s16;
 typedef __int32 s32;
 
-const int APP_WIDTH = 256 * 2;
-const int APP_HEIGHT = 240 * 2;
+const int APP_WIDTH = 1300;
+const int APP_HEIGHT = 1000;
 
 const int NES_SCREEN_WIDTH = 256;
 const int NES_SCREEN_HEIGHT = 240;

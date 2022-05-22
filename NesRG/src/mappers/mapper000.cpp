@@ -18,8 +18,14 @@ void Mapper000::setup(struct Header h)
 	}
 }
 
-void Mapper000::update(u16 addr, u8 v)
+void Mapper000::wb(u16 addr, u8 v)
 {
+
+}
+
+u8 Mapper000::rb(u16 addr)
+{
+	return u8();
 }
 
 void Mapper000::reset()

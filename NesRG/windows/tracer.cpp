@@ -142,10 +142,10 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 	{
 		char temp[TEXTSIZE] = { 0 };
 		char str[TEXTSIZE] = { 0 };
-		//snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
-		//	reg.a, reg.x, reg.y, reg.ps, reg.sp, ppu.cycle, ppu.scanline, ppu.totalcycles);
-		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
-			reg.a, reg.x, reg.y, reg.sp, PPU::cycle, PPU::scanline, PPU::totalcycles);
+		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
+			reg.a, reg.x, reg.y, reg.ps, reg.sp, PPU::cycle, PPU::scanline, PPU::totalcycles);
+		//snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
+		//	reg.a, reg.x, reg.y, reg.sp, PPU::cycle, PPU::scanline, PPU::totalcycles);
 
 		string t(data);
 		t.erase(5, 10);

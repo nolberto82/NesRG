@@ -1,16 +1,13 @@
 #include "mappers.h"
 #include "mappers.h"
-#include "mappers.h"
-#include "mappers.h"
-#include "mappers.h"
 
 void Mapper::setup(Header h)
 {
 }
 
-void Mapper::update(u16 addr, u8 v)
+u8 Mapper::rb(u16 addr)
 {
-
+	return u8();
 }
 
 void Mapper::set_latch(u16 addr, u8 v)

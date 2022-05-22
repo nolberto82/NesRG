@@ -12,9 +12,12 @@ void Mapper001::setup(Header h)
 	{
 		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
 	}
+
+	sram = 1;
+	MEM::load_sram();
 }
 
-void Mapper001::update(u16 addr, u8 v)
+void Mapper001::wb(u16 addr, u8 v)
 {
 	if (addr >= 0x8000 && addr <= 0xffff)
 	{
@@ -75,15 +78,22 @@ void Mapper001::update(u16 addr, u8 v)
 					int prg = 0x10 + prgbank * (control & 0xf);
 					MEM::mem_rom(MEM::ram, 0x8000, prg, prgbank);
 				}
-				sram = (control >> 4) & 1;
+				sram = 1;
 			}
 			writes = 0;
 		}
 	}
 }
 
+u8 Mapper001::rb(u16 addr)
+{
+	return u8();
+}
+
 void Mapper001::reset()
 {
+	MEM::save_sram();
+
 	prgbank = 0x4000;
 	chrbank = 0x2000;
 	prgmode = 3;

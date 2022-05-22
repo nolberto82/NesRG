@@ -15,7 +15,7 @@ void Mapper009::setup(struct Header h)
 	}
 }
 
-void Mapper009::update(u16 addr, u8 v)
+void Mapper009::wb(u16 addr, u8 v)
 {
 	if (addr >= 0xa000 && addr <= 0xafff)
 	{
@@ -39,17 +39,22 @@ void Mapper009::update(u16 addr, u8 v)
 	else if (addr >= 0xd000 && addr <= 0xdfff)
 	{
 		chr2[0] = v & 0x1f;
-		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2+2] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2 + 2] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xe000 && addr <= 0xefff)
 	{
 		chr2[1] = v & 0x1f;
-		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2+2] * 0x1000, 0x1000);
+		MEM::mem_vrom(MEM::vram, 0x1000, chr2[latch2 + 2] * 0x1000, 0x1000);
 	}
 	else if (addr >= 0xf000 && addr <= 0xffff)
 	{
 		header.mirror = (v & 1) + 2;
 	}
+}
+
+u8 Mapper009::rb(u16 addr)
+{
+	return u8();
 }
 
 void Mapper009::set_latch(u16 addr, u8 v)

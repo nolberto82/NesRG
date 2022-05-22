@@ -68,7 +68,7 @@ namespace SDL
 		SDL_SetRenderDrawBlendMode(SDL::renderer, SDL_BLENDMODE_BLEND);
 
 		SDL_initFramerate(&SDL::fpsman);
-		//SDL_setFramerate(&SDL::fpsman, 60);
+		SDL_setFramerate(&SDL::fpsman, 60);
 
 		return true;
 	}
@@ -167,7 +167,7 @@ namespace SDL
 
 	void draw_overlay(SDL_Rect rect, SDL_Rect rect2)
 	{
-		SDL_SetRenderDrawColor(SDL::renderer, 255, 255, 255, 80);
+		SDL_SetRenderDrawColor(SDL::renderer, 200, 200, 255, 80);
 		SDL_RenderFillRect(SDL::renderer, &rect);
 		//SDL_SetRenderDrawColor(SDL::renderer, 0, 255, 0, 255);
 		SDL_RenderDrawRect(SDL::renderer, &rect2);
@@ -185,6 +185,12 @@ namespace SDL
 	{
 		oldkeys.f1 = newkeys.f1;
 		oldkeys.f9 = newkeys.f9;
+	}
+
+	float get_fps(Uint32 start)
+	{
+		Uint32 frame = SDL_GetTicks() - start;
+		return (frame > 0) ? 1000.f / frame : 0.0f;
 	}
 
 	void clean()

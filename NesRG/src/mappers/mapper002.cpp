@@ -14,13 +14,18 @@ void Mapper002::setup(struct Header h)
 	}
 }
 
-void Mapper002::update(u16 addr, u8 v)
+void Mapper002::wb(u16 addr, u8 v)
 {
 	if (addr >= 0xc000 && addr <= 0xffff)
 	{
 		int prg = 0x10 + 0x4000 * (v & 7);
 		MEM::mem_rom(MEM::ram, 0x8000, prg, 0x4000);
 	}
+}
+
+u8 Mapper002::rb(u16 addr)
+{
+	return u8();
 }
 
 void Mapper002::reset()

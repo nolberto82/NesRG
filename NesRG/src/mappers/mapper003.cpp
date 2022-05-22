@@ -14,10 +14,15 @@ void Mapper003::setup(struct Header h)
 	}
 }
 
-void Mapper003::update(u16 addr, u8 v)
+void Mapper003::wb(u16 addr, u8 v)
 {
 	chr[0] = v & 3;
 	MEM::mem_vrom(MEM::vram, 0x0000, chr[0] * chrbank, chrbank);
+}
+
+u8 Mapper003::rb(u16 addr)
+{
+	return u8();
 }
 
 void Mapper003::reset()

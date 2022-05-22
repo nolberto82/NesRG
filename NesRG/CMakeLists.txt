@@ -27,6 +27,7 @@ set(PRJ_DIR ${TOP_DIR}/${PROJECT_NAME})
 set(APP_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 include_directories(${PRJ_DIR}/src/include)
+include_directories(${PRJ_DIR}/src/mappers)
 include_directories(${PRJ_DIR}/nes_apu_emu)
 
 file(GLOB_RECURSE EMU_SRC
@@ -42,6 +43,8 @@ ${PRJ_DIR}/src/mappers/mapper001.cpp
 ${PRJ_DIR}/src/mappers/mapper002.cpp
 ${PRJ_DIR}/src/mappers/mapper003.cpp
 ${PRJ_DIR}/src/mappers/mapper004.cpp
+${PRJ_DIR}/src/mappers/mapper005.cpp
+${PRJ_DIR}/src/mappers/mapper007.cpp
 ${PRJ_DIR}/src/mappers/mapper009.cpp
 ${PRJ_DIR}/Simple_Apu.cpp
 ${PRJ_DIR}/Sound_Queue.cpp
@@ -68,6 +71,7 @@ if(WIN32)
 	${PRJ_DIR}/imgui/imgui_widgets.cpp
 	${PRJ_DIR}/imgui/imgui_impl_sdl.cpp
 	${PRJ_DIR}/imgui/imgui_impl_sdlrenderer.cpp
+	#${PRJ_DIR}/imgui_impl_opengl3.cpp
 	)
 
 	include_directories(${PRJ_DIR}/windows/include)	
@@ -76,11 +80,12 @@ if(WIN32)
 	add_executable (${PROJECT_NAME} ${WIN_SRC} ${EMU_SRC})
 
 	find_package(SDL2 CONFIG REQUIRED)
+	find_package(sdl2-ttf CONFIG REQUIRED)
 	#find_package(sdl2-image CONFIG REQUIRED)
 	#find_package(glad CONFIG REQUIRED)
 	find_package(sdl2-gfx CONFIG REQUIRED)
 
-	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_gfx opengl32)
+	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_gfx SDL2::SDL2_ttf)
 endif()
 
 if(UNIX)

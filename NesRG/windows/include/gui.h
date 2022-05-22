@@ -68,8 +68,7 @@ namespace GUI
 
 	inline ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-	void update(ImGuiIO io);
-	void show_display();
+	void update();
 	void show_ppu_debug();
 	void show_disassembly();
 	void show_memory();

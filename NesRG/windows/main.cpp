@@ -37,8 +37,7 @@ int main(int argc, char* argv[])
 						SDL::controller = SDL_GameControllerOpen(i);
 						if (SDL::controller)
 						{
-							string cmapping = SDL_GameControllerMapping(SDL::controller);
-							SDL_GameControllerAddMapping(cmapping.c_str());
+							SDL_GameControllerAddMapping(SDL_GameControllerMapping(SDL::controller));
 							break;
 						}
 						else
@@ -49,30 +48,35 @@ int main(int argc, char* argv[])
 					}
 				}
 
+#if DEBUG
+				GUI::debug_enable = true;
+#endif
+
 				MEM::init();
 				CPU::init();
 			}
+
+			ImGuiIO& io = ImGui::GetIO(); (void)io;
+			io.IniFilename = "assets\\imgui.ini";
+
+			while (GUI::running)
+			{
+				main_update();
+				GUI::update();
+				if (cpu.state == cstate::running)
+					main_step();
+			}
+
+			//Save imgui.ini
+			fs::path assets(fs::current_path().parent_path().parent_path()
+				.parent_path().parent_path() / io.IniFilename);
+			ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
+
+			MEM::save_sram();
+
+			SDL::clean();
+			APU::clean();
 		}
-
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
-		io.ConfigFlags = ImGuiConfigFlags_DockingEnable;
-		io.IniFilename = "assets\\imgui.ini";
-
-		while (GUI::running)
-		{
-			main_update();
-			GUI::update(io);
-			if (cpu.state == cstate::running)
-				main_step();
-		}
-
-		//Save imgui.ini
-		fs::path assets(fs::current_path().parent_path().parent_path()
-			.parent_path().parent_path() / io.IniFilename);
-		ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
-
-		SDL::clean();
-		APU::clean();
 	}
 
 	if (logging)
@@ -156,6 +160,9 @@ void main_update()
 
 void main_step()
 {
+	if (!MEM::rom_loaded)
+		return;
+
 	GUI::follow_pc = true;
 	PPU::frame_ready = false;
 	cpu.cpucycles = FRAME_CYCLES;
@@ -215,6 +222,9 @@ void main_step()
 
 void main_step_over()
 {
+	if (!MEM::rom_loaded)
+		return;
+
 	u8 op = MEM::ram[reg.pc];
 	if (op == 0x00 || op == 0x20)
 	{
@@ -231,6 +241,9 @@ void main_step_over()
 
 void main_step_frame()
 {
+	if (!MEM::rom_loaded)
+		return;
+
 	u16 pc = reg.pc;
 	cpu.state = cstate::frame;
 	if (logging)
@@ -283,7 +296,7 @@ void main_step_scanline(u16 lines)
 				return;
 		}
 	}
-
+	//SDL::draw_frame(PPU::screen_pixels, cstate::scanlines);
 }
 
 void main_save_state(u8 slot)

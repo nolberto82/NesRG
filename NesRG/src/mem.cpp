@@ -57,36 +57,31 @@ namespace MEM
 		switch (mappernum)
 		{
 		case 0:
-		{
 			mapper = make_shared<Mapper000>();
 			break;
-		}
 		case 1:
-		{
 			mapper = make_shared<Mapper001>();
 			break;
-		}
 		case 2:
-		{
 			mapper = make_shared<Mapper002>();
 			break;
-		}
 		case 3:
-		{
 			mapper = make_shared<Mapper003>();
 			break;
-		}
 		case 4:
-		{
 			mapper = make_shared<Mapper004>();
 			mapper->counter = 0;
 			break;
-		}
+			//case 5:
+			//mapper = make_shared<Mapper005>();
+			//	break;
+		case 7:
+			mapper = make_shared<Mapper007>();
+			mapper->counter = 0;
+			break;
 		case 9:
-		{
 			mapper = make_shared<Mapper009>();
 			break;
-		}
 		default:
 			printf("Mapper not supported");
 			return false;
@@ -134,7 +129,7 @@ namespace MEM
 		cpu.cpucycles++;
 		PPU::totalcycles++;
 
-		if (addr >= 0x2000 && addr <= 0x2fff)
+		if (addr >= 0x2000 && addr <= 0x3fff)
 		{
 			if ((addr & 0x7) == 0x02)
 				return PPU::status(cycles);
@@ -145,7 +140,7 @@ namespace MEM
 			return APU::rb();
 		else if (addr == 0x4016)
 			return controls_read();
-		else if (addr >= 0x6000 && addr <= 0x7fff && !mapper->sram)
+		else if (addr >= 0x6000 && addr <= 0x7fff)
 			return ram[addr];
 
 		return ram[addr];
@@ -171,20 +166,30 @@ namespace MEM
 
 		if (addr >= 0x0000 && addr <= 0x1fff)
 			ram[addr & 0x7ff] = v;
-		else if (addr == 0x2000)
-			PPU::ctrl(v);
-		else if (addr == 0x2001)
-			PPU::mask(v);
-		else if (addr == 0x2003)
-			PPU::oam_addr(v);
-		else if (addr == 0x2004)
-			PPU::oam_data(v);
-		else if (addr == 0x2005)
-			PPU::ppuscroll(v);
-		else if (addr == 0x2006)
-			PPU::ppuaddr(v);
-		else if (addr == 0x2007)
-			PPU::data_wb(v);
+		else if (addr >= 0x2000 && addr <= 0x3fff)
+		{
+			if ((addr & 0x7) == 0)
+				PPU::ctrl(v);
+			else if (addr == 0x2001)
+				PPU::mask(v);
+			else if (addr == 0x2003)
+				PPU::oam_addr(v);
+			else if (addr == 0x2004)
+				PPU::oam_data(v);
+			else if (addr == 0x2005)
+				PPU::ppuscroll(v);
+			else if (addr == 0x2006)
+				PPU::ppuaddr(v);
+			else if (addr == 0x2007)
+				PPU::data_wb(v);
+
+			if (addr > 0x2007)
+			{
+				int yu = 0;
+			}
+			//ram[addr & 0x2007] = v;
+		}
+
 		else if (addr == 0x4014)
 		{
 			u16 oamaddr = v << 8; PPU::oamdma = v;
@@ -205,10 +210,12 @@ namespace MEM
 			controls_write(v);
 		else if (addr == 0x4017)
 			APU::wb(addr, v & 0xc0);
-		else if (addr >= 0x6000 && addr <= 0x7fff && !mapper->sram)
+		else if (addr >= 0x5000 && addr <= 0x5fff)
+			mapper->wb(addr, v);
+		else if (addr >= 0x6000 && addr <= 0x7fff)
 			ram[addr] = v;
 		else if (addr >= 0x8000)
-			mapper->update(addr, v);
+			mapper->wb(addr, v);
 	}
 
 	void ww(u16 addr, u16 val)
@@ -319,8 +326,27 @@ namespace MEM
 		memcpy(dst.data() + addr, vrom.data() + offset, size);
 	}
 
-	int cyclecount()
+	void save_sram()
 	{
-		return FRAME_CYCLES + 1;
+		if (MEM::mapper)
+		{
+			//if (MEM::mapper->sram)
+			//{
+			ofstream save(header.name + ".sav", ios::binary);
+			save.write((char*)MEM::ram.data() + 0x6000, 0x2000);
+			save.close();
+			//}
+		}
+	}
+
+	void load_sram()
+	{
+		string file = header.name + ".sav";
+		if (fs::exists(file))
+		{
+			ifstream save(file, ios::binary);
+			save.read((char*)MEM::ram.data() + 0x6000, 0x2000);
+			save.close();
+		}
 	}
 }

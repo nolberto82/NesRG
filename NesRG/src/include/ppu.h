@@ -4,8 +4,22 @@
 
 #define PPU_STEP PPU::step(); PPU::step(); PPU::step();
 #define BACKGROUND_LEFT (x > 7 || pmask.backgroundleft)
+#define SPRITE_LEFT !(x < 8 && !pmask.spriteleft)
 
-#define FETCH_CYCLES cycle > 0 && cycle < 257 || cycle >= 321 && cycle <= 336
+#define FETCH_CYCLES ((cycle > 0 && cycle < 257) || (cycle >= 321 && cycle <= 336))
+#define VISIBLE_SCANLINES (scanline >= 0 && scanline < 240)
+
+#define CYCLE_START 1
+#define CYCLE_END 258
+#define CYCLE_PRE1 321
+#define CYCLE_PRE2 336
+#define SCAN_START 0
+#define SCAN_END 239
+#define SCAN_IDLE 240
+#define VBLANK 241
+#define SCAN_PRE -1
+#define RENDERING (pmask.background || pmask.sprite)
+#define FINE_Y (lp.v & 0x7000) >> 12
 
 namespace PPU
 {
@@ -22,7 +36,6 @@ namespace PPU
 	void reset();
 	void clear_pixels();
 	void pixels();
-	void render_pixels();
 	void render_nametables(u16 addrnt, int i, u32* pixels);
 	void render_sprites();
 	void render_pattern();
@@ -39,6 +52,7 @@ namespace PPU
 	u8 get_bg_hi_byte(u16 addr);
 	void load_registers();
 	void update_registers();
+	void get_tiles();
 
 	inline u8 dummy2007;
 	inline u8 oamdma;
@@ -64,16 +78,13 @@ namespace PPU
 	inline u8 sprite_count = 0;
 	inline u8 sprite_0_line = 0;
 	inline u8 scrolldata = 0;
-	inline u64 pixeldata = 0;
-
-	inline u16 nametableaddr;
 
 	inline int scanline;
 	inline int cycle;
 
 	inline u32 frame;
 	inline u32 tempcolor[8];
-	inline u32 totalcycles;
+	inline u64 totalcycles;
 
 	inline bool frame_ready;
 	inline bool tabkey;

@@ -11,6 +11,7 @@ namespace SDL
 	void draw_overlay(SDL_Rect rect, SDL_Rect rect2);
 	void input_new();
 	void input_old();
+	float get_fps(Uint32 start);
 	void clean();
 
 	inline const u8* ctrl_keys;
@@ -21,6 +22,7 @@ namespace SDL
 	inline SDL_Texture* ntscreen;
 	inline SDL_Texture* patscreen;
 	inline SDL_Texture* sprscreen;
+	inline TTF_Font* debugfont;
 	inline SDL_Renderer* renderer;
 	inline SDL_Window* window;
 	inline SDL_GameController* controller;

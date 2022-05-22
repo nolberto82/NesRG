@@ -50,7 +50,9 @@ namespace MEM
 	void ppuwb(u16 addr, u8 val);
 	void mem_rom(vector<u8>& dst, u16 addr, int offset, int size);
 	void mem_vrom(vector<u8>& dst, u16 addr, int offset, int size);
-	int cyclecount();
+	void save_sram();
+	void load_sram();
+	
 }
 
 struct Header
