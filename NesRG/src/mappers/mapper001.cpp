@@ -13,6 +13,7 @@ void Mapper001::setup(Header h)
 		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
 	}
 
+	header.mirror = 0;
 	sram = 1;
 	MEM::load_sram();
 }
@@ -38,6 +39,11 @@ void Mapper001::wb(u16 addr, u8 v)
 				chrmode = (control >> 4) & 1;
 				prgbank = (control >> 3) & 1 ? 0x4000 : 0x8000;
 				chrbank = (control >> 4) & 1 ? 0x1000 : 0x2000;
+				if (header.mirror == mirrortype::vertical)
+				{
+					memset(&MEM::vram[0x2400], 0, 0x0400);
+					memset(&MEM::vram[0x2c00], 0, 0x0400);
+				}
 			}
 			else if (addr >= 0xa000 && addr <= 0xbfff)
 			{

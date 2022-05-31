@@ -1,11 +1,9 @@
-#pragma once
-
 #include "types.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_impl_sdl.h"
-#include "imgui_impl_sdlrenderer.h"
+#include "imgui_impl_opengl3.h"
 #include "imgui_memory_editor.h"
 #include "imfilebrowser.h"
 
@@ -30,7 +28,7 @@
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | \
 ImGuiWindowFlags_NoMove
 
-namespace GUI
+namespace GUIGL
 {
 	inline u16 jumpaddr;
 
@@ -63,22 +61,23 @@ namespace GUI
 	inline char bpaddrtext[5] = { 0 };
 	inline int item_id = 0;
 	inline u8 bptype = 0;
+	inline int menubarheight = 0;
 
 	inline MemoryEditor mem_edit;
 
 	inline ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	void update();
+	void show_game_view();
 	void show_ppu_debug();
 	void show_disassembly();
 	void show_memory();
-	void show_registers();
-	void show_breakpoints();
-	void show_buttons();
 	void show_logger();
 	void show_menu();
+	void show_filebrowser();
 	void open_dialog();
 	void run_emu();
 	void reset_emu();
 	bool init();
+	void clean();
 }

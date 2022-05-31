@@ -19,6 +19,8 @@ namespace MEM
 		if (filename == NULL)
 			return rom_loaded = false;
 
+
+
 		vector<u8> hdr;
 		load_file(filename, hdr, 0, 16);
 		load_file(filename, rom, 0, hdr[4] * 0x4000 + 0x10);
@@ -231,7 +233,8 @@ namespace MEM
 		u8 v = 0;
 		ppu_read_addr = addr;
 
-		v = vram[addr];
+		if (addr < 0x2000 || addr >= 0x3f00)
+			return vram[addr];
 
 		if (header.mappernum == 9 && addr < 0x2000)
 			mapper->set_latch(addr, v);
@@ -244,7 +247,9 @@ namespace MEM
 		if (header.mirror == mirrortype::vertical)
 		{
 			if (a >= 0x2000 && a < 0x3000)
+			{
 				v = vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x400];
+			}
 		}
 		else if (header.mirror == mirrortype::single_nt0)
 		{
@@ -265,12 +270,13 @@ namespace MEM
 		ppu_write_addr = addr; //ppu breakpoint address
 		u16 a = addr;
 
-		if (a < 0x2000)
+		if (a >= 0x2000 && a < 0x2400)
 		{
 			int yu = 0;
 		}
 
-		vram[a] = v;
+		if (addr < 0x2000 || addr >= 0x3f00)
+			vram[a] = v;
 
 		if (header.mirror == mirrortype::horizontal)
 		{
@@ -282,13 +288,20 @@ namespace MEM
 			if (a >= 0x2000 && a < 0x3000)
 			{
 				vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x400] = v;
+				vram[0x2000 + (a % 0x400) + mirrorver[(a >> 10) - 8] * 0x800] = v;
 			}
 
 		}
 		if (header.mirror == mirrortype::single_nt0)
 		{
 			if (a >= 0x2000 && a < 0x3000)
+			{
 				vram[0x2000 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
+				vram[0x2400 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
+				vram[0x2800 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
+				vram[0x2c00 + (a % 0x400) + mirrornt0[(a >> 10) - 8] * 0x400] = v;
+			}
+
 		}
 		if (header.mirror == mirrortype::single_nt1)
 		{

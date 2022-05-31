@@ -21,6 +21,7 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <SDL2_framerate.h>
+#include <SDL_opengl.h>
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -34,14 +35,14 @@ typedef __int8 s8;
 typedef __int16 s16;
 typedef __int32 s32;
 
-const int APP_WIDTH = 1300;
-const int APP_HEIGHT = 1000;
+const int APP_WIDTH = 512;
+const int APP_HEIGHT = 480;
 
-const int NES_SCREEN_WIDTH = 256;
-const int NES_SCREEN_HEIGHT = 240;
+const int NES_WIDTH = 256;
+const int NES_HEIGHT = 240;
 
-const int PATTERN_WIDTH = 128;
-const int PATTERN_HEIGHT = 128;
+const int PATT_WIDTH = 128;
+const int PATT_HEIGHT = 128;
 
 const int FRAME_CYCLES = 29780;
 

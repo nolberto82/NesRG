@@ -1,6 +1,6 @@
 #include "apu.h"
 #include "mem.h"
-#include "sdlgfx.h"
+#include "sdlcc.h"
 
 const long sample_rate = 44000;
 const size_t bufsize = 2048;
@@ -68,8 +68,10 @@ namespace APU
 
 	void clean()
 	{
-		delete sound_queue;
-		delete sapu;
+		if (sound_queue)
+			delete sound_queue;
+		if (sapu)
+			delete sapu;
 	}
 }
 

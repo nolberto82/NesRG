@@ -9,6 +9,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	set(CMAKE_SHARED_LINKER_FLAGS "/SAFESEH:NO")
 	set(CMAKE_EXE_LINKER_FLAGS "/SAFESEH:NO")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+	#add_compile_options(-fsanitize=address)
+	#add_link_options(-fsanitize=address)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -37,7 +39,7 @@ ${PRJ_DIR}/src/cpu.cpp
 ${PRJ_DIR}/src/mappers.cpp
 ${PRJ_DIR}/src/mem.cpp
 ${PRJ_DIR}/src/ppu.cpp
-${PRJ_DIR}/src/sdlgfx.cpp
+${PRJ_DIR}/src/sdlcc.cpp
 ${PRJ_DIR}/src/mappers/mapper000.cpp
 ${PRJ_DIR}/src/mappers/mapper001.cpp
 ${PRJ_DIR}/src/mappers/mapper002.cpp
@@ -61,7 +63,7 @@ ${PRJ_DIR}/nes_apu_emu/Nonlinear_Buffer.cpp
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
 	${PRJ_DIR}/windows/main.cpp
-	${PRJ_DIR}/windows/gui.cpp
+	${PRJ_DIR}/windows/guigl.cpp
 	${PRJ_DIR}/windows/breakpoints.cpp
 	${PRJ_DIR}/windows/tracer.cpp
 	${PRJ_DIR}/imgui/imgui.cpp
@@ -71,7 +73,7 @@ if(WIN32)
 	${PRJ_DIR}/imgui/imgui_widgets.cpp
 	${PRJ_DIR}/imgui/imgui_impl_sdl.cpp
 	${PRJ_DIR}/imgui/imgui_impl_sdlrenderer.cpp
-	#${PRJ_DIR}/imgui_impl_opengl3.cpp
+	${PRJ_DIR}/imgui/imgui_impl_opengl3.cpp
 	)
 
 	include_directories(${PRJ_DIR}/windows/include)	
@@ -85,7 +87,7 @@ if(WIN32)
 	#find_package(glad CONFIG REQUIRED)
 	find_package(sdl2-gfx CONFIG REQUIRED)
 
-	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_gfx SDL2::SDL2_ttf)
+	target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 SDL2::SDL2main SDL2::SDL2_gfx SDL2::SDL2_ttf opengl32)
 endif()
 
 if(UNIX)

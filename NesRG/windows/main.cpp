@@ -1,8 +1,8 @@
 ﻿#include "cpu.h"
 #include "ppu.h"
 #include "apu.h"
-#include "gui.h"
-#include "sdlgfx.h"
+#include "guigl.h"
+#include "sdlcc.h"
 #include "tracer.h"
 #include "breakpoints.h"
 #include "main.h"
@@ -21,11 +21,11 @@ Keys newkeys, oldkeys;
 
 int main(int argc, char* argv[])
 {
-	GUI::running = 1;
+	GUIGL::running = 1;
 
 	if (SDL::init())
 	{
-		if (GUI::init())
+		if (GUIGL::init())
 		{
 			if (APU::init())
 			{
@@ -43,26 +43,36 @@ int main(int argc, char* argv[])
 						else
 						{
 							printf("Unable to open game controller! SDL Error: %s\n", SDL_GetError());
-							GUI::running = 0;
+							GUIGL::running = 0;
 						}
 					}
 				}
 
 #if DEBUG
-				GUI::debug_enable = true;
+				GUIGL::debug_enable = true;
 #endif
 
 				MEM::init();
 				CPU::init();
+				PPU::init();
 			}
 
 			ImGuiIO& io = ImGui::GetIO(); (void)io;
 			io.IniFilename = "assets\\imgui.ini";
 
-			while (GUI::running)
+			while (GUIGL::running)
 			{
+				if (!SDL::frame_limit)
+					SDL_GL_SetSwapInterval(0); // Disable vsync
+				else
+					SDL_GL_SetSwapInterval(1); // Enable vsync
+
+				if (GUIGL::debug_enable)
+					SDL_GL_SetSwapInterval(0); // Disable vsync
+
 				main_update();
-				GUI::update();
+				GUIGL::update();
+
 				if (cpu.state == cstate::running)
 					main_step();
 			}
@@ -73,10 +83,10 @@ int main(int argc, char* argv[])
 			ImGui::SaveIniSettingsToDisk(assets.generic_u8string().c_str());
 
 			MEM::save_sram();
-
-			SDL::clean();
-			APU::clean();
 		}
+
+		APU::clean();
+		//SDL::clean();
 	}
 
 	if (logging)
@@ -87,15 +97,22 @@ int main(int argc, char* argv[])
 
 void main_update()
 {
-	SDL_Event event;
-	while (SDL_PollEvent(&event))
+	SDL_Event ev;
+	while (SDL_PollEvent(&ev))
 	{
-		ImGui_ImplSDL2_ProcessEvent(&event);
-		if (event.type == SDL_QUIT)
-			GUI::running = 0;
-		if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE &&
-			event.window.windowID == SDL_GetWindowID(SDL::window))
-			GUI::running = 0;
+		ImGui_ImplSDL2_ProcessEvent(&ev);
+		if (ev.type == SDL_QUIT)
+			GUIGL::running = 0;
+		if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_CLOSE)
+		{
+			if (ev.window.windowID == SDL_GetWindowID(SDL::window))
+				GUIGL::running = 0;
+			if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+			{
+				SDL_SetWindowSize(SDL::window, ev.window.data1, ev.window.data2);
+			}
+
+		}
 	}
 
 	SDL::input_new();
@@ -151,7 +168,7 @@ void main_update()
 			log_to_file(reg.pc);
 
 		CPU::step();
-		GUI::follow_pc = true;
+		GUIGL::follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
 
@@ -163,7 +180,7 @@ void main_step()
 	if (!MEM::rom_loaded)
 		return;
 
-	GUI::follow_pc = true;
+	GUIGL::follow_pc = true;
 	PPU::frame_ready = false;
 	cpu.cpucycles = FRAME_CYCLES;
 	while (!PPU::frame_ready)
@@ -234,7 +251,7 @@ void main_step_over()
 	else
 	{
 		CPU::step();
-		GUI::follow_pc = true;
+		GUIGL::follow_pc = true;
 		cpu.state = cstate::debugging;
 	}
 }

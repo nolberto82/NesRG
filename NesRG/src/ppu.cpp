@@ -1,7 +1,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "mem.h"
-#include "sdlgfx.h"
+#include "sdlcc.h"
 #include "mappers.h"
 
 SpriteData sprites[8];
@@ -18,7 +18,7 @@ namespace PPU
 		{
 			if ((cycle >= CYCLE_START && cycle < CYCLE_END) || (cycle >= CYCLE_PRE1 && cycle <= CYCLE_PRE2))
 			{
-				pixels();
+				render_pixels();
 				get_tiles();
 			}
 
@@ -242,17 +242,20 @@ namespace PPU
 		memset(&pctrl, 0x00, sizeof(pctrl));
 		memset(&pmask, 0x00, sizeof(pmask));
 		memset(&pstatus, 0x00, sizeof(pstatus));
-		clear_pixels();
+
+		//clear ppu pixels
+		memset(PPU::screen_pix.data(), 0, PPU::screen_pix.size());
 	}
 
-	void clear_pixels()
+	void init()
 	{
-		memset(screen_pixels, 0x00, sizeof(screen_pixels));
-		//dstrect = { 600, 25, 256, 240 };
-		//SDL::draw_frame(screen_pixels, cpu.state);
+		screen_pix.resize(NES_WIDTH * NES_HEIGHT * 4);
+		ntable_pix.resize((NES_WIDTH * 2 * NES_HEIGHT * 2));
+		for (int i = 0; i < 2; i++)
+			patt_pix[i].resize(PATT_WIDTH * 2 * PATT_HEIGHT * 2);
 	}
 
-	void pixels()
+	void render_pixels()
 	{
 		if (RENDERING)
 		{
@@ -315,56 +318,59 @@ namespace PPU
 				}
 			}
 
-			screen_pixels[y * 256 + x] = 0;
+			screen_pix[y * 256 + x] = 0;
 			u8 offset = 0;
 
 			if (bg_pixel && spr_pixel)
 			{
-				if ((attrib & 0x20) == 0 && spx < 249)
+				if ((attrib & 0x20) == 0 && spx <= 249)
 					offset = spr_pixel + spr_pal * 4 + 0x10;
 				else
 					offset = bg_pixel + bg_pal * 4;
 			}
 			else if (bg_pixel)
 				offset = bg_pixel + bg_pal * 4;
-			else if (spr_pixel && spx < 249)
+			else if (spr_pixel && spx <= 249)
 				offset = spr_pixel + spr_pal * 4 + 0x10;
 
-			screen_pixels[y * 256 + x] = palettes[MEM::vram[0x3f00 + offset]];
+			screen_pix[y * 256 + x] = palettes[MEM::vram[0x3f00 + offset]];
 
 			update_registers();
 		}
 	}
 
-	void render_nametables(u16 addrnt, int i, u32* pixels)
+	void render_nametable()
 	{
-		for (int a = addrnt; a < addrnt + 0x3c0; a++)
+		memset(PPU::ntable_pix.data(), 0, PPU::ntable_pix.size());
+		for (int y = 0; y < 480; y++)
 		{
-			int x = (a & 0x1f);
-			int y = (a & 0x3e0) >> 5;
-
-			int ppuaddr = 0x2000 | a;
-			u16 attaddr = 0x23c0 | (a & 0xc00) | (y / 4) * 8 + (x / 4);
-			u16 patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
-
-			for (int r = 0; r < 8; r++)
+			for (int x = 0; x < 256; x++)
 			{
-				u16 bgaddr = patternaddr + MEM::vram[ppuaddr] * 16 + r;
-				for (int cl = 0; cl < 8; cl++)
+				if (x == 256)
 				{
-					int attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
-					u8 bit2 = (MEM::vram[attaddr] >> attr_shift) & 3;
-
-					int color = MEM::vram[bgaddr] >> (7 - cl) & 1 |
-						(MEM::vram[bgaddr + 8] >> (7 - cl) & 1) * 2;
-
-					int xp = x * 8 + cl;
-					int yp = y * 8 + r;
-
-					pixels[yp * 256 + xp] = palettes[MEM::vram[0x3f00 | bit2 * 4 + color]];
+					int yu = 0;
 				}
+
+				u16 ppuaddr = 0x2000 + (x / 8) + (y / 8) * 32;
+				u8 ntid = (ppuaddr >> 10) & 3;
+				ppuaddr += ntid * 0x400;
+
+				u16 attaddr = 0x23c0 | (ppuaddr & 0xc00) | ((ppuaddr >> 4) & 0x38) | ((ppuaddr >> 2) & 0x07);
+				u16 patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
+
+				s16 fy = y & 7;
+				s16 fx = x & 7;
+				u16 bgaddr = patternaddr + MEM::vram[ppuaddr] * 16 + fy;
+				u8 attr_shift = (ppuaddr >> 4) & 4 | (ppuaddr & 2);
+				u8 bit2 = (MEM::vram[attaddr] >> attr_shift) & 3;
+
+				u8 color = MEM::vram[bgaddr] >> (7 - fx) & 1 |
+					(MEM::vram[bgaddr + 8] >> (7 - fx) & 1) * 2;
+				ntable_pix[y * 512 + x] = palettes[MEM::vram[0x3f00 | bit2 * 4 + color]];
 			}
 		}
+		glBindTexture(GL_TEXTURE_2D, SDL::nametable);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 480, 0, GL_RGBA, GL_UNSIGNED_BYTE, PPU::ntable_pix.data());
 	}
 
 	void render_sprites()
@@ -372,7 +378,7 @@ namespace PPU
 		u16 bgaddr = pctrl.spraddr & 0x08 ? 0x1000 : 0x0000;
 		u16 oamaddr = 0x0100 * oamdma;
 
-		memset(sprite_pixels, 0x00, sizeof(sprite_pixels));
+		//memset(sprite_pix, 0x00, sizeof(sprite_pixels));
 
 		for (int j = 0; j >= 0; j--)
 		{
@@ -424,7 +430,7 @@ namespace PPU
 						if ((attrib & 0x20) == 0)
 						{
 							int color = palettes[MEM::vram[0x3f10 | colorindex]];
-							sprite_pixels[yp * 256 + xp] = color;
+							sprite_pix[yp * 256 + xp] = color;
 						}
 					}
 				}
@@ -453,14 +459,12 @@ namespace PPU
 								(b2 >> (7 - xx) & 1) * 2;
 							int xp = x * 8 + xx;
 							int yp = y * 8 + yy;
-							pattern_pixels[i][yp * PATTERN_WIDTH + xp] = palettes[MEM::vram[0x3f00 | 0 * 4 + color]];
+							patt_pix[i][yp * PATT_WIDTH + xp] = palettes[MEM::vram[0x3f00 | 0 * 4 + color]];
 						}
 					}
 					tileid++;
 				}
 			}
-			//SDL_UpdateTexture(SDL::patscreen[i], NULL, pattern_pixels[i], PATTERN_WIDTH * sizeof(unsigned int));
-			//SDL_RenderCopy(SDL::renderer, SDL::patscreen[i], NULL, NULL);
 			tileid = 0;
 			bgaddr = 0x1000;
 		}

@@ -34,9 +34,9 @@ namespace PPU
 	void data_wb(u8 v);
 	u8 data_rb();
 	void reset();
-	void clear_pixels();
-	void pixels();
-	void render_nametables(u16 addrnt, int i, u32* pixels);
+	void init();
+	void render_pixels();
+	void render_nametable();
 	void render_sprites();
 	void render_pattern();
 	void x_inc();
@@ -93,10 +93,10 @@ namespace PPU
 	inline bool no_nmi;
 	inline bool rendering = 0;
 
-	inline u32 screen_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	inline u32 ntable_pixels[4][NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	inline u32 sprite_pixels[NES_SCREEN_WIDTH * NES_SCREEN_HEIGHT] = {};
-	inline u32 pattern_pixels[2][PATTERN_WIDTH * PATTERN_HEIGHT] = {};
+	inline vector<u32> screen_pix;
+	inline vector<u32> ntable_pix;
+	inline vector<u32> patt_pix[2];
+	inline vector<u32> sprite_pix;
 	inline u32 palettes[192 / 3] = {};
 
 	inline u8 palbuffer[192] =

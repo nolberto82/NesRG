@@ -1,5 +1,5 @@
 #include "controls.h"
-#include "sdlgfx.h"
+#include "sdlcc.h"
 
 u8 controls_keys(u8 id)
 {
