@@ -10,6 +10,8 @@
 #include "mem.h"
 #include "types.h"
 
+const int fps = 60;
+
 Cpu cpu;
 Registers reg;
 PpuRegisters lp;
@@ -21,6 +23,7 @@ Keys newkeys, oldkeys;
 
 int main(int argc, char* argv[])
 {
+	u32 start_time = 0;
 	GUIGL::running = 1;
 
 	if (SDL::init())
@@ -62,19 +65,20 @@ int main(int argc, char* argv[])
 
 			while (GUIGL::running)
 			{
-				if (!SDL::frame_limit)
-					SDL_GL_SetSwapInterval(0); // Disable vsync
-				else
-					SDL_GL_SetSwapInterval(1); // Enable vsync
-
-				if (GUIGL::debug_enable)
-					SDL_GL_SetSwapInterval(0); // Disable vsync
+				start_time = SDL_GetTicks();
 
 				main_update();
 				GUIGL::update();
 
 				if (cpu.state == cstate::running)
 					main_step();
+
+				//limit fps
+				if (SDL::frame_limit)
+				{
+					if ((1000 / fps) > (SDL_GetTicks() - start_time))
+						SDL_Delay((1000 / fps) - (SDL_GetTicks() - start_time));
+				}
 			}
 
 			//Save imgui.ini
@@ -142,6 +146,48 @@ void main_update()
 	else if (newkeys.f1 && !oldkeys.f1)
 	{
 		main_load_state(0);
+	}
+	else if (newkeys.f2 && !oldkeys.f2) //take screenshot
+	{
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		Uint32 rmask = 0xff000000;
+		Uint32 gmask = 0x00ff0000;
+		Uint32 bmask = 0x0000ff00;
+		Uint32 amask = 0x000000ff;
+#else
+		Uint32 rmask = 0x000000ff;
+		Uint32 gmask = 0x0000ff00;
+		Uint32 bmask = 0x00ff0000;
+		Uint32 amask = 0xff000000;
+#endif
+
+		string screenshot(header.name + ".bmp");
+		fs::path screenshots(fs::current_path().parent_path().parent_path()
+			.parent_path() / screenshot);
+		time_t now = time(0);
+		char* tmp = ctime(&now);
+		int w, h;
+		SDL_GetRendererOutputSize(SDL::renderer, &w, &h);
+		SDL_Surface* screen = SDL_CreateRGBSurface(SDL_SWSURFACE, w, h, 32, rmask, gmask, bmask, amask);
+		glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, screen->pixels);
+
+		vector<u32> bytes(screen->w * screen->h * 4);
+		u32* data = (u32*)screen->pixels;
+
+		//flip screenshot vertically
+		int j = 0;
+		for (int y = h; y > 0; y--)
+		{
+			for (int x = 0; x < w; x++)
+			{
+				bytes[j++] = data[y * w + x];
+			}
+		}
+
+		memcpy(screen->pixels, bytes.data(), bytes.size());
+
+		SDL_SaveBMP(screen, screenshot.c_str());
+		SDL_FreeSurface(screen);
 	}
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F6)) //run one ppu cycle
@@ -234,6 +280,7 @@ void main_step()
 		}
 	}
 
+	SDL_GL_SetSwapInterval(0);
 	APU::step();
 }
 

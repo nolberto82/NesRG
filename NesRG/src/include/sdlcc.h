@@ -7,6 +7,7 @@ namespace SDL
 	bool init();
 	void input_new();
 	void input_old();
+	void render_screen_debug(GLuint texture, u32* pixels, float w, float h, float menubarheight);
 	void render_screen(GLuint texture, u32* pixels, float w, float h, float menubarheight);
 	void update_nametable();
 	void update_pattern();
@@ -22,6 +23,7 @@ namespace SDL
 
 	inline const char* glsl_version;
 
+	inline SDL_Renderer* renderer;
 	inline SDL_Window* window;
 	inline SDL_GLContext context;
 	inline SDL_GameController* controller;
@@ -29,7 +31,7 @@ namespace SDL
 
 struct Keys
 {
-	bool f1, f9, lshift;
+	bool f1, f2, f9, lshift;
 };
 
 extern Keys newkeys, oldkeys;

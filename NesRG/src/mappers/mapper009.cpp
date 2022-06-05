@@ -59,7 +59,6 @@ u8 Mapper009::rb(u16 addr)
 
 void Mapper009::set_latch(u16 addr, u8 v)
 {
-
 	if (addr == 0x0fd8)
 	{
 		latch1 = 0;

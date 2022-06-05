@@ -16,7 +16,14 @@ void create_close_log(bool status)
 	logging = status;
 
 	if (logging)
+	{
 		outFile.open("cpu_trace.log"); //outFile << "FCEUX 2.6.1 - Trace Log File\n";
+		if (!outFile)
+		{
+			outFile.close();
+			logging = false;
+		}
+	}		
 	else
 		outFile.close();
 }
@@ -73,20 +80,20 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::abso:
 		{
-			u16 a = MEM::rw(pc + 1);
+			u16 a = MEM::rwd(pc + 1);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], b[2], name, a, MEM::rbd(a));
 			break;
 		}
 		case addrmode::absx:
 		{
-			u16 a = MEM::rw(pc + 1);
+			u16 a = MEM::rwd(pc + 1);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], b[2],
 				name, a, (u16)(a + reg.x), MEM::rbd((u16)(a + reg.x)));
 			break;
 		}
 		case addrmode::absy:
 		{
-			u16 a = MEM::rw(pc + 1);
+			u16 a = MEM::rwd(pc + 1);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], b[2],
 				name, a, (u16)(a + reg.y), MEM::rbd((u16)(a + reg.y)));
 			break;
@@ -111,9 +118,9 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 		}
 		case addrmode::indi:
 		{
-			u16 a = MEM::rw(pc + 1);
+			u16 a = MEM::rwd(pc + 1);
 			if ((a & 0xff) == 0xff) ++a;
-			else a = MEM::rw(a);
+			else a = MEM::rwd(a);
 			snprintf(data, TEXTSIZE, mode_formats[mode], pc, b[0], b[1], b[2],
 				name, b[2] << 8 | b[1], a, MEM::rbd(a));
 			break;

@@ -27,6 +27,7 @@
 #define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | \
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | \
 ImGuiWindowFlags_NoMove
+#define NO_SCROLL ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
 
 namespace GUIGL
 {
@@ -50,6 +51,7 @@ namespace GUIGL
 	inline bool emu_reset = false;
 	inline bool debug_enable = false;
 	inline bool ppu_enable = false;
+	inline u8 resize_window = 2;
 
 	inline string flag_names = "NVUBDIZC";
 	inline bool flag_values[8] = { };

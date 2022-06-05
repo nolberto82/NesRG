@@ -3,7 +3,7 @@
 #include "sdlcc.h"
 
 const long sample_rate = 44000;
-const size_t bufsize = 2048;
+const size_t bufsize = 4096;
 blip_sample_t buf[bufsize];
 Simple_Apu* sapu;
 Sound_Queue* sound_queue;
@@ -43,13 +43,13 @@ namespace APU
 	{
 		if (!SDL::frame_limit)
 			return;
-		sapu->end_frame();
 
 		if (sapu->samples_avail() >= bufsize)
 		{
 			long count = sapu->read_samples(buf, bufsize);
 			play(buf, count);
 		}
+		sapu->end_frame();
 	}
 
 	int read_dmc(void* _, cpu_addr_t addr)

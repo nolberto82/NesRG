@@ -82,16 +82,20 @@ namespace CPU
 		}
 		}
 
+		if (nmi_triggered == 1)
+		{
+			nmi_triggered = 2;
+		}
+		else if (nmi_triggered == 2)
+		{
+			op_nmi();
+			nmi_triggered = 0;
+		}
+
 		if (MEM::mapper->fire)
 		{
 			MEM::mapper->fire = 0;
 			op_irq(reg.npc);
-		}
-
-		if (nmi_triggered)
-		{
-			op_nmi();
-			nmi_triggered = 0;
 		}
 
 		reg.pc = reg.npc;
@@ -528,7 +532,12 @@ namespace CPU
 				addr = (h << 8) | l;
 			}
 			else
-				addr = MEM::rw(addr);
+			{
+				l = MEM::rb(addr++);
+				h = MEM::rb(addr);
+				addr = (h << 8) | l;
+			}
+
 
 			return addr;
 		}
@@ -593,13 +602,13 @@ namespace CPU
 
 	void reset()
 	{
-		reg.pc = MEM::rw(INT_RESET);
+		reg.pc = MEM::rwd(INT_RESET);
 		reg.sp = 0xfd;
 		reg.ps = 0x04;
 		reg.x = 0x00;
 		reg.a = 0x00;
 		reg.y = 0x00;
-		memset(MEM::ram.data(), 0x00, 0x6000);
+		memset(MEM::ram.data(), 0x00, 0x8000);
 		cpu.state = cstate::debugging;
 		cpu.stepoveraddr = -1;
 		APU::reset();
@@ -607,6 +616,7 @@ namespace CPU
 
 	void op_nmi()
 	{
+		MEM::rb(reg.npc);
 		MEM::rb(reg.npc);
 		op_push(reg.sp--, reg.npc >> 8);
 		op_push(reg.sp--, reg.npc & 0xff);
@@ -631,7 +641,7 @@ namespace CPU
 		op_push(reg.sp--, (pc + 1) & 0xff);
 		op_push(reg.sp--, reg.ps);
 		reg.ps |= FI;
-		reg.npc = MEM::rw(INT_BRK); MEM::rb(reg.npc); MEM::rb(reg.npc);
+		reg.npc = MEM::rwd(INT_BRK); MEM::rb(reg.npc); MEM::rb(reg.npc);
 	}
 
 	void op_irq(u16 pc)

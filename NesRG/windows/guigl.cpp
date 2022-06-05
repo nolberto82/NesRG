@@ -8,14 +8,20 @@
 #include "mappers.h"
 #include "mem.h"
 
+#include <windows.h>
+#include <commdlg.h>
+
 namespace GUIGL
 {
 	ImGui::FileBrowser fileDialog;
 
 	void update()
 	{
+		//ImGui::StyleColorsLight();
 		glClear(GL_COLOR_BUFFER_BIT);
-		show_game_view();
+
+		if (!debug_enable)
+			show_game_view();
 
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
 		ImGui_ImplOpenGL3_NewFrame();
@@ -29,6 +35,15 @@ namespace GUIGL
 			show_ppu_debug();
 			show_disassembly();
 			show_memory();
+		}
+
+		if (debug_enable)
+		{
+			ImGui::Begin("Display", nullptr, NO_SCROLL);
+			ImVec2 size = ImGui::GetContentRegionAvail();
+			SDL::render_screen_debug(SDL::screen, PPU::screen_pix.data(), 256, 240, menubarheight);
+			ImGui::Image((void*)SDL::screen, ImVec2(512, 448));
+			ImGui::End();
 		}
 
 		// Rendering
@@ -59,8 +74,7 @@ namespace GUIGL
 
 	void show_ppu_debug()
 	{
-
-		if (ImGui::Begin("PPU Debug"))
+		if (ImGui::Begin("PPU Debug", nullptr, NO_SCROLL))
 		{
 			if (SDL::frame_limit)
 			{
@@ -124,9 +138,12 @@ namespace GUIGL
 		ImGui::Text("PC:%04X A:%02X X:%02X Y:%02X P:%02X", reg.pc, reg.a, reg.x, reg.y, reg.ps);
 		ImGui::Text("Scanline:%d Cycle:%3d VRAM:%04X SCRO:%04X Cpu Cycles:%d",
 			PPU::scanline, PPU::cycle, lp.v, lp.t, PPU::totalcycles);
+
+		if (MEM::mapper)
+			ImGui::Text("MMC4 Counter:%02X", MEM::mapper->counter);
+
 		ImGui::TextColored(pstatus.vblank ? GREEN : RED, "VBlank"); ImGui::SameLine();
 		ImGui::TextColored(pstatus.sprite0hit ? GREEN : RED, "Sprite0");
-		//ImGui::Text("%-15s", "MMC4 Counter"); ImGui::NextColumn(); ImGui::Text("%02X", mmc3.counter); ImGui::NextColumn();
 
 		ImGui::Separator();
 
@@ -312,6 +329,18 @@ namespace GUIGL
 				{
 					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
 					mem_edit.DrawContents(MEM::vram.data(), MEM::vram.size());
+
+					if (header.mirror == mirrortype::horizontal)
+					{
+						//memcpy(&MEM::vram[0x2800], &MEM::vram[0x2000], 0x400);
+						//memcpy(&MEM::vram[0x2c00], &MEM::vram[0x2400], 0x400);
+					}
+					else if (header.mirror == mirrortype::vertical)
+					{
+						//memcpy(&MEM::vram[0x2400], &MEM::vram[0x2000], 0x400);
+						//memcpy(&MEM::vram[0x2c00], &MEM::vram[0x2800], 0x400);
+					}
+
 					ImGui::PopStyleColor(1);
 					ImGui::EndTabItem();
 				}
@@ -370,11 +399,39 @@ namespace GUIGL
 			{
 				if (ImGui::MenuItem("Load Rom"))
 				{
-					fs::path game_dir = "D:\\Emulators+Hacking\\NES\\ppu_nmi";
-					fileDialog.SetTitle("Load Nes Rom");
-					fileDialog.SetTypeFilters({ ".nes" });
-					fileDialog.SetPwd(game_dir);
-					fileDialog.Open();
+					//fs::path game_dir = "\\";
+					////fs::path game_dir = "C:\\";
+					//fileDialog.SetTitle("Load Nes Rom");
+					//fileDialog.SetTypeFilters({ ".nes" });
+					//fileDialog.SetPwd(game_dir);
+					//fileDialog.Open();
+					OPENFILENAMEA ofn;
+					char filename[512]{};
+					ZeroMemory(&ofn, sizeof(ofn));
+					ofn.lStructSize = sizeof(OPENFILENAME);
+					ofn.hwndOwner = nullptr;
+					ofn.lpstrTitle = "Open Nes Rom";
+					ofn.lpstrFilter = "Nes Roms (*.nes)\0*.nes";
+					ofn.lpstrFile = filename;
+					ofn.nMaxFile = MAX_PATH;
+					ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+					ofn.lpstrDefExt = "nes";
+					std::vector<uint8_t> rom;
+					HANDLE hFile;
+
+					if (GetOpenFileNameA(&ofn))
+					{
+						if (!MEM::load_rom((char*)ofn.lpstrFile))
+						{
+							cpu.state = cstate::debugging;
+							MEM::rom.clear();
+						}
+						else
+						{
+							if (MEM::rom_loaded && !debug_enable)
+								cpu.state = cstate::running;
+						}
+					}
 				}
 				ImGui::EndMenu();
 			}
@@ -419,6 +476,11 @@ namespace GUIGL
 
 			if (ImGui::BeginMenu("Misc"))
 			{
+				if (ImGui::BeginMenu("Debug"))
+				{
+					ImGui::MenuItem("Memory Viewer", false, &mem_viewer);
+					ImGui::EndMenu();
+				}
 				ImGui::MenuItem("Style Editor", nullptr, &style_editor);
 				ImGui::EndMenu();
 			}
@@ -428,24 +490,24 @@ namespace GUIGL
 
 	void show_filebrowser()
 	{
-		fileDialog.Display();
-		fileDialog.SetWindowSize(400, 600);
+		//fileDialog.Display();
+		//fileDialog.SetWindowSize(400, 600);
 
-		if (fileDialog.HasSelected())
-		{
-			if (!MEM::load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
-			{
-				cpu.state = cstate::debugging;
-				MEM::rom.clear();
-			}
-			else
-			{
-				if (MEM::rom_loaded && !debug_enable)
-					cpu.state = cstate::running;
-			}
-			fileDialog.ClearSelected();
-			emu_rom = false;
-		}
+		//if (fileDialog.HasSelected())
+		//{
+		//	if (!MEM::load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
+		//	{
+		//		cpu.state = cstate::debugging;
+		//		MEM::rom.clear();
+		//	}
+		//	else
+		//	{
+		//		if (MEM::rom_loaded && !debug_enable)
+		//			cpu.state = cstate::running;
+		//	}
+		//	fileDialog.ClearSelected();
+		//	emu_rom = false;
+		//}
 	}
 
 	void open_dialog()
@@ -536,15 +598,13 @@ namespace GUIGL
 
 	bool init()
 	{
-
-
 		IMGUI_CHECKVERSION();
 		if (!ImGui::CreateContext())
 			return false;
 
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
 			// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
 		ImGuiStyle& style = ImGui::GetStyle();

@@ -52,7 +52,6 @@ namespace PPU
 			if (cycle == 1)
 			{
 				pstatus.vblank = 1;
-
 				//MEM::ram[0x2002] |= 0x80;
 				if (pctrl.nmi && !no_nmi)
 				{
@@ -88,7 +87,7 @@ namespace PPU
 		}
 
 		cycle++;
-		if (cycle > 340)
+		if (cycle >= 340)
 		{
 			if (odd_frame() && RENDERING && scanline == 0)
 				cycle = 1;
@@ -119,6 +118,10 @@ namespace PPU
 		pctrl.spritesize = (v >> 5) & 1;
 		pctrl.nmi = (v >> 7) & 1;
 
+		if (pctrl.nmi && pstatus.vblank && !nmi_vblank)
+			nmi_triggered = 1;
+
+		nmi_vblank = pctrl.nmi;
 		MEM::ram[0x2000 & 0x2007] = v;
 	}
 
@@ -134,28 +137,30 @@ namespace PPU
 
 	u8 status(u8 cycles)
 	{
-		u8 v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
-			| (dummy2007 & 0x1f);
-		//v = MEM::ram[0x2002];
 
+		u8 v = 0;
 		if (scanline == 241)
 		{
-			if (cycle == 0)
+			if (cycle == 1)
 			{
 				no_nmi = no_vbl = 1;
-				pstatus.vblank = 1;
-				//v &= ~0x80;
+				pstatus.vblank = 0;
+
 			}
-			else if (cycle < 3)
+			else if (cycle == 2 || cycle == 3)
 			{
 				no_nmi = 0;
-				if (cycle == 3)
-					v |= 0x80;
-				MEM::ram[0x2000] |= v;
+				//pstatus.vblank = 0;
+				//MEM::ram[0x2002] |= 0x80;
+				return v;
 			}
 		}
 
-		MEM::ram[0x2002] &= 0x7f;
+		v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
+			| (dummy2007 & 0x1f);
+
+		MEM::ram[0x2000] |= v;
+		MEM::ram[0x2002] &= v;
 		pstatus.vblank = 0;
 
 		lp.w = 0;
@@ -341,19 +346,25 @@ namespace PPU
 
 	void render_nametable()
 	{
+
 		memset(PPU::ntable_pix.data(), 0, PPU::ntable_pix.size());
 		for (int y = 0; y < 480; y++)
 		{
-			for (int x = 0; x < 256; x++)
+			u16 a = 0;
+			for (int x = 0; x < 512; x++)
 			{
-				if (x == 256)
+				if (header.mirror == mirrortype::vertical && x >= 256)
 				{
-					int yu = 0;
+					a = 0x400;
 				}
 
-				u16 ppuaddr = 0x2000 + (x / 8) + (y / 8) * 32;
+				if (header.mirror == mirrortype::horizontal && y >= 240)
+				{
+					a = 0x800;
+				}
+
+				u16 ppuaddr = 0x2000 + a + ((x % 256) / 8) + ((y % 240) / 8) * 32;
 				u8 ntid = (ppuaddr >> 10) & 3;
-				ppuaddr += ntid * 0x400;
 
 				u16 attaddr = 0x23c0 | (ppuaddr & 0xc00) | ((ppuaddr >> 4) & 0x38) | ((ppuaddr >> 2) & 0x07);
 				u16 patternaddr = pctrl.bgaddr ? 0x1000 : 0x0000;
@@ -547,7 +558,7 @@ namespace PPU
 
 	bool odd_frame()
 	{
-		return frame % 2;
+		return (frame % 2) == 0;
 	}
 
 	u16 get_nt_addr()

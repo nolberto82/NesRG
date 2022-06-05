@@ -44,6 +44,7 @@ namespace MEM
 	u8 rb(u16 addr, u8 cycles = 0);
 	u8 rbd(u16 addr);
 	u16 rw(u16 addr);
+	u16 rwd(u16 addr);
 	void wb(u16 addr, u8 val);
 	void ww(u16 addr, u16 val);
 	u8 ppurb(u16 addr);

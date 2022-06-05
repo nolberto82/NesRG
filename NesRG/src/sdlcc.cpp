@@ -21,6 +21,20 @@ namespace SDL
 			return false;
 		}
 
+		SDL::renderer = SDL_CreateRenderer(SDL::window, -1, SDL_RENDERER_ACCELERATED);
+
+		if (!SDL::renderer)
+		{
+			printf("Failed to create renderer: %s\n", SDL_GetError());
+			return false;
+		}
+
+		if (!SDL::window)
+		{
+			printf("Failed to open %d x %d window: %s\n", APP_WIDTH, APP_HEIGHT, SDL_GetError());
+			return false;
+		}
+
 		// GL 3.0 + GLSL 130
 		SDL::glsl_version = "#version 130";
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
@@ -50,6 +64,7 @@ namespace SDL
 	{
 		ctrl_keys = SDL_GetKeyboardState(NULL);
 		newkeys.f1 = ctrl_keys[SDL_SCANCODE_F1];
+		newkeys.f2 = ctrl_keys[SDL_SCANCODE_F2];
 		newkeys.f9 = ctrl_keys[SDL_SCANCODE_F9];
 		newkeys.lshift = ctrl_keys[SDL_SCANCODE_LSHIFT];
 	}
@@ -57,7 +72,27 @@ namespace SDL
 	void input_old()
 	{
 		oldkeys.f1 = newkeys.f1;
+		oldkeys.f2 = newkeys.f2;
 		oldkeys.f9 = newkeys.f9;
+	}
+
+	void render_screen_debug(GLuint texture, u32* pixels, float w, float h, float menubarheight)
+	{
+		glViewport(0, 0, w, h - menubarheight);
+
+		glClear(GL_COLOR_BUFFER_BIT);
+
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 240, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+		glBegin(GL_QUADS);
+		{
+			glTexCoord2f(0.0, 0.0); glVertex2f(0.0, 0.0);
+			glTexCoord2f(1.0, 0.0); glVertex2f(0.0 + w, 0.0);
+			glTexCoord2f(1.0, 1.0); glVertex2f(0.0 + w, 0.0 + h);
+			glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 0.0 + h);
+		}
+		glEnd();
 	}
 
 	void render_screen(GLuint texture, u32* pixels, float w, float h, float menubarheight)
@@ -123,6 +158,9 @@ namespace SDL
 		glDeleteTextures(1, &pattern);
 
 		SDL_GL_DeleteContext(context);
+
+		if (renderer)
+			SDL_DestroyRenderer(renderer);
 
 		if (window)
 			SDL_DestroyWindow(window);
