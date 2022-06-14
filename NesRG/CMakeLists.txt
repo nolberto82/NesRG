@@ -62,11 +62,12 @@ ${PRJ_DIR}/nes_apu_emu/Nonlinear_Buffer.cpp
 
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
-	${PRJ_DIR}/windows/main.cpp
-	${PRJ_DIR}/windows/guigl.cpp
-	${PRJ_DIR}/windows/breakpoints.cpp
-	${PRJ_DIR}/windows/tracer.cpp
+	${PRJ_DIR}/gui/main.cpp
+	${PRJ_DIR}/gui/gui.cpp
+	${PRJ_DIR}/gui/breakpoints.cpp
+	${PRJ_DIR}/gui/tracer.cpp
 	${PRJ_DIR}/imgui/imgui.cpp
+	${PRJ_DIR}/imgui/imgui_stdlib.cpp
 	${PRJ_DIR}/imgui/imgui_demo.cpp
 	${PRJ_DIR}/imgui/imgui_draw.cpp
 	${PRJ_DIR}/imgui/imgui_tables.cpp
@@ -76,10 +77,10 @@ if(WIN32)
 	${PRJ_DIR}/imgui/imgui_impl_opengl3.cpp
 	)
 
-	include_directories(${PRJ_DIR}/windows/include)	
+	include_directories(${PRJ_DIR}/gui/include)	
 	include_directories(${PRJ_DIR}/imgui)
 
-	add_executable (${PROJECT_NAME} ${WIN_SRC} ${EMU_SRC})
+	add_executable (${PROJECT_NAME} WIN32 ${WIN_SRC} ${EMU_SRC})
 
 	find_package(SDL2 CONFIG REQUIRED)
 	find_package(sdl2-ttf CONFIG REQUIRED)

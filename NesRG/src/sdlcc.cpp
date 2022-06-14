@@ -78,6 +78,7 @@ namespace SDL
 
 	void render_screen_debug(GLuint texture, u32* pixels, float w, float h, float menubarheight)
 	{
+		double vasp = w / h;
 		glViewport(0, 0, w, h - menubarheight);
 
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -89,8 +90,8 @@ namespace SDL
 		{
 			glTexCoord2f(0.0, 0.0); glVertex2f(0.0, 0.0);
 			glTexCoord2f(1.0, 0.0); glVertex2f(0.0 + w, 0.0);
-			glTexCoord2f(1.0, 1.0); glVertex2f(0.0 + w, 0.0 + h);
-			glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 0.0 + h);
+			glTexCoord2f(1.0, 1.0); glVertex2f(0.0 + w, 0.0 + h / vasp);
+			glTexCoord2f(0.0, 1.0); glVertex2f(0.0, 0.0 + h / vasp);
 		}
 		glEnd();
 	}

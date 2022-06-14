@@ -35,13 +35,13 @@ namespace MEM
 	inline s16 ppu_write_addr = -1;
 	inline s16 ppu_read_addr = -1;
 
-	inline shared_ptr<Mapper> mapper;
+	inline Mapper* mapper;
 
 	void init();
 	bool load_rom(const char* filename);
 	bool set_mapper();
 	bool load_file(const char* filename, std::vector<u8>& rom, int offset, int size);
-	u8 rb(u16 addr, u8 cycles = 0);
+	u8 rb(u16 addr, u8 opbit = 0);
 	u8 rbd(u16 addr);
 	u16 rw(u16 addr);
 	u16 rwd(u16 addr);
@@ -53,6 +53,8 @@ namespace MEM
 	void mem_vrom(vector<u8>& dst, u16 addr, int offset, int size);
 	void save_sram();
 	void load_sram();
+
+	void clean();
 	
 }
 

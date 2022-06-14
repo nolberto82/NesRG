@@ -18,11 +18,14 @@
 const int CYCLES_PER_FRAME = 262 * 341;
 const int CYCLES_PER_LINE = 341;
 
-inline u8 nmi_triggered = 0;
-inline u8 nmi_vblank = 0;
+
 
 namespace CPU
 {
+	inline u8 nmi_triggered = 0;
+	inline u8 nmi_vblank = 0;
+	inline u64 instructions = 0;
+
 	void op_nmi();
 	u8 op_pop();
 	void op_push(u16 addr, u8 v);

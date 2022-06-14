@@ -1,6 +1,7 @@
 #include "types.h"
 
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include "imgui_internal.h"
 #include "imgui_impl_sdl.h"
 #include "imgui_impl_opengl3.h"
@@ -27,7 +28,7 @@
 #define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | \
 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar | \
 ImGuiWindowFlags_NoMove
-#define NO_SCROLL ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+#define NO_SCROLL ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoBringToFrontOnFocus
 
 namespace GUIGL
 {
@@ -50,6 +51,7 @@ namespace GUIGL
 	inline bool emu_run = false;
 	inline bool emu_reset = false;
 	inline bool debug_enable = false;
+	inline bool cheat_opened = false;
 	inline bool ppu_enable = false;
 	inline u8 resize_window = 2;
 
@@ -61,6 +63,7 @@ namespace GUIGL
 
 	inline u16 inputaddr;
 	inline char bpaddrtext[5] = { 0 };
+	inline string cheattext;
 	inline int item_id = 0;
 	inline u8 bptype = 0;
 	inline int menubarheight = 0;
@@ -72,11 +75,13 @@ namespace GUIGL
 	void update();
 	void show_game_view();
 	void show_ppu_debug();
-	void show_disassembly();
+	void show_debugger();
 	void show_memory();
 	void show_logger();
 	void show_menu();
-	void show_filebrowser();
+	void show_disassembly(u16 pc);
+	void show_rom_info();
+	void cheat_dialog();
 	void open_dialog();
 	void run_emu();
 	void reset_emu();

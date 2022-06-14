@@ -26,7 +26,7 @@ namespace PPU
 	void step();
 	void ctrl(u8 v);
 	void mask(u8 v);
-	u8 status(u8 cycles);
+	u8 status(u8 opbit);
 	void oam_addr(u8 v);
 	void oam_data(u8 v);
 	void ppuscroll(u8 v);

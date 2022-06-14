@@ -52,35 +52,39 @@ namespace MEM
 
 		PPU::reset();
 
-		mapper = nullptr;
+		if (mapper)
+		{
+			delete mapper;
+			mapper = nullptr;
+		}
 
 		switch (mappernum)
 		{
 		case 0:
-			mapper = make_shared<Mapper000>();
+			mapper = new Mapper000();
 			break;
 		case 1:
-			mapper = make_shared<Mapper001>();
+			mapper = new Mapper001();
 			break;
 		case 2:
-			mapper = make_shared<Mapper002>();
+			mapper = new Mapper002();
 			break;
 		case 3:
-			mapper = make_shared<Mapper003>();
+			mapper = new Mapper003();
 			break;
 		case 4:
-			mapper = make_shared<Mapper004>();
+			mapper = new Mapper004();
 			mapper->counter = 0;
 			break;
 		case 5:
-			mapper = make_shared<Mapper005>();
+			mapper = new Mapper005();
 			break;
 		case 7:
-			mapper = make_shared<Mapper007>();
+			mapper = new Mapper007();
 			mapper->counter = 0;
 			break;
 		case 9:
-			mapper = make_shared<Mapper009>();
+			mapper = new Mapper009();
 			break;
 		default:
 			printf("Mapper not supported");
@@ -121,7 +125,7 @@ namespace MEM
 		return res;
 	}
 
-	u8 rb(u16 addr, u8 cycles)
+	u8 rb(u16 addr, u8 opbit)
 	{
 		read_addr = addr;
 
@@ -132,7 +136,7 @@ namespace MEM
 		if (addr >= 0x2000 && addr <= 0x3fff)
 		{
 			if ((addr & 0x7) == 0x02)
-				return PPU::status(cycles);
+				return PPU::status(opbit);
 			if ((addr & 0x7) == 0x07)
 				return PPU::data_rb();
 		}
@@ -187,26 +191,32 @@ namespace MEM
 				PPU::ppuaddr(v);
 			else if (addr == 0x2007)
 				PPU::data_wb(v);
-
-			if (addr > 0x2007)
-			{
-				int yu = 0;
-			}
-			//ram[addr & 0x2007] = v;
 		}
 
 		else if (addr == 0x4014)
 		{
+			int num = 0;
 			u16 oamaddr = v << 8; PPU::oamdma = v;
 			for (int i = 0; i < 256; i++)
 			{
 				oam[i] = ram[oamaddr + i];
 				PPU_STEP; PPU_STEP;
 				PPU::totalcycles += 2;
+				num += 2;
+
 			}
-			PPU_STEP; PPU_STEP;
-			if (PPU::cycle & 1)
+
+			if (PPU::totalcycles & 1)
+			{
+				PPU_STEP; PPU_STEP;
 				PPU::totalcycles += 2;
+			}
+			else
+			{
+				PPU_STEP;
+				PPU::totalcycles += 1;
+			}
+
 		}
 		else if ((addr >= 0x4000 && addr <= 0x4013) || (addr == 0x4015))
 			APU::wb(addr, v);
@@ -341,5 +351,11 @@ namespace MEM
 			save.read((char*)MEM::ram.data() + 0x6000, 0x2000);
 			save.close();
 		}
+	}
+
+	void clean()
+	{
+		if (mapper)
+			delete mapper;
 	}
 }

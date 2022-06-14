@@ -1,4 +1,4 @@
-#include "guigl.h"
+#include "gui.h"
 #include "breakpoints.h"
 #include "cpu.h"
 #include "ppu.h"
@@ -14,11 +14,12 @@
 namespace GUIGL
 {
 	ImGui::FileBrowser fileDialog;
+	vector<Cheats> cheats;
 
 	void update()
 	{
 		//ImGui::StyleColorsLight();
-		glClear(GL_COLOR_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
 
 		if (!debug_enable)
 			show_game_view();
@@ -28,21 +29,25 @@ namespace GUIGL
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
 
-		show_filebrowser();
 		show_menu();
-		if (debug_enable)
-		{
-			show_ppu_debug();
-			show_disassembly();
-			show_memory();
-		}
+
+		if (cheat_opened)
+			cheat_dialog();
 
 		if (debug_enable)
 		{
-			ImGui::Begin("Display", nullptr, NO_SCROLL);
-			ImVec2 size = ImGui::GetContentRegionAvail();
-			SDL::render_screen_debug(SDL::screen, PPU::screen_pix.data(), 256, 240, menubarheight);
-			ImGui::Image((void*)SDL::screen, ImVec2(512, 448));
+			show_ppu_debug();
+			show_debugger();
+			show_memory();
+
+			if (ImGui::Begin("Display", nullptr, NO_SCROLL))
+			{
+				ImGui::SetWindowPos(ImVec2(5, menubarheight + 5));
+				ImGui::SetWindowSize(ImVec2(512, 400));
+				ImVec2 tsize = ImGui::GetContentRegionAvail();
+				SDL::render_screen_debug(SDL::screen, PPU::screen_pix.data(), 256, 240, menubarheight);
+				ImGui::Image((void*)SDL::screen, tsize);
+			}
 			ImGui::End();
 		}
 
@@ -50,18 +55,8 @@ namespace GUIGL
 		ImGui::Render();
 		glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
 		//glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-		//glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
-			SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-			SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
-		}
-
 		SDL_GL_SwapWindow(SDL::window);
 	}
 
@@ -76,246 +71,181 @@ namespace GUIGL
 	{
 		if (ImGui::Begin("PPU Debug", nullptr, NO_SCROLL))
 		{
-			if (SDL::frame_limit)
+			ImGui::SetWindowPos(ImVec2(5, menubarheight + 5 + 410));
+			if (ImGui::BeginTabBar("##gfx_tabs", ImGuiTabBarFlags_None))
 			{
-				if (ImGui::BeginTabBar("##gfx_tabs", ImGuiTabBarFlags_None))
+				if (ImGui::BeginTabItem("Name Tables"))
 				{
-					if (ImGui::BeginTabItem("Name Tables"))
-					{
-						if ((PPU::frame % 8) == 0)
-							PPU::render_nametable();
-						ImVec2 tsize = ImGui::GetContentRegionAvail();
-						ImGui::Image((void*)(intptr_t)SDL::nametable, ImVec2(512, 480));
-						ImGui::EndTabItem();
-					}
-					if (ImGui::BeginTabItem("Pattern Tables"))
-					{
-						PPU::render_pattern();
-						SDL::update_pattern();
-						ImVec2 tsize = ImGui::GetContentRegionAvail();
-						ImGui::Image((void*)(intptr_t)SDL::pattern, ImVec2(128 * 2, 128 * 2));
-						ImGui::EndTabItem();
-					}
-					ImGui::EndTabBar();
+					if ((PPU::frame % 8) == 0)
+						PPU::render_nametable();
+					ImVec2 tsize = ImGui::GetContentRegionAvail();
+					ImGui::SetWindowSize(ImVec2(512, 540));
+					float ratio = tsize.x / tsize.y;
+					ImGui::Image((void*)(intptr_t)SDL::nametable, tsize);
+					ImGui::EndTabItem();
 				}
+				if (ImGui::BeginTabItem("Pattern Tables"))
+				{
+					PPU::render_pattern();
+					SDL::update_pattern();
+					ImVec2 tsize = ImGui::GetContentRegionAvail();
+					ImGui::Image((void*)(intptr_t)SDL::pattern, ImVec2(128 * 2, 128 * 2));
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
 			}
+			//}
 		}
 		ImGui::End();
 	}
 
-	void show_disassembly()
+	void show_debugger()
 	{
 		u16 pc = is_jump ? jumpaddr : reg.pc;
 		vector<disasmentry> entries;
 		int cyc = 0;
 
-		ImGui::Begin("Debugger", NULL, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
-
-		ImGui::BeginGroup();
-		ImGui::Text("%s", header.name.c_str());
-		ImGui::Separator();
-		set_spacing(1);
-
-		if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
-			run_emu();
-
-		ImGui::SameLine();
-
-		if (ImGui::Button("Reset", ImVec2(BUTTON_W, 0)))
-			reset_emu();
-
-		ImGui::SameLine();
-
-		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? BLUE : DEFCOLOR));
-		if (ImGui::Button("Trace Log", ImVec2(BUTTON_W, 0)))
-			create_close_log(!logging);
-		ImGui::PopStyleColor(1);
-
-		set_spacing(1);
-		ImGui::Separator();
-		set_spacing(1);
-
-		ImGui::Text("PC:%04X A:%02X X:%02X Y:%02X P:%02X", reg.pc, reg.a, reg.x, reg.y, reg.ps);
-		ImGui::Text("Scanline:%d Cycle:%3d VRAM:%04X SCRO:%04X Cpu Cycles:%d",
-			PPU::scanline, PPU::cycle, lp.v, lp.t, PPU::totalcycles);
-
-		if (MEM::mapper)
-			ImGui::Text("MMC4 Counter:%02X", MEM::mapper->counter);
-
-		ImGui::TextColored(pstatus.vblank ? GREEN : RED, "VBlank"); ImGui::SameLine();
-		ImGui::TextColored(pstatus.sprite0hit ? GREEN : RED, "Sprite0");
-
-		ImGui::Separator();
-
-		ImGui::Text("FPS:%.1f", ImGui::GetIO().Framerate);
-		ImGui::EndGroup();
-
-		ImGui::Separator();
-		set_spacing(1);
-
-		ImGui::Columns(2);
-		ImGui::BeginChild("##disasm", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
-		float mousewheel = ImGui::GetIO().MouseWheel;
-		if (mousewheel != 0 && (pc + lineoffset < 0x10000))
+		if (ImGui::Begin("Debugger", nullptr, NO_SCROLL))
 		{
-			if (ImGui::IsWindowHovered())
-			{
-				if (mousewheel > 0)
-					lineoffset -= 6;
-				else
-					lineoffset += 6;
-			}
-		}
+			ImGui::SetWindowPos(ImVec2(528 + 5, menubarheight + 5));
+			ImGui::SetWindowSize(ImVec2(650, menubarheight + 650));
+			ImGui::BeginGroup();
+			ImGui::Text("%s", header.name.c_str());
+			ImGui::Separator();
+			set_spacing(1);
 
-		pc += lineoffset;
-		for (int i = 0; i < DISASSEMBLY_LINES; i++)
-		{
-			disasmentry entry = get_trace_line(pc, false, false)[0];
-			stringstream ss;
-			ss << setw(4) << hex << uppercase << setfill('0') << pc;
+			if (ImGui::Button("Run", ImVec2(BUTTON_W, 0)))
+				run_emu();
 
-			ImGui::PushID(pc);
-			bool bpenabled = false;
-			for (auto& it : breakpoints)
-			{
-				if (it.enabled && it.addr == pc)
-					bpenabled = true;
-			}
-
-			ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? BLUE : DEFCOLOR);
-			if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 50, 0)))
-				bp_add(pc, bp_exec, true);
-
-			ImGui::PopStyleColor();
 			ImGui::SameLine();
 
-			is_pc = false;
-			if (pc == reg.pc || pc == jumpaddr && is_jump)
-				is_pc = true;
+			if (ImGui::Button("Reset", ImVec2(BUTTON_W, 0)))
+				reset_emu();
 
-			if (entry.line != "")
-				ImGui::Selectable(entry.line.c_str(), is_pc);
+			ImGui::SameLine();
 
-			if (follow_pc)
-			{
-				ImGui::SetScrollHereY(0);
-				lineoffset = 0;
-			}
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(logging ? BLUE : DEFCOLOR));
+			if (ImGui::Button("Trace Log", ImVec2(BUTTON_W, 0)))
+				create_close_log(!logging);
+			ImGui::PopStyleColor(1);
 
-			follow_pc = false;
+			set_spacing(1);
+			ImGui::Separator();
+			set_spacing(1);
 
-			ImGui::PopID();
-			pc += entry.size;
-		}
-		ImGui::EndChild();
-
-		ImGui::NextColumn();
-
-		ImGui::BeginChild("##mapperinfo", ImVec2(0, 100), true, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
-		ImGui::Columns(2);
-		ImGui::SetColumnWidth(0, 120);
-
-		ImGui::Text("%-15s", "Mapper Number"); ImGui::NextColumn(); ImGui::Text("%d", header.mappernum); ImGui::NextColumn();
-		ImGui::Text("%-15s", "PRG Total"); ImGui::NextColumn(); ImGui::Text("%d", header.prgnum); ImGui::NextColumn();
-		ImGui::Text("%-15s", "CHR Total"); ImGui::NextColumn(); ImGui::Text("%d", header.chrnum); ImGui::NextColumn();
-		ImGui::Text("%-15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[header.mirror]); ImGui::NextColumn();
-		ImGui::Columns(1);
-		ImGui::Separator();
-
-		if (!MEM::rom_loaded && header.mappernum > 0)
-		{
-			ImGui::TextColored(RED, "Mapper %d not supported", header.mappernum);
-		}
-		ImGui::EndChild();
-		set_spacing(1);
-
-		ImGui::BeginChild("##mapperbanks", ImVec2(0, 250), true, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
-		if (MEM::mapper)
-		{
 			ImGui::Columns(2);
-			//ImGui::SetColumnWidth(0, 60);
-			vector<u8> prg = MEM::mapper->get_prg();
-			for (int i = 0; i < prg.size(); i++)
+
+			ImGui::Text("PC:%04X  A:%02X  X:%02X  Y:%02X  P:%02X", reg.pc, reg.a, reg.x, reg.y, reg.ps);
+
+			ImGui::Text("Scanline:%3d  Cycle:%3d  VRAM:%04X  TVRAM:%04X",
+				PPU::scanline, PPU::cycle, lp.v, lp.t);
+			ImGui::Text("CpuCycles:%d", PPU::totalcycles);
+
+			if (MEM::mapper)
+				ImGui::Text("MMC4 Counter:%02X", MEM::mapper->counter);
+
+			ImGui::NextColumn();
+
+			u8 shift = 0x80;
+			for (int i = 0; i < 8; i++)
 			{
-				ImGui::Text("prg%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", prg[i]); ImGui::NextColumn();
+				char* c = (char*)flag_names[i];
+				bool f = (reg.ps & (shift >> i));
+				ImGui::TextColored(f ? GREEN : RED, "%c", c);
+				if (i < 7)
+					ImGui::SameLine();
 			}
+
+			ImGui::TextColored(pstatus.vblank ? GREEN : RED, "VBlank"); ImGui::SameLine();
+			ImGui::TextColored(pstatus.sprite0hit ? GREEN : RED, "Sprite0");; ImGui::SameLine();
+			ImGui::TextColored(pmask.background ? GREEN : RED, "BgStatus");; ImGui::SameLine();
+			ImGui::TextColored(pmask.sprite ? GREEN : RED, "SprStatus");
+
+			ImGui::Columns(1);
 
 			ImGui::Separator();
 
-			if (header.mappernum > 0)
+			ImGui::Text("FPS:%.1f", ImGui::GetIO().Framerate);
+			ImGui::EndGroup();
+
+			ImGui::Separator();
+			set_spacing(1);
+
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, 400);
+
+			show_disassembly(pc);
+
+			ImGui::NextColumn();
+
+			show_rom_info();
+
+			set_spacing(1);
+
+			if (ImGui::BeginChild("Breakpoints", ImVec2(0, 0), true, NO_SCROLL))
 			{
-				vector<u8> chr = MEM::mapper->get_chr();
-				for (int i = 0; i < chr.size(); i++)
+				if (ImGui::Button("Add breakpoint", ImVec2(-1, 0)))
 				{
-					ImGui::Text("chr%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", chr[i]); ImGui::NextColumn();
-				}
-			}
-		}
-		ImGui::Columns(1);
-		ImGui::EndChild();
-
-		//ImGui::Separator();
-		set_spacing(1);
-
-		ImGui::BeginChild("##breakpoints", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
-		if (ImGui::Button("Add breakpoint", ImVec2(-1, 0)))
-		{
-			bptype = 0;
-			ImGui::OpenPopup("Add breakpoint");
-		}
-
-		open_dialog();
-
-		if (ImGui::ListBoxHeader("##bps", ImVec2(-1, -1)))
-		{
-			int n = 0;
-			for (auto& it : breakpoints)
-			{
-				u8 bptype = it.type;
-				stringstream ss;
-				ss << setw(4) << hex << uppercase << setfill('0') << it.addr;
-
-				ImGui::PushID(n);
-				if (ImGui::Button(ss.str().c_str()))
-				{
-					jumpaddr = it.addr; lineoffset = 0; is_jump = true;
+					bptype = 0;
+					ImGui::OpenPopup("Add breakpoint");
 				}
 
-				ImGui::SameLine();
+				open_dialog();
 
-				ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? BLUE : RED);
-				if (ImGui::Button("Enabled"))
-					it.enabled ^= 1;
-				ImGui::PopStyleColor();
+				if (ImGui::ListBoxHeader("##bps", ImVec2(-1, -1)))
+				{
+					int n = 0;
+					for (auto& it : breakpoints)
+					{
+						u8 bptype = it.type;
+						stringstream ss;
+						ss << setw(4) << hex << uppercase << setfill('0') << it.addr;
 
-				ImGui::SameLine();
+						ImGui::PushID(n);
+						if (ImGui::Button(ss.str().c_str()))
+						{
+							jumpaddr = it.addr; lineoffset = 0; is_jump = true;
+						}
 
-				if (ImGui::Button("Delete"))
-					breakpoints.erase(breakpoints.begin() + n);
+						ImGui::SameLine();
 
-				ImGui::SameLine();
+						ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? BLUE : RED);
+						if (ImGui::Button("Enabled"))
+							it.enabled ^= 1;
+						ImGui::PopStyleColor();
 
-				string bps = bptype & bp_read || bptype & bp_vread ? "R" : ".";
-				bps += bptype & bp_write || bptype & bp_vwrite ? "W" : ".";
-				bps += bptype & bp_exec ? "X" : ".";
+						ImGui::SameLine();
 
-				ImGui::Text(bps.c_str());
+						if (ImGui::Button("Delete"))
+							breakpoints.erase(breakpoints.begin() + n);
 
-				ImGui::PopID();
+						ImGui::SameLine();
 
-				n++;
+						string bps = bptype & bp_read || bptype & bp_vread ? "R" : ".";
+						bps += bptype & bp_write || bptype & bp_vwrite ? "W" : ".";
+						bps += bptype & bp_exec ? "X" : ".";
+
+						ImGui::Text(bps.c_str());
+
+						ImGui::PopID();
+
+						n++;
+					}
+					ImGui::ListBoxFooter();
+				}
 			}
-			ImGui::ListBoxFooter();
+			ImGui::EndChild();
 		}
-		ImGui::EndChild();
 		ImGui::Columns(1);
 		ImGui::End();
 	}
 
 	void show_memory()
 	{
-		if (ImGui::Begin("Memory Editor", nullptr))
+		if (ImGui::Begin("Memory Editor", nullptr, NO_SCROLL))
 		{
+			ImGui::SetWindowPos(ImVec2(528 + 5, menubarheight + 5 + 680));
+			ImGui::SetWindowSize(ImVec2(650, 270));
 			if (ImGui::BeginTabBar("##mem_tabs", ImGuiTabBarFlags_None))
 			{
 				if (ImGui::BeginTabItem("RAM"))
@@ -399,12 +329,6 @@ namespace GUIGL
 			{
 				if (ImGui::MenuItem("Load Rom"))
 				{
-					//fs::path game_dir = "\\";
-					////fs::path game_dir = "C:\\";
-					//fileDialog.SetTitle("Load Nes Rom");
-					//fileDialog.SetTypeFilters({ ".nes" });
-					//fileDialog.SetPwd(game_dir);
-					//fileDialog.Open();
 					OPENFILENAMEA ofn;
 					char filename[512]{};
 					ZeroMemory(&ofn, sizeof(ofn));
@@ -417,7 +341,6 @@ namespace GUIGL
 					ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
 					ofn.lpstrDefExt = "nes";
 					std::vector<uint8_t> rom;
-					HANDLE hFile;
 
 					if (GetOpenFileNameA(&ofn))
 					{
@@ -445,6 +368,11 @@ namespace GUIGL
 			{
 				if (ImGui::MenuItem("Reset", nullptr, false, &emu_reset))
 					reset_emu();
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Tools"))
+			{
+				ImGui::MenuItem("Cheats", nullptr, &cheat_opened);
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Debug"))
@@ -488,26 +416,133 @@ namespace GUIGL
 		}
 	}
 
-	void show_filebrowser()
+	void show_disassembly(u16 pc)
 	{
-		//fileDialog.Display();
-		//fileDialog.SetWindowSize(400, 600);
+		if (ImGui::BeginChild("Disassembly", ImVec2(385, 500), true, NO_SCROLL))
+		{
+			float mousewheel = ImGui::GetIO().MouseWheel;
+			if (mousewheel != 0 && (pc + lineoffset < 0x10000))
+			{
+				if (ImGui::IsWindowHovered())
+				{
+					if (mousewheel > 0)
+						lineoffset -= 6;
+					else
+						lineoffset += 6;
+				}
+			}
 
-		//if (fileDialog.HasSelected())
-		//{
-		//	if (!MEM::load_rom((char*)fileDialog.GetSelected().u8string().c_str()))
-		//	{
-		//		cpu.state = cstate::debugging;
-		//		MEM::rom.clear();
-		//	}
-		//	else
-		//	{
-		//		if (MEM::rom_loaded && !debug_enable)
-		//			cpu.state = cstate::running;
-		//	}
-		//	fileDialog.ClearSelected();
-		//	emu_rom = false;
-		//}
+			pc += lineoffset;
+			for (int i = 0; i < DISASSEMBLY_LINES; i++)
+			{
+				disasmentry entry = get_trace_line(pc, false, false)[0];
+				stringstream ss;
+				ss << setw(4) << hex << uppercase << setfill('0') << pc;
+
+				ImGui::PushID(pc);
+				bool bpenabled = false;
+				for (auto& it : breakpoints)
+				{
+					if (it.enabled && it.addr == pc)
+						bpenabled = true;
+				}
+
+				ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? BLUE : DEFCOLOR);
+				if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 50, 0)))
+					bp_add(pc, bp_exec, true);
+
+				ImGui::PopStyleColor();
+				ImGui::SameLine();
+
+				is_pc = false;
+				if (pc == reg.pc || pc == jumpaddr && is_jump)
+					is_pc = true;
+
+				if (entry.line != "")
+					ImGui::Selectable(entry.line.c_str(), is_pc);
+
+				if (follow_pc)
+				{
+					ImGui::SetScrollHereY(0);
+					lineoffset = 0;
+				}
+
+				follow_pc = false;
+
+				ImGui::PopID();
+				pc += entry.size;
+			}
+		}
+		ImGui::EndChild();
+	}
+
+	void show_rom_info()
+	{
+		if (ImGui::BeginChild("Mapper Info", ImVec2(0, 100), true, NO_SCROLL))
+		{
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, 120);
+
+			ImGui::Text("%-15s", "Mapper Number"); ImGui::NextColumn(); ImGui::Text("%d", header.mappernum); ImGui::NextColumn();
+			ImGui::Text("%-15s", "PRG Total"); ImGui::NextColumn(); ImGui::Text("%d", header.prgnum); ImGui::NextColumn();
+			ImGui::Text("%-15s", "CHR Total"); ImGui::NextColumn(); ImGui::Text("%d", header.chrnum); ImGui::NextColumn();
+			ImGui::Text("%-15s", "Mirroring"); ImGui::NextColumn(); ImGui::Text("%s", mirrornames[header.mirror]); ImGui::NextColumn();
+			ImGui::Columns(1);
+			ImGui::Separator();
+
+			if (!MEM::rom_loaded && header.mappernum > 0)
+			{
+				ImGui::TextColored(RED, "Mapper %d not supported", header.mappernum);
+			}
+			ImGui::Columns(1);
+			ImGui::EndChild();
+
+			if (ImGui::BeginChild("Mapper Banks", ImVec2(0, 220), true, NO_SCROLL))
+			{
+				if (MEM::mapper)
+				{
+					ImGui::Columns(2);
+					ImGui::SetColumnWidth(0, 120);
+					vector<u8> prg = MEM::mapper->get_prg();
+					for (int i = 0; i < prg.size(); i++)
+					{
+						ImGui::Text("prg%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", prg[i]); ImGui::NextColumn();
+					}
+
+					ImGui::Separator();
+
+					if (header.mappernum > 0)
+					{
+						vector<u8> chr = MEM::mapper->get_chr();
+						for (int i = 0; i < chr.size(); i++)
+						{
+							ImGui::Text("chr%02X", i); ImGui::NextColumn(); ImGui::Text("%02X", chr[i]); ImGui::NextColumn();
+						}
+					}
+					set_spacing(1);
+
+				}
+				ImGui::Columns(1);
+			}
+		}
+		ImGui::EndChild();
+	}
+
+	void cheat_dialog()
+	{
+		if (ImGui::Begin("Cheats", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			if (ImGui::InputTextMultiline("##cheatbox", &cheattext))
+			{
+				int yu = 0;
+			}
+
+			if (ImGui::Button("Add", ImVec2(BUTTON_W, 0)))
+			{
+				//memset(&cheattext, 0, cheattext));
+			}
+		}
+		ImGui::End();
 	}
 
 	void open_dialog()
@@ -604,15 +639,8 @@ namespace GUIGL
 
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+		//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-
-			// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-		ImGuiStyle& style = ImGui::GetStyle();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			style.WindowRounding = 0.0f;
-			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-		}
 
 		// Setup Platform/Renderer backends
 		ImGui_ImplSDL2_InitForOpenGL(SDL::window, SDL::context);

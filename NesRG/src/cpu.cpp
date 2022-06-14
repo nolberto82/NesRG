@@ -98,6 +98,7 @@ namespace CPU
 			op_irq(reg.npc);
 		}
 
+		instructions++;
 		reg.pc = reg.npc;
 	}
 
@@ -158,7 +159,7 @@ namespace CPU
 
 	void op_bit(int mode)
 	{
-		u8 v = MEM::rb(addr_mode_r(mode));
+		u8 v = MEM::rb(addr_mode_r(mode), 1);
 		u8 b = reg.a & v;
 		set_flag(b == 0, FZ);
 		set_flag(v & 0x80, FN);
@@ -608,6 +609,7 @@ namespace CPU
 		reg.x = 0x00;
 		reg.a = 0x00;
 		reg.y = 0x00;
+		instructions = 0;
 		memset(MEM::ram.data(), 0x00, 0x8000);
 		cpu.state = cstate::debugging;
 		cpu.stepoveraddr = -1;

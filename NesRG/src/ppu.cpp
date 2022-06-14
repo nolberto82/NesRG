@@ -9,7 +9,11 @@ namespace PPU
 {
 	void step()
 	{
-		if (scanline < 240 && cycle == 260 && RENDERING)
+		u8 tc = 260;
+		if (pctrl.spritesize == 0 && pctrl.bgaddr == 0x1000)
+			tc = 324;
+
+		if (scanline < 240 && cycle == tc && RENDERING)
 		{
 			MEM::mapper->scanline();
 		}
@@ -22,7 +26,7 @@ namespace PPU
 				get_tiles();
 			}
 
-			if (cycle == 338 || cycle == 340)
+			if (cycle == 338 || cycle == 339)
 			{
 				ntbyte = MEM::ppurb(0x2000 | (lp.v & 0xfff));
 			}
@@ -52,12 +56,11 @@ namespace PPU
 			if (cycle == 1)
 			{
 				pstatus.vblank = 1;
-				//MEM::ram[0x2002] |= 0x80;
+				MEM::ram[0x2002] |= 0x80;
 				if (pctrl.nmi && !no_nmi)
 				{
-					nmi_triggered = 1;
+					CPU::nmi_triggered = 1;
 				}
-
 			}
 		}
 		else if (scanline == SCAN_PRE)
@@ -84,18 +87,17 @@ namespace PPU
 
 				frame_ready = false;
 			}
+
+			if (cycle == 339)
+				cycle += RENDERING && odd_frame() && scanline == -1 ? 1 : 0;
 		}
 
-		cycle++;
-		if (cycle >= 340)
+		//cycle++;
+		if (cycle++ > 339)
 		{
-			if (odd_frame() && RENDERING && scanline == 0)
-				cycle = 1;
-			else
-				cycle = 0;
+			cycle = 0;
 			scanline++;
-
-			if (scanline == 261)
+			if (scanline > 260)
 			{
 				scanline = -1;
 				sprite_count = 0;
@@ -118,10 +120,10 @@ namespace PPU
 		pctrl.spritesize = (v >> 5) & 1;
 		pctrl.nmi = (v >> 7) & 1;
 
-		if (pctrl.nmi && pstatus.vblank && !nmi_vblank)
-			nmi_triggered = 1;
+		if (pctrl.nmi && pstatus.vblank && !CPU::nmi_vblank)
+			CPU::nmi_triggered = 1;
 
-		nmi_vblank = pctrl.nmi;
+		CPU::nmi_vblank = pctrl.nmi;
 		MEM::ram[0x2000 & 0x2007] = v;
 	}
 
@@ -135,32 +137,33 @@ namespace PPU
 		pmask.sprite = (v >> 4) & 1;
 	}
 
-	u8 status(u8 cycles)
+	u8 status(u8 opbit)
 	{
 
 		u8 v = 0;
+
+		v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sproverflow << 5) & 0xe0
+			| (dummy2007 & 0x1f);
+
 		if (scanline == 241)
 		{
-			if (cycle == 1)
+			if (cycle == 0)
 			{
 				no_nmi = no_vbl = 1;
-				pstatus.vblank = 0;
-
 			}
-			else if (cycle == 2 || cycle == 3)
+			else if (cycle == 1 || cycle == 2)
+			{
+				return v &= 0x7f;
+			}
+			else if (cycle == 3)
 			{
 				no_nmi = 0;
-				//pstatus.vblank = 0;
-				//MEM::ram[0x2002] |= 0x80;
-				return v;
+				return v &= 0x7f;
 			}
 		}
 
-		v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sprite0hit << 5) & 0xe0
-			| (dummy2007 & 0x1f);
-
 		MEM::ram[0x2000] |= v;
-		MEM::ram[0x2002] &= v;
+		MEM::ram[0x2002] = v & 0x7f;
 		pstatus.vblank = 0;
 
 		lp.w = 0;
@@ -177,7 +180,7 @@ namespace PPU
 	{
 		p2004 = v;
 		MEM::ram[0x2004] = v;
-		//MEM::ram[0x2002] |= 0x1f;
+		MEM::ram[0x2002] |= 0x1f;
 		MEM::ram[0x2003] = p2003++;
 	}
 
@@ -196,6 +199,7 @@ namespace PPU
 			scrolldata |= v << 8;
 		}
 		lp.w ^= 1;
+		MEM::ram[0x2002] = v;
 	}
 
 	void ppuaddr(u8 v)
@@ -262,23 +266,26 @@ namespace PPU
 
 	void render_pixels()
 	{
-		if (RENDERING)
-		{
-			u16 x = cycle - 2;
-			u16 y = scanline;
-			u8 bg_pixel = 0;
-			u8 bg_pal = 0;
-			u8 spr_pixel = 0;
-			u8 spr_pal = 0;
-			u8 attrib = 0;
-			u8 spx = 0;
+		u16 x = cycle - 2;
+		u16 y = scanline;
+		u8 bg_pixel = 0;
+		u8 bg_pal = 0;
+		u8 spr_pixel = 0;
+		u8 spr_pal = 0;
+		u8 attrib = 0;
+		u8 spx = 0;
 
+		if (pmask.background)
+		{
 			if (BACKGROUND_LEFT)
 			{
 				bg_pixel = (((bgshiftlo >> (15 - lp.fx)) & 1) | (bgshifthi >> (15 - lp.fx) & 1) * 2);
 				bg_pal = ((atshiftlo >> (7 - lp.fx) & 1) | (atshifthi >> (7 - lp.fx) & 1) * 2) & 3;
 			}
+		}
 
+		if (pmask.sprite)
+		{
 			if (SPRITE_LEFT)
 			{
 				u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
@@ -308,7 +315,7 @@ namespace PPU
 					if (!spr_pixel) continue;
 					spr_pal = attrib & 3;
 
-					if (spr.spritenum == 0)
+					if (spr.spritenum == 0 && pmask.background && pmask.sprite)
 					{
 						if (bg_pixel)
 						{
@@ -322,26 +329,26 @@ namespace PPU
 					break;
 				}
 			}
-
-			screen_pix[y * 256 + x] = 0;
-			u8 offset = 0;
-
-			if (bg_pixel && spr_pixel)
-			{
-				if ((attrib & 0x20) == 0 && spx <= 249)
-					offset = spr_pixel + spr_pal * 4 + 0x10;
-				else
-					offset = bg_pixel + bg_pal * 4;
-			}
-			else if (bg_pixel)
-				offset = bg_pixel + bg_pal * 4;
-			else if (spr_pixel && spx <= 249)
-				offset = spr_pixel + spr_pal * 4 + 0x10;
-
-			screen_pix[y * 256 + x] = palettes[MEM::vram[0x3f00 + offset]];
-
-			update_registers();
 		}
+
+		screen_pix[y * 256 + x] = 0;
+		u8 offset = 0;
+
+		if (bg_pixel && spr_pixel)
+		{
+			if ((attrib & 0x20) == 0)
+				offset = spr_pixel + spr_pal * 4 + 0x10;
+			else
+				offset = bg_pixel + bg_pal * 4;
+		}
+		else if (bg_pixel)
+			offset = bg_pixel + bg_pal * 4;
+		else if (spr_pixel)
+			offset = spr_pixel + spr_pal * 4 + 0x10;
+
+		screen_pix[y * 256 + x] = palettes[MEM::vram[0x3f00 + offset]];
+
+		update_registers();
 	}
 
 	void render_nametable()
@@ -558,7 +565,7 @@ namespace PPU
 
 	bool odd_frame()
 	{
-		return (frame % 2) == 0;
+		return (frame & 1) == 1;
 	}
 
 	u16 get_nt_addr()
