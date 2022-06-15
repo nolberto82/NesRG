@@ -23,6 +23,7 @@
 #define DEFCOLOR ImVec4(0.260f, 0.590f, 0.980f, 0.400f)
 
 //ImGui flags
+#define ALLCAP_FLAGS ImGuiInputTextFlags_CharsUppercase
 #define INPUT_FLAGS ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase
 #define INPUT_ENTER INPUT_FLAGS | ImGuiInputTextFlags_EnterReturnsTrue
 #define MAIN_WINDOW ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar | \
@@ -55,6 +56,7 @@ namespace GUIGL
 	inline bool ppu_enable = false;
 	inline u8 resize_window = 2;
 
+	inline string genieletters = "APZLGITYEOXUKSVN";
 	inline string flag_names = "NVUBDIZC";
 	inline bool flag_values[8] = { };
 	inline char jumpto[5] = { 0 };
@@ -63,7 +65,11 @@ namespace GUIGL
 
 	inline u16 inputaddr;
 	inline char bpaddrtext[5] = { 0 };
-	inline string cheattext;
+	inline char cheatname[256] = { 0 };
+	inline char cheataddr[5] = { 0 };
+	inline char cheatval[3] = { 0 };
+	inline char cheatcmp[3] = { 0 };
+	inline char cheatgenie[9] = { 0 };
 	inline int item_id = 0;
 	inline u8 bptype = 0;
 	inline int menubarheight = 0;
@@ -82,9 +88,11 @@ namespace GUIGL
 	void show_disassembly(u16 pc);
 	void show_rom_info();
 	void cheat_dialog();
+	void apply_cheats();
 	void open_dialog();
 	void run_emu();
 	void reset_emu();
 	bool init();
+	void decrypt_genie(char* code);
 	void clean();
 }

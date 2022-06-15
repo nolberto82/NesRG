@@ -49,6 +49,7 @@ namespace MEM
 	void ww(u16 addr, u16 val);
 	u8 ppurb(u16 addr);
 	void ppuwb(u16 addr, u8 val);
+	void wb_cheats(u16 addr, u8 val, s8 cmp = -1);
 	void mem_rom(vector<u8>& dst, u16 addr, int offset, int size);
 	void mem_vrom(vector<u8>& dst, u16 addr, int offset, int size);
 	void save_sram();

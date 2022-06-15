@@ -313,6 +313,11 @@ namespace MEM
 		//	vram[addr & 0x3fff] = v;
 	}
 
+	void wb_cheats(u16 addr, u8 val, s8 cmp)
+	{
+		ram[addr] = val;
+	}
+
 	void mem_rom(vector<u8>& dst, u16 addr, int offset, int size)
 	{
 		if (offset >= rom.size())

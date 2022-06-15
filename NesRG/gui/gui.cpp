@@ -34,6 +34,8 @@ namespace GUIGL
 		if (cheat_opened)
 			cheat_dialog();
 
+		apply_cheats();
+
 		if (debug_enable)
 		{
 			show_ppu_debug();
@@ -530,19 +532,104 @@ namespace GUIGL
 
 	void cheat_dialog()
 	{
-		if (ImGui::Begin("Cheats", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		if (ImGui::Begin("Cheats", &cheat_opened, ImGuiWindowFlags_AlwaysAutoResize))
 		{
-			if (ImGui::InputTextMultiline("##cheatbox", &cheattext))
+			int sel = -1;
+			int seladdr = -1;
+			if (ImGui::BeginChild("Cheats", ImVec2(300, 300), true, NO_SCROLL))
+			{
+				if (ImGui::ListBoxHeader("##cht", ImVec2(300, 300)))
+				{
+					int n = 0;
+					for (auto& it : cheats)
+					{
+						//u8 bptype = it.type;
+						stringstream ss;
+						ss << setw(4) << hex << uppercase << setfill('0') << it.addr;
+
+						ImGui::PushID(n);
+
+						ImGui::Text("%s", it.name); ImGui::SameLine();
+						ImGui::Text("%04X", it.addr); ImGui::SameLine();
+						ImGui::Text("%02X", it.value); ImGui::SameLine();
+						ImGui::Text("%02X", it.compare); ImGui::SameLine();
+
+						if (ImGui::Button("Delete"))
+						{
+							if (cheats.size() > 0)
+							{
+								auto its = remove_if(cheats.begin(), cheats.end(), [&](const Cheats& obj)
+									{
+										return (obj.addr == it.addr);
+									});
+
+								if (its != cheats.end())
+								{
+									cheats.erase(its, cheats.end());
+								}
+							}
+						}
+
+						ImGui::PopID();
+
+						n++;
+					}
+					ImGui::ListBoxFooter();
+				}
+			}
+			ImGui::EndChild();
+
+			if (ImGui::InputText("##cheatname", (char*)cheatname, IM_ARRAYSIZE(cheatname), INPUT_FLAGS))
 			{
 				int yu = 0;
 			}
 
+			if (ImGui::InputText("##cheataddr", (char*)cheataddr, IM_ARRAYSIZE(cheataddr), INPUT_FLAGS))
+			{
+				int yu = 0;
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::InputText("##cheatval", (char*)cheatval, IM_ARRAYSIZE(cheatval), INPUT_FLAGS))
+			{
+				int yu = 0;
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::InputText("##cheatcmp", (char*)cheatcmp, IM_ARRAYSIZE(cheatcmp), INPUT_FLAGS))
+			{
+				int yu = 0;
+			}
+
+			if (ImGui::InputText("##cheatgenie", (char*)cheatgenie, IM_ARRAYSIZE(cheatgenie), ALLCAP_FLAGS))
+			{
+				decrypt_genie(cheatgenie);
+			}
+
 			if (ImGui::Button("Add", ImVec2(BUTTON_W, 0)))
 			{
-				//memset(&cheattext, 0, cheattext));
+				Cheats c;
+				c.name = cheatname;
+				c.addr = (u16)stoul(cheataddr, nullptr, 16);
+				c.value = (u8)stoul(cheatval, nullptr, 16);
+				if (strlen(cheatcmp) > 0)
+					c.compare = (u8)stoul(cheatcmp, nullptr, 16);
+				else
+					c.compare = 0;
+				cheats.push_back(c);
 			}
 		}
 		ImGui::End();
+	}
+
+	void apply_cheats()
+	{
+		for (auto& it : cheats)
+		{
+			MEM::wb_cheats(it.addr, it.value);
+		}
 	}
 
 	void open_dialog()
@@ -647,6 +734,40 @@ namespace GUIGL
 		ImGui_ImplOpenGL3_Init(SDL::glsl_version);
 
 		return true;
+	}
+
+	void decrypt_genie(char* code)
+	{
+		vector<u8> res;
+		for (int i = 0; i < sizeof(code); i++)
+		{
+			char c = genieletters.find(code[i]);
+			if (c == -1)
+				break;
+			res.push_back(c);
+		}
+
+		u16 addr = (res[3] & 7) << 12 | (res[5] & 7) << 8
+			| (res[2] & 7) << 4 | (res[4] & 7) | (res[4] & 8) << 8
+			| (res[1] & 8) << 4 | (res[3] & 8);
+		snprintf(cheataddr, sizeof(cheataddr), "%04X", addr | 0x8000);
+
+		if (strlen(code) == 6)
+		{
+			u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+				| res[0] & 7 | res[5] & 8;
+			snprintf(cheatval, sizeof(cheatval), "%02X", val);
+		}
+		else
+		{
+			u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+				| res[0] & 7 | res[7] & 8;
+			snprintf(cheatval, sizeof(cheatval), "%02X", val);
+
+			u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4
+				| res[6] & 7 | res[5] & 8;
+			snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
+		}
 	}
 
 	void clean()
