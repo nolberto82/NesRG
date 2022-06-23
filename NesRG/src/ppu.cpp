@@ -53,7 +53,7 @@ namespace PPU
 		}
 		else if (scanline == VBLANK)
 		{
-			if (cycle == 1)
+			if (cycle == 0)
 			{
 				pstatus.vblank = 1;
 				MEM::ram[0x2002] |= 0x80;
@@ -210,18 +210,21 @@ namespace PPU
 	void ppuaddr(u8 v) //2006
 	{
 		if (!lp.w)
+		{
 			lp.t = (u16)((lp.t & 0x80ff) | (v & 0x3f) << 8);
+			//cycle -= 9;
+		}
 		else
 		{
 			lp.t = (lp.t & 0xff00) | v;
 			lp.v = lp.t;
 
-			if ((lp.v ^ a12) & 0x1000)
-			{
-				if (lp.v & 0x1000)
-					MEM::mapper->scanline();
-				a12 = lp.v;
-			}
+			//if ((lp.v ^ a12) & 0x1000)
+			//{
+			//	if (lp.v & 0x1000)
+			//		MEM::mapper->scanline();
+			//	a12 = lp.v;
+			//}
 		}
 		lp.w ^= 1;
 
@@ -275,6 +278,7 @@ namespace PPU
 
 		//clear ppu pixels
 		memset(PPU::screen_pix.data(), 0, PPU::screen_pix.size());
+		memset(PPU::ntable_pix.data(), 0, PPU::ntable_pix.size());
 	}
 
 	void init()
@@ -357,7 +361,7 @@ namespace PPU
 		screen_pix[y * 256 + x] = 0;
 		u8 offset = 0;
 
-		if (bg_pixel && spr_pixel)
+		if (bg_pixel && spr_pixel && spx < 249)
 		{
 			if ((attrib & 0x20) == 0)
 				offset = spr_pixel + spr_pal * 4 + 0x10;
@@ -366,7 +370,7 @@ namespace PPU
 		}
 		else if (bg_pixel)
 			offset = bg_pixel + bg_pal * 4;
-		else if (spr_pixel)
+		else if (spr_pixel && spx < 249)
 			offset = spr_pixel + spr_pal * 4 + 0x10;
 
 		screen_pix[y * 256 + x] = palettes[MEM::vram[0x3f00 + offset]];

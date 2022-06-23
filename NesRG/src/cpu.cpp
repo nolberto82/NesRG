@@ -82,6 +82,15 @@ namespace CPU
 		}
 		}
 
+		if (MEM::mapper->fire)
+		{
+			MEM::mapper->fire = 0;
+			op_irq(reg.npc);
+			instructions++;
+			reg.pc = reg.npc;
+			return;
+		}
+
 		if (nmi_triggered == 1)
 		{
 			nmi_triggered = 2;
@@ -90,12 +99,6 @@ namespace CPU
 		{
 			op_nmi();
 			nmi_triggered = 0;
-		}
-
-		if (MEM::mapper->fire)
-		{
-			MEM::mapper->fire = 0;
-			op_irq(reg.npc);
 		}
 
 		instructions++;

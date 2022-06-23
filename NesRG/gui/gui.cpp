@@ -47,6 +47,7 @@ namespace GUIGL
 			show_debugger();
 			show_memory();
 
+			ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 1));
 			if (ImGui::Begin("Display", nullptr, NO_SCROLL))
 			{
 				ImGui::SetWindowPos(ImVec2(5, menubarheight + 5));
@@ -56,13 +57,14 @@ namespace GUIGL
 				ImGui::Image((void*)SDL::screen, tsize);
 			}
 			ImGui::End();
+			ImGui::PopStyleColor();
 		}
 
 		// Rendering
 		ImGui::Render();
 		glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-		//glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-		//glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+		glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		SDL_GL_SwapWindow(SDL::window);
 	}
@@ -76,6 +78,7 @@ namespace GUIGL
 
 	void show_ppu_debug()
 	{
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 1));
 		if (ImGui::Begin("PPU Debug", nullptr, NO_SCROLL))
 		{
 			ImGui::SetWindowPos(ImVec2(5, menubarheight + 5 + 410));
@@ -83,7 +86,7 @@ namespace GUIGL
 			{
 				if (ImGui::BeginTabItem("Name Tables"))
 				{
-					if ((PPU::frame % 8) == 0)
+					if ((PPU::frame % 8) == 0 || PPU::frame == 1)
 						PPU::render_nametable();
 					ImVec2 tsize = ImGui::GetContentRegionAvail();
 					ImGui::SetWindowSize(ImVec2(512, 540));
@@ -101,9 +104,9 @@ namespace GUIGL
 				}
 				ImGui::EndTabBar();
 			}
-			//}
 		}
 		ImGui::End();
+		ImGui::PopStyleColor();
 	}
 
 	void show_debugger()
@@ -729,7 +732,7 @@ namespace GUIGL
 
 					while (getline(chtfile, s, '\n'))
 					{
-						Cheats c;					
+						Cheats c;
 						stringstream ss1(s);
 						getline(ss1, s, ',');
 						c.name = s;

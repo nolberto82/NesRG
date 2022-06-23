@@ -135,6 +135,8 @@ namespace MEM
 		v = ram[addr];
 
 		PPU_STEP;
+		//PPU::step();
+		//PPU::step();
 		cpu.cpucycles++;
 		PPU::totalcycles++;
 
@@ -151,6 +153,9 @@ namespace MEM
 			v = controls_read();
 		else if (addr >= 0x6000 && addr <= 0x7fff)
 			v = ram[addr];
+
+
+		//PPU::step();
 
 		return v;
 	}

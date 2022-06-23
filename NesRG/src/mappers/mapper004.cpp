@@ -115,7 +115,7 @@ void Mapper004::reset()
 
 void Mapper004::scanline()
 {
-	if (counter == 0)
+	if (counter == 0 || reload == 1)
 	{
 		counter = rvalue;
 		reload = 0;
@@ -127,6 +127,8 @@ void Mapper004::scanline()
 	{
 		if ((reg.ps & FI) == 0)
 			fire = 1;
+			//CPU::op_irq(reg.pc);
+
 	}
 }
 
