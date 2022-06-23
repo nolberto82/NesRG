@@ -13,6 +13,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 	#add_link_options(-fsanitize=address)
 endif()
 
+set(NATIVE 1)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	message("debug mode")
 	add_compile_definitions(DEBUG=1)
@@ -62,6 +64,7 @@ ${PRJ_DIR}/nes_apu_emu/Nonlinear_Buffer.cpp
 
 if(WIN32)
 	file(GLOB_RECURSE WIN_SRC
+	#${PRJ_DIR}/winnative/main.cpp
 	${PRJ_DIR}/gui/main.cpp
 	${PRJ_DIR}/gui/gui.cpp
 	${PRJ_DIR}/gui/breakpoints.cpp
@@ -80,7 +83,7 @@ if(WIN32)
 	include_directories(${PRJ_DIR}/gui/include)	
 	include_directories(${PRJ_DIR}/imgui)
 
-	add_executable (${PROJECT_NAME} WIN32 ${WIN_SRC} ${EMU_SRC})
+	add_executable (${PROJECT_NAME} ${WIN_SRC} ${EMU_SRC})
 
 	find_package(SDL2 CONFIG REQUIRED)
 	find_package(sdl2-ttf CONFIG REQUIRED)

@@ -4,7 +4,7 @@
 
 #define PPU_STEP PPU::step(); PPU::step(); PPU::step();
 #define BACKGROUND_LEFT (x > 7 || pmask.backgroundleft)
-#define SPRITE_LEFT !(x < 8 && !pmask.spriteleft)
+#define SPRITE_LEFT !(x < 8 && !pmask.spriteleft
 
 #define FETCH_CYCLES ((cycle > 0 && cycle < 257) || (cycle >= 321 && cycle <= 336))
 #define VISIBLE_SCANLINES (scanline >= 0 && scanline < 240)
@@ -56,6 +56,7 @@ namespace PPU
 
 	inline u8 dummy2007;
 	inline u8 oamdma;
+	inline u8 p2002;
 	inline u8 p2003;
 	inline u8 p2004;
 	inline u8 p2005;
@@ -79,8 +80,11 @@ namespace PPU
 	inline u8 sprite_0_line = 0;
 	inline u8 scrolldata = 0;
 
+	inline u16 a12 = 0;
+
 	inline int scanline;
 	inline int cycle;
+	inline u8 sprnum = 0;
 
 	inline u32 frame;
 	inline u32 tempcolor[8];

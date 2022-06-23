@@ -14,12 +14,16 @@
 namespace GUIGL
 {
 	ImGui::FileBrowser fileDialog;
-	vector<Cheats> cheats;
 
 	void update()
 	{
-		//ImGui::StyleColorsLight();
-		//glClear(GL_COLOR_BUFFER_BIT);
+		ImGuiStyle& style = ImGui::GetStyle();
+		style.FrameBorderSize = 1.0f;
+
+		if (light_mode)
+			ImGui::StyleColorsLight();
+		else
+			ImGui::StyleColorsDark();
 
 		if (!debug_enable)
 			show_game_view();
@@ -34,7 +38,8 @@ namespace GUIGL
 		if (cheat_opened)
 			cheat_dialog();
 
-		apply_cheats();
+		if (style_editor)
+			ImGui::ShowStyleEditor();
 
 		if (debug_enable)
 		{
@@ -57,7 +62,7 @@ namespace GUIGL
 		ImGui::Render();
 		glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
 		//glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-		glClear(GL_COLOR_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		SDL_GL_SwapWindow(SDL::window);
 	}
@@ -148,20 +153,25 @@ namespace GUIGL
 
 			ImGui::NextColumn();
 
+			ImVec4 colorregs = BLUE;
+
+			if (!light_mode)
+				colorregs = GREEN;
+
 			u8 shift = 0x80;
 			for (int i = 0; i < 8; i++)
 			{
 				char* c = (char*)flag_names[i];
 				bool f = (reg.ps & (shift >> i));
-				ImGui::TextColored(f ? GREEN : RED, "%c", c);
+				ImGui::TextColored(f ? colorregs : RED, "%c", c);
 				if (i < 7)
 					ImGui::SameLine();
 			}
 
-			ImGui::TextColored(pstatus.vblank ? GREEN : RED, "VBlank"); ImGui::SameLine();
-			ImGui::TextColored(pstatus.sprite0hit ? GREEN : RED, "Sprite0");; ImGui::SameLine();
-			ImGui::TextColored(pmask.background ? GREEN : RED, "BgStatus");; ImGui::SameLine();
-			ImGui::TextColored(pmask.sprite ? GREEN : RED, "SprStatus");
+			ImGui::TextColored(pstatus.vblank ? colorregs : RED, "VBlank"); ImGui::SameLine();
+			ImGui::TextColored(pstatus.sprite0hit ? colorregs : RED, "Sprite0");; ImGui::SameLine();
+			ImGui::TextColored(pmask.background ? colorregs : RED, "BgStatus");; ImGui::SameLine();
+			ImGui::TextColored(pmask.sprite ? colorregs : RED, "SprStatus");
 
 			ImGui::Columns(1);
 
@@ -211,7 +221,11 @@ namespace GUIGL
 
 						ImGui::SameLine();
 
-						ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? BLUE : RED);
+						ImVec4 color = GREEN;
+						if (!light_mode)
+							color = BLUE;
+
+						ImGui::PushStyleColor(ImGuiCol_Button, it.enabled ? color : RED);
 						if (ImGui::Button("Enabled"))
 							it.enabled ^= 1;
 						ImGui::PopStyleColor();
@@ -246,20 +260,21 @@ namespace GUIGL
 	{
 		if (ImGui::Begin("Memory Editor", nullptr, NO_SCROLL))
 		{
+			ImVec4 color = light_mode ? BLUE : ALICEBLUE;
 			ImGui::SetWindowPos(ImVec2(528 + 5, menubarheight + 5 + 680));
 			ImGui::SetWindowSize(ImVec2(650, 270));
 			if (ImGui::BeginTabBar("##mem_tabs", ImGuiTabBarFlags_None))
 			{
 				if (ImGui::BeginTabItem("RAM"))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
 					mem_edit.DrawContents(MEM::ram.data(), MEM::ram.size());
 					ImGui::PopStyleColor(1);
 					ImGui::EndTabItem();
 				}
 				if ((ImGui::BeginTabItem("VRAM")))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
 					mem_edit.DrawContents(MEM::vram.data(), MEM::vram.size());
 
 					if (header.mirror == mirrortype::horizontal)
@@ -278,21 +293,21 @@ namespace GUIGL
 				}
 				if ((ImGui::BeginTabItem("OAM")))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
 					mem_edit.DrawContents(MEM::oam.data(), MEM::oam.size());
 					ImGui::PopStyleColor(1);
 					ImGui::EndTabItem();
 				}
 				if ((ImGui::BeginTabItem("ROM")))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
 					mem_edit.DrawContents(MEM::rom.data(), MEM::rom.size());
 					ImGui::PopStyleColor(1);
 					ImGui::EndTabItem();
 				}
 				if ((ImGui::BeginTabItem("VROM")))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ALICEBLUE);
+					ImGui::PushStyleColor(ImGuiCol_Text, color);
 					mem_edit.DrawContents(MEM::vrom.data(), MEM::vrom.size());
 					ImGui::PopStyleColor(1);
 					ImGui::EndTabItem();
@@ -379,10 +394,7 @@ namespace GUIGL
 			}
 			if (ImGui::BeginMenu("Debug"))
 			{
-				if (ImGui::MenuItem("Debugger", false, &debug_enable))
-				{
-					//resize_window();
-				}
+				ImGui::MenuItem("Debugger", false, &debug_enable);
 				ImGui::EndMenu();
 			}
 			if (debug_enable)
@@ -406,11 +418,11 @@ namespace GUIGL
 
 			if (ImGui::BeginMenu("Misc"))
 			{
-				if (ImGui::BeginMenu("Debug"))
-				{
-					ImGui::MenuItem("Memory Viewer", false, &mem_viewer);
-					ImGui::EndMenu();
-				}
+				ImGui::MenuItem("Theme Mode", false, &light_mode);
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Misc"))
+			{
 				ImGui::MenuItem("Style Editor", nullptr, &style_editor);
 				ImGui::EndMenu();
 			}
@@ -449,7 +461,11 @@ namespace GUIGL
 						bpenabled = true;
 				}
 
-				ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? BLUE : DEFCOLOR);
+				ImVec4 color = GREEN;
+				if (!light_mode)
+					color = BLUE;
+
+				ImGui::PushStyleColor(ImGuiCol_Button, bpenabled ? color : DEFCOLOR);
 				if (ImGui::Button(ss.str().c_str(), ImVec2(BUTTON_W - 50, 0)))
 					bp_add(pc, bp_exec, true);
 
@@ -536,106 +552,226 @@ namespace GUIGL
 		{
 			int sel = -1;
 			int seladdr = -1;
-			if (ImGui::BeginChild("Cheats", ImVec2(300, 300), true, NO_SCROLL))
+			static int selected = 0;
+			if (ImGui::BeginChild("Cheats", ImVec2(430, 300), true, NO_SCROLL))
 			{
-				if (ImGui::ListBoxHeader("##cht", ImVec2(300, 300)))
+				if (ImGui::ListBoxHeader("##cht", ImVec2(-1, -1)))
 				{
 					int n = 0;
-					for (auto& it : cheats)
+					ImGui::Columns(2);
+					ImGui::SetColumnWidth(0, 330);
+					ImGui::SetColumnWidth(1, 85);
+					for (auto& it : MEM::cheats)
 					{
-						//u8 bptype = it.type;
-						stringstream ss;
-						ss << setw(4) << hex << uppercase << setfill('0') << it.addr;
-
 						ImGui::PushID(n);
 
-						ImGui::Text("%s", it.name); ImGui::SameLine();
-						ImGui::Text("%04X", it.addr); ImGui::SameLine();
-						ImGui::Text("%02X", it.value); ImGui::SameLine();
-						ImGui::Text("%02X", it.compare); ImGui::SameLine();
-
-						if (ImGui::Button("Delete"))
+						ImGui::AlignTextToFramePadding();
+						ImGui::Checkbox("##cheatenabled", &it.enabled);
+						ImGui::SameLine();
+						if (ImGui::Selectable(it.name.c_str(), selected == n))
 						{
-							if (cheats.size() > 0)
+							selected = n;
+							cheatstr = it.name + '\n';
+							for (int i = 0; i < it.gglines.size(); i++)
 							{
-								auto its = remove_if(cheats.begin(), cheats.end(), [&](const Cheats& obj)
-									{
-										return (obj.addr == it.addr);
-									});
-
-								if (its != cheats.end())
-								{
-									cheats.erase(its, cheats.end());
-								}
+								cheatstr += it.gglines[i] + '\n';
 							}
 						}
-
+						ImGui::SameLine();
+						ImGui::NextColumn();
+						ImGui::AlignTextToFramePadding();
+						if (ImGui::Button("Delete"))
+						{
+							if (MEM::cheats.size() > 0)
+							{
+								MEM::cheats.erase(MEM::cheats.begin() + n);
+								MEM::mapper->update();
+							}
+						}
+						ImGui::NextColumn();
 						ImGui::PopID();
 
 						n++;
 					}
+					ImGui::Columns(1);
 					ImGui::ListBoxFooter();
 				}
 			}
 			ImGui::EndChild();
 
-			if (ImGui::InputText("##cheatname", (char*)cheatname, IM_ARRAYSIZE(cheatname), INPUT_FLAGS))
+			ImGui::AlignTextToFramePadding();
+			ImGui::PushItemWidth(-1);
+			ImGui::Text("Cheat Code Input");
+			ImGui::PopItemWidth();
+			ImGui::InputTextMultiline("##chttext", &cheatstr, ImVec2(-1, 200), INPUT_FLAGS);
+
+			if (ImGui::BeginPopupContextItem("##chttext", ImGuiMouseButton_Right))
 			{
-				int yu = 0;
+				if (ImGui::MenuItem("Paste", nullptr, false))
+				{
+					cheatstr = ImGui::GetClipboardText();
+				}
+				ImGui::EndPopup();
 			}
 
-			if (ImGui::InputText("##cheataddr", (char*)cheataddr, IM_ARRAYSIZE(cheataddr), INPUT_FLAGS))
-			{
-				int yu = 0;
-			}
-
-			ImGui::SameLine();
-
-			if (ImGui::InputText("##cheatval", (char*)cheatval, IM_ARRAYSIZE(cheatval), INPUT_FLAGS))
-			{
-				int yu = 0;
-			}
-
-			ImGui::SameLine();
-
-			if (ImGui::InputText("##cheatcmp", (char*)cheatcmp, IM_ARRAYSIZE(cheatcmp), INPUT_FLAGS))
-			{
-				int yu = 0;
-			}
-
-			if (ImGui::InputText("##cheatgenie", (char*)cheatgenie, IM_ARRAYSIZE(cheatgenie), ALLCAP_FLAGS))
-			{
-				decrypt_genie(cheatgenie);
-			}
-
+			ImGui::BeginDisabled(!MEM::rom_loaded);
 			if (ImGui::Button("Add", ImVec2(BUTTON_W, 0)))
 			{
+				vector<string> data;
+				istringstream iss(cheatstr);
+				string s;
+				bool name = false;
+				int id = 0;
+
+				while (getline(iss, s))
+				{
+					while (s.find(" ") == 0)
+						s.erase(0, 1);
+
+					if (!s.empty() && s[s.size() - 1] == '\r')
+						s.erase(s.size() - 1);
+
+					if (!name)
+					{
+						snprintf(cheatname, sizeof(cheatname), "%s", s.c_str());
+						name = true;
+						continue;
+					}
+
+					data.push_back(s);
+				}
+
 				Cheats c;
-				c.name = cheatname;
-				c.addr = (u16)stoul(cheataddr, nullptr, 16);
-				c.value = (u8)stoul(cheatval, nullptr, 16);
-				if (strlen(cheatcmp) > 0)
-					c.compare = (u8)stoul(cheatcmp, nullptr, 16);
-				else
-					c.compare = 0;
-				cheats.push_back(c);
+				CheatLine l;
+				for (int i = 0; i < data.size(); i++)
+				{
+					if (data[i].empty())
+						continue;
+
+					if (decrypt_genie(data[i].c_str()) == 0)
+					{
+						c.id = MEM::cheats.size();
+						c.name = cheatname;
+						l.addr = strlen(cheataddr) ? (u16)stoul(cheataddr, nullptr, 16) : 0;
+						l.value = strlen(cheatval) ? (u8)stoul(cheatval, nullptr, 16) : 0;
+						l.compare = strlen(cheatcmp) && strlen(s.c_str()) == 8 ? (u8)stoul(cheatcmp, nullptr, 16) : -1;
+						l.size = strlen(cheatgenie);
+						c.gglines.push_back(data[i]);
+						c.lines.push_back(l);
+						c.enabled = 1;
+					}
+				}
+				MEM::cheats.push_back(c);
+			}
+			ImGui::EndDisabled();
+
+			ImGui::SameLine();
+
+			ImGui::BeginDisabled(MEM::cheats.size() == 0);
+			if (ImGui::Button("Save", ImVec2(BUTTON_W, 0)))
+			{
+				vector<TCHAR> path(MAX_PATH);
+				GetModuleFileName(nullptr, &path.at(0), path.size());
+				char* ind = strrchr(path.data(), '\\');
+				if (ind != NULL)
+					*ind = '\0';
+
+				string temp(path.data());
+
+				if (!fs::is_directory(temp + "/cheats"))
+					fs::create_directory(temp + "/cheats");
+
+				int num = 0;
+				ofstream chtfile(temp + "/cheats/" + header.name + ".cht");
+				for (const auto& cht : MEM::cheats)
+				{
+					chtfile << cht.name << "," << cht.enabled << "\n";
+					for (const auto& line : cht.lines)
+					{
+						if (strlen(cheatname) == 0)
+						{
+							cheatname[0] = 0x20;
+							cheatname[1] = 0x00;
+						}
+
+						chtfile << hex << setw(4) << setfill('0') << line.addr << ",";
+						chtfile << hex << setw(2) << setfill('0') << (int)line.value << ",";
+						chtfile << hex << setw(2) << setfill('0') << (line.compare & 0xff) << "\n";
+
+						num++;
+					}
+					chtfile << "\n";
+				}
+				chtfile.close();
+			}
+			ImGui::EndDisabled();
+
+			ImGui::SameLine();
+
+			ImGui::BeginDisabled(!MEM::rom_loaded);
+			if (ImGui::Button("Load", ImVec2(BUTTON_W, 0)))
+			{
+				vector<TCHAR> path(MAX_PATH);
+				GetModuleFileName(nullptr, &path.at(0), path.size());
+				char* ind = strrchr(path.data(), '\\');
+				if (ind != NULL)
+					*ind = '\0';
+
+				string temp(path.data());
+
+				if (fs::exists(temp + "/cheats/" + header.name + ".cht"))
+				{
+					ifstream chtfile(temp + "/cheats/" + header.name + ".cht");
+					string s;
+					stringstream ss;
+
+					MEM::cheats.swap(vector<Cheats>());
+
+					while (getline(chtfile, s, '\n'))
+					{
+						Cheats c;					
+						stringstream ss1(s);
+						getline(ss1, s, ',');
+						c.name = s;
+						getline(ss1, s, ',');
+						c.enabled = stoul(s.c_str(), nullptr);
+						while (getline(chtfile, s, '\n'))
+						{
+							if (s.empty())
+								break;
+
+							CheatLine l;
+							stringstream ss(s);
+							char* ptr;
+							getline(ss, s, ',');
+							l.addr = (u16)strtoul(s.c_str(), &ptr, 16);
+							getline(ss, s, ',');
+							l.value = (u8)strtoul(s.c_str(), &ptr, 16);
+							getline(ss, s, ',');
+							l.compare = (u8)strtoul(s.c_str(), &ptr, 16);
+							c.lines.push_back(l);
+						}
+
+						if (c.lines.size())
+							MEM::cheats.push_back(c);
+					}
+
+					chtfile.close();
+				}
 			}
 		}
+		ImGui::EndDisabled();
 		ImGui::End();
-	}
-
-	void apply_cheats()
-	{
-		for (auto& it : cheats)
-		{
-			MEM::wb_cheats(it.addr, it.value);
-		}
 	}
 
 	void open_dialog()
 	{
 		if (ImGui::BeginPopupModal("Add breakpoint", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 		{
+			ImVec4 color = GREEN;
+			if (!light_mode)
+				color = BLUE;
+
 			ImGui::PushItemWidth(90);
 			if (ImGui::InputText("##bpadd", (char*)bpaddrtext, IM_ARRAYSIZE(bpaddrtext), INPUT_FLAGS))
 			{
@@ -647,32 +783,32 @@ namespace GUIGL
 
 			set_spacing(5);
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? BLUE : DEFCOLOR);
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_read ? color : DEFCOLOR);
 			if (ImGui::Button("Cpu Read", ImVec2(BUTTON_W, 0)))
 				bptype ^= bp_read;
 			ImGui::PopStyleColor();
 			ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? BLUE : DEFCOLOR);
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_write ? color : DEFCOLOR);
 			if (ImGui::Button("Cpu Write", ImVec2(BUTTON_W, 0)))
 				bptype ^= bp_write;
 			ImGui::PopStyleColor();
 			ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? BLUE : DEFCOLOR);
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_exec ? color : DEFCOLOR);
 			if (ImGui::Button("Cpu Exec", ImVec2(BUTTON_W, 0)))
 				bptype ^= bp_exec;
 			ImGui::PopStyleColor();
 
 			set_spacing(5);
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vread ? BLUE : DEFCOLOR);
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vread ? color : DEFCOLOR);
 			if (ImGui::Button("Ppu Read", ImVec2(BUTTON_W, 0)))
 				bptype ^= bp_vread;
 			ImGui::PopStyleColor();
 			ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vwrite ? BLUE : DEFCOLOR);
+			ImGui::PushStyleColor(ImGuiCol_Button, bptype & bp_vwrite ? color : DEFCOLOR);
 			if (ImGui::Button("Ppu Write", ImVec2(BUTTON_W, 0)))
 				bptype ^= bp_vwrite;
 			ImGui::PopStyleColor();
@@ -718,14 +854,101 @@ namespace GUIGL
 		}
 	}
 
+	int decrypt_genie(const char* code)
+	{
+		vector<u8> res;
+		memset(&cheatcmp, 0, sizeof(cheatcmp));
+
+		for (int i = 0; i < strlen(code); i++)
+		{
+			char c = genieletters.find(code[i]);
+			if (c == -1)
+				return -1;
+			res.push_back(c);
+		}
+
+		if (strlen(code) == 6 || strlen(code) == 8)
+		{
+			u16 addr = (res[3] & 7) << 12 | (res[5] & 7) << 8
+				| (res[2] & 7) << 4 | (res[4] & 7) | (res[4] & 8) << 8
+				| (res[1] & 8) << 4 | (res[3] & 8);
+			snprintf(cheataddr, sizeof(cheataddr), "%04X", addr | 0x8000);
+
+			if (strlen(code) == 6)
+			{
+				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+					| res[0] & 7 | res[5] & 8;
+				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+			}
+			else
+			{
+				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+					| res[0] & 7 | res[7] & 8;
+				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+
+				u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4
+					| res[6] & 7 | res[5] & 8;
+				snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
+			}
+		}
+		return 0;
+	}
+
+	int encrypt_genie(const char* code)
+	{
+		vector<u8> res;
+		memset(&cheatcmp, 0, sizeof(cheatcmp));
+
+		for (int i = 0; i < strlen(code); i++)
+		{
+			char c = genieletters.find(code[i]);
+			if (c == -1)
+				return -1;
+			res.push_back(c);
+		}
+
+		if (strlen(code) == 6 || strlen(code) == 8)
+		{
+			u16 addr = (res[3] & 7) << 12 | (res[5] & 7) << 8
+				| (res[2] & 7) << 4 | (res[4] & 7) | (res[4] & 8) << 8
+				| (res[1] & 8) << 4 | (res[3] & 8);
+			snprintf(cheataddr, sizeof(cheataddr), "%04X", addr | 0x8000);
+
+			if (strlen(code) == 6)
+			{
+				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+					| res[0] & 7 | res[5] & 8;
+				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+			}
+			else
+			{
+				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
+					| res[0] & 7 | res[7] & 8;
+				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+
+				u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4
+					| res[6] & 7 | res[5] & 8;
+				snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
+			}
+		}
+		return 0;
+	}
+
 	bool init()
 	{
 		IMGUI_CHECKVERSION();
 		if (!ImGui::CreateContext())
 			return false;
 
+		string path = "/assets/Consolas.ttf";
+		string fpath = fs::current_path().generic_string().c_str();
+
 		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		//io.Fonts->Fonts.Size = 15;
+		//ImFont* font1 = io.Fonts->AddFontFromFileTTF(path.c_str(), 14);
+		//ImFont* font = io.Fonts->AddFontFromMemoryCompressedBase85TTF(font_compressed_data_base85, 13);
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+		//io.GetClipboardTextFn
 		//io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 		//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 
@@ -734,40 +957,6 @@ namespace GUIGL
 		ImGui_ImplOpenGL3_Init(SDL::glsl_version);
 
 		return true;
-	}
-
-	void decrypt_genie(char* code)
-	{
-		vector<u8> res;
-		for (int i = 0; i < sizeof(code); i++)
-		{
-			char c = genieletters.find(code[i]);
-			if (c == -1)
-				break;
-			res.push_back(c);
-		}
-
-		u16 addr = (res[3] & 7) << 12 | (res[5] & 7) << 8
-			| (res[2] & 7) << 4 | (res[4] & 7) | (res[4] & 8) << 8
-			| (res[1] & 8) << 4 | (res[3] & 8);
-		snprintf(cheataddr, sizeof(cheataddr), "%04X", addr | 0x8000);
-
-		if (strlen(code) == 6)
-		{
-			u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
-				| res[0] & 7 | res[5] & 8;
-			snprintf(cheatval, sizeof(cheatval), "%02X", val);
-		}
-		else
-		{
-			u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
-				| res[0] & 7 | res[7] & 8;
-			snprintf(cheatval, sizeof(cheatval), "%02X", val);
-
-			u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4
-				| res[6] & 7 | res[5] & 8;
-			snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
-		}
 	}
 
 	void clean()

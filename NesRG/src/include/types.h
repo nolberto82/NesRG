@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#define SDL_MAIN_HANDLED
+
+
 #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
 #define _CRT_SECURE_NO_WARNINGS
 #endif
@@ -37,6 +40,9 @@ typedef __int32 s32;
 
 const int APP_WIDTH = 1250;
 const int APP_HEIGHT = 975;
+
+//const int APP_WIDTH = 512;
+//const int APP_HEIGHT = 480;
 
 const int NES_WIDTH = 256;
 const int NES_HEIGHT = 240;
@@ -129,12 +135,21 @@ struct PpuStatus
 	u8 vblank;
 };
 
+struct CheatLine
+{
+	u16 addr;
+	s8 compare;
+	u8 value;
+	u8 size;
+};
+
 struct Cheats
 {
+	int id;
 	string name;
-	u16 addr;
-	u8 compare;
-	u8 value;
+	vector<CheatLine> lines;
+	vector<string> gglines;
+	bool enabled;
 };
 
 extern Registers reg;

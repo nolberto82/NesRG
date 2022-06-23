@@ -1,18 +1,22 @@
 #include "mappers.h"
 #include "mem.h"
 
-void Mapper009::setup(struct Header h)
+void Mapper009::setup()
 {
-	int prgsize = h.prgnum * 0x4000;
-	int chrsize = h.chrnum * 0x2000;
+	int prgsize = header.prgnum * 0x4000;
+	int chrsize = header.chrnum * 0x2000;
 
-	memcpy(&MEM::ram[0xa000], MEM::rom.data() + 0x10 + prgsize - 0x6000, prgsize / h.prgnum / 2);
-	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
+	memcpy(&MEM::ram[0xa000], MEM::rom.data() + 0x10 + prgsize - 0x6000, prgsize / header.prgnum / 2);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / header.prgnum), prgsize / header.prgnum);
 	if (chrbank > 0)
 	{
-		memcpy(&MEM::vram[0x0000], MEM::vrom.data() + 0x8000, chrsize / h.chrnum / 2);
-		memcpy(&MEM::vram[0x1000], MEM::vrom.data() + 0x7000, chrsize / h.chrnum / 2);
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data() + 0x8000, chrsize / header.chrnum / 2);
+		memcpy(&MEM::vram[0x1000], MEM::vrom.data() + 0x7000, chrsize / header.chrnum / 2);
 	}
+}
+
+void Mapper009::update()
+{
 }
 
 void Mapper009::wb(u16 addr, u8 v)

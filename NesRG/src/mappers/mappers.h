@@ -25,7 +25,8 @@ public:
 	u8 fire = 0;
 	u8 counter = 0;
 
-	virtual void setup(struct Header h) = 0;
+	virtual void setup() = 0;
+	virtual void update() = 0;
 	virtual void wb(u16 addr, u8 v) = 0;
 	virtual u8 rb(u16 addr) = 0;
 	virtual void set_latch(u16 addr, u8 v) = 0;
@@ -42,7 +43,8 @@ struct Mapper000 : public Mapper
 	vector<u8> prg;
 	vector<u8> chr;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -62,7 +64,8 @@ struct Mapper001 : public Mapper
 	u8 writes = 0;
 	u8 control = 0;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -79,7 +82,8 @@ struct Mapper002 : public Mapper
 	vector<u8> prg;
 	vector<u8> chr;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -96,7 +100,8 @@ struct Mapper003 : public Mapper
 	vector<u8> prg;
 	vector<u8> chr;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -121,7 +126,8 @@ struct Mapper004 : public Mapper
 	u8 chrreg = 0;
 	u8 bankreg[8] = { 0 };
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -147,7 +153,8 @@ struct Mapper005 : public Mapper
 	u8 prg_ram = 0;
 	u8 chrreg[8] = { 0 };
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void switchchr(u16 addr, u8 v);
@@ -165,7 +172,8 @@ struct Mapper007 : public Mapper
 	vector<u8> prg;
 	vector<u8> chr;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v) {};
@@ -187,7 +195,8 @@ struct Mapper009 : public Mapper
 	u8 latch1 = 1, latch2 = 1;
 	u8 updatechr = 0;
 
-	void setup(struct Header h);
+	void setup();
+	void update();
 	void wb(u16 addr, u8 v);
 	u8 rb(u16 addr);
 	void set_latch(u16 addr, u8 v);

@@ -10,8 +10,8 @@ namespace PPU
 	void step()
 	{
 		u8 tc = 260;
-		if (pctrl.spritesize == 0 && pctrl.bgaddr == 0x1000)
-			tc = 324;
+		//if (pctrl.spritesize == 0 && pctrl.bgaddr == 0x1000)
+		//	tc = 324;
 
 		if (scanline < 240 && cycle == tc && RENDERING)
 		{
@@ -22,8 +22,8 @@ namespace PPU
 		{
 			if ((cycle >= CYCLE_START && cycle < CYCLE_END) || (cycle >= CYCLE_PRE1 && cycle <= CYCLE_PRE2))
 			{
-				render_pixels();
 				get_tiles();
+				render_pixels();
 			}
 
 			if (cycle == 338 || cycle == 339)
@@ -142,13 +142,15 @@ namespace PPU
 
 		u8 v = 0;
 
-		v = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sproverflow << 5) & 0xe0
+		v = p2002 = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sproverflow << 5) & 0xe0
 			| (dummy2007 & 0x1f);
 
 		if (scanline == 241)
 		{
 			if (cycle == 0)
 			{
+				//v |= 0x80;
+
 				no_nmi = no_vbl = 1;
 			}
 			else if (cycle == 1 || cycle == 2)
@@ -158,11 +160,14 @@ namespace PPU
 			else if (cycle == 3)
 			{
 				no_nmi = 0;
+				pstatus.vblank = 0;
+				//MEM::ram[0x2000] = v & 0x7f;
+				MEM::ram[0x2002] = v & 0x7f;
 				return v &= 0x7f;
 			}
 		}
 
-		MEM::ram[0x2000] |= v;
+		//MEM::ram[0x2000] |= v;
 		MEM::ram[0x2002] = v & 0x7f;
 		pstatus.vblank = 0;
 
@@ -184,7 +189,7 @@ namespace PPU
 		MEM::ram[0x2003] = p2003++;
 	}
 
-	void ppuscroll(u8 v)
+	void ppuscroll(u8 v) //2005
 	{
 		if (!lp.w)
 		{
@@ -202,7 +207,7 @@ namespace PPU
 		MEM::ram[0x2002] = v;
 	}
 
-	void ppuaddr(u8 v)
+	void ppuaddr(u8 v) //2006
 	{
 		if (!lp.w)
 			lp.t = (u16)((lp.t & 0x80ff) | (v & 0x3f) << 8);
@@ -210,14 +215,30 @@ namespace PPU
 		{
 			lp.t = (lp.t & 0xff00) | v;
 			lp.v = lp.t;
+
+			if ((lp.v ^ a12) & 0x1000)
+			{
+				if (lp.v & 0x1000)
+					MEM::mapper->scanline();
+				a12 = lp.v;
+			}
 		}
 		lp.w ^= 1;
+
+
 	}
 
-	void data_wb(u8 v)
+	void data_wb(u8 v) //2007
 	{
 		MEM::ppuwb(lp.v, v);
 		lp.v += pctrl.vaddr ? 32 : 1;
+
+		if ((lp.v ^ a12) & 0x1000)
+		{
+			if (lp.v & 0x1000)
+				MEM::mapper->scanline();
+			a12 = lp.v;
+		}
 	}
 
 	u8 data_rb()
@@ -266,7 +287,7 @@ namespace PPU
 
 	void render_pixels()
 	{
-		u16 x = cycle - 2;
+		int x = cycle - 1;
 		u16 y = scanline;
 		u8 bg_pixel = 0;
 		u8 bg_pal = 0;
@@ -277,7 +298,7 @@ namespace PPU
 
 		if (pmask.background)
 		{
-			if (BACKGROUND_LEFT)
+			if (x >= 8 || pmask.backgroundleft)
 			{
 				bg_pixel = (((bgshiftlo >> (15 - lp.fx)) & 1) | (bgshifthi >> (15 - lp.fx) & 1) * 2);
 				bg_pal = ((atshiftlo >> (7 - lp.fx) & 1) | (atshifthi >> (7 - lp.fx) & 1) * 2) & 3;
@@ -286,7 +307,7 @@ namespace PPU
 
 		if (pmask.sprite)
 		{
-			if (SPRITE_LEFT)
+			if (!(x < 8 && !pmask.spriteleft))
 			{
 				u16 bgaddr = pctrl.spraddr ? 0x1000 : 0x0000;
 				u16 oamaddr = 0x0100 * oamdma;
@@ -299,8 +320,9 @@ namespace PPU
 					u8 sx = spx = spr.x;
 					u8 fx = (x - sx);
 					u8 fy = (y - sy) & (pctrl.spritesize ? 15 : 7);
+					if (spr.x == 255) continue;
 					if (spr.y >= 239) continue;
-					if (fx < 0 || fx > 7) continue;
+					if (fx < 0 || fx > 8) continue;
 
 					u16 spraddr = 0;
 					if (!(attrib & 0x40)) fx = 7 - fx;
@@ -313,19 +335,20 @@ namespace PPU
 
 					spr_pixel = (MEM::ppurb(spraddr) >> fx & 1) | (MEM::ppurb(spraddr + 8) >> fx & 1) * 2;
 					if (!spr_pixel) continue;
-					spr_pal = attrib & 3;
 
-					if (spr.spritenum == 0 && pmask.background && pmask.sprite)
+					if (spr.spritenum == 0 && pmask.sprite)
 					{
 						if (bg_pixel)
 						{
-							if (sx != 255 && x != 255 && x < 255 && !pstatus.sprite0hit)
+							if (x < 255 && !pstatus.sprite0hit)
 							{
 								MEM::ram[0x2002] |= 0x40;
 								pstatus.sprite0hit = 1;
+								sprnum = 0;
 							}
 						}
 					}
+					spr_pal = attrib & 3;
 					break;
 				}
 			}

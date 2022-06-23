@@ -48,12 +48,14 @@ namespace GUIGL
 	inline bool trace_logger = false;
 	inline bool mem_viewer = false;
 	inline bool debug_viewer = false;
+	inline bool cheat_clip = false;
 	inline bool emu_rom = false;
 	inline bool emu_run = false;
 	inline bool emu_reset = false;
 	inline bool debug_enable = false;
 	inline bool cheat_opened = false;
 	inline bool ppu_enable = false;
+	inline bool light_mode = true;
 	inline u8 resize_window = 2;
 
 	inline string genieletters = "APZLGITYEOXUKSVN";
@@ -64,6 +66,7 @@ namespace GUIGL
 	inline bool follow_pc;
 
 	inline u16 inputaddr;
+	inline string cheatstr;
 	inline char bpaddrtext[5] = { 0 };
 	inline char cheatname[256] = { 0 };
 	inline char cheataddr[5] = { 0 };
@@ -88,11 +91,10 @@ namespace GUIGL
 	void show_disassembly(u16 pc);
 	void show_rom_info();
 	void cheat_dialog();
-	void apply_cheats();
 	void open_dialog();
 	void run_emu();
 	void reset_emu();
+	int decrypt_genie(const char* code);
 	bool init();
-	void decrypt_genie(char* code);
 	void clean();
 }

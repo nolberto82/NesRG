@@ -5,17 +5,21 @@
 u8 chrid[2][8] = { {0,0,1,1,2,3,4,5}, {2,3,4,5,0,0,1,1} };
 s8 masid[2][8] = { {-2,1,-2,1,-1,-1,-1,-1}, {-1,-1,-1,-1,-2,1,-2,1} };
 
-void Mapper004::setup(struct Header h)
+void Mapper004::setup()
 {
-	int prgsize = h.prgnum * 0x4000;
-	int chrsize = h.chrnum * 0x2000;
+	int prgsize = header.prgnum * 0x4000;
+	int chrsize = header.chrnum * 0x2000;
 
-	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / h.prgnum);
-	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
-	if (h.chrnum > 0)
+	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / header.prgnum);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / header.prgnum), prgsize / header.prgnum);
+	if (header.chrnum > 0)
 	{
-		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / header.chrnum);
 	}
+}
+
+void Mapper004::update()
+{
 }
 
 void Mapper004::wb(u16 addr, u8 v)

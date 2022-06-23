@@ -207,7 +207,7 @@ void main_update()
 		main_step_frame();
 
 	if (newkeys.f9 && !oldkeys.f9) //run 240 scanlines
-		main_step_scanline(240);
+		main_step_scanline(120);
 
 	if (ImGui::IsKeyPressed(SDL_SCANCODE_F10)) //step over
 		main_step_over();

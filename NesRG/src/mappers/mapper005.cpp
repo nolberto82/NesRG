@@ -4,17 +4,21 @@
 
 u8 chr5id[2][8] = { {0,1,2,3,4,5,6,7}, {8,9,10,11,8,9,10,11} };
 
-void Mapper005::setup(struct Header h)
+void Mapper005::setup()
 {
-	int prgsize = h.prgnum * 0x4000;
-	int chrsize = h.chrnum * 0x2000;
+	int prgsize = header.prgnum * 0x4000;
+	int chrsize = header.chrnum * 0x2000;
 
-	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / h.prgnum);
-	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
-	if (h.chrnum > 0)
+	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / header.prgnum);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / header.prgnum), prgsize / header.prgnum);
+	if (header.chrnum > 0)
 	{
-		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / header.chrnum);
 	}
+}
+
+void Mapper005::update()
+{
 }
 
 void Mapper005::wb(u16 addr, u8 v)

@@ -26,6 +26,8 @@ namespace MEM
 	inline vector<u8> rom;
 	inline vector<u8> vrom;
 
+	inline vector<Cheats> cheats;
+
 	inline int mirrornametable = 0;
 
 	inline bool rom_loaded = false;
@@ -42,6 +44,7 @@ namespace MEM
 	bool set_mapper();
 	bool load_file(const char* filename, std::vector<u8>& rom, int offset, int size);
 	u8 rb(u16 addr, u8 opbit = 0);
+	void apply_cheats(u16 addr);
 	u8 rbd(u16 addr);
 	u16 rw(u16 addr);
 	u16 rwd(u16 addr);

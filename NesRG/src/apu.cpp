@@ -2,7 +2,7 @@
 #include "mem.h"
 #include "sdlcc.h"
 
-const long sample_rate = 44000;
+const long sample_rate = 96000;
 const size_t bufsize = 4096;
 blip_sample_t buf[bufsize];
 Simple_Apu* sapu;
@@ -44,11 +44,11 @@ namespace APU
 		if (!SDL::frame_limit)
 			return;
 
-		if (sapu->samples_avail() >= bufsize)
-		{
+		//if (sapu->samples_avail() >= bufsize)
+		//{
 			long count = sapu->read_samples(buf, bufsize);
 			play(buf, count);
-		}
+		//}
 		sapu->end_frame();
 	}
 

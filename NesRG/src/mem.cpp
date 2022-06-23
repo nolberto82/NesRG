@@ -92,7 +92,7 @@ namespace MEM
 		}
 
 		mapper->reset();
-		mapper->setup(header);
+		mapper->setup();
 		CPU::reset();
 
 		return true;
@@ -127,7 +127,12 @@ namespace MEM
 
 	u8 rb(u16 addr, u8 opbit)
 	{
+		u8 v = 0;
 		read_addr = addr;
+
+		apply_cheats(addr);
+
+		v = ram[addr];
 
 		PPU_STEP;
 		cpu.cpucycles++;
@@ -136,18 +141,33 @@ namespace MEM
 		if (addr >= 0x2000 && addr <= 0x3fff)
 		{
 			if ((addr & 0x7) == 0x02)
-				return PPU::status(opbit);
+				v = PPU::status(opbit);
 			if ((addr & 0x7) == 0x07)
-				return PPU::data_rb();
+				v = PPU::data_rb();
 		}
 		else if (addr == 0x4015)
-			return APU::rb();
+			v = APU::rb();
 		else if (addr == 0x4016)
-			return controls_read();
+			v = controls_read();
 		else if (addr >= 0x6000 && addr <= 0x7fff)
-			return ram[addr];
+			v = ram[addr];
 
-		return ram[addr];
+		return v;
+	}
+
+	void apply_cheats(u16 addr)
+	{
+		for (auto& it : cheats)
+		{
+			if (it.enabled)
+			{
+				for (auto& l : it.lines)
+					if (l.addr == addr && (u8)l.compare == ram[l.addr])
+						MEM::wb_cheats(l.addr, l.value);
+					else if (l.addr == addr && l.compare == -1)
+						MEM::wb_cheats(l.addr, l.value);
+			}
+		}
 	}
 
 	u8 rbd(u16 addr)
@@ -309,8 +329,6 @@ namespace MEM
 			vram[0x3f00] = v;
 		else if (addr == 0x3f00)
 			vram[0x3f10] = v;
-		//else if (addr == 0x3f10)
-		//	vram[addr & 0x3fff] = v;
 	}
 
 	void wb_cheats(u16 addr, u8 val, s8 cmp)

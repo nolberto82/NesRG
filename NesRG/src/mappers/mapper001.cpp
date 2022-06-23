@@ -1,21 +1,25 @@
 #include "mappers.h"
 #include "mem.h"
 
-void Mapper001::setup(Header h)
+void Mapper001::setup()
 {
-	int prgsize = h.prgnum * 0x4000;
-	int chrsize = h.chrnum * 0x2000;
+	int prgsize = header.prgnum * 0x4000;
+	int chrsize = header.chrnum * 0x2000;
 
-	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / h.prgnum);
-	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / h.prgnum), prgsize / h.prgnum);
-	if (h.chrnum > 0)
+	memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize / header.prgnum);
+	memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10 + prgsize - (prgsize / header.prgnum), prgsize / header.prgnum);
+	if (header.chrnum > 0)
 	{
-		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / h.chrnum);
+		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize / header.chrnum);
 	}
 
 	header.mirror = 0;
 	sram = 1;
 	MEM::load_sram();
+}
+
+void Mapper001::update()
+{
 }
 
 void Mapper001::wb(u16 addr, u8 v)
