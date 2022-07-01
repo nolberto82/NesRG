@@ -673,13 +673,7 @@ namespace GUIGL
 			ImGui::BeginDisabled(MEM::cheats.size() == 0);
 			if (ImGui::Button("Save", ImVec2(BUTTON_W, 0)))
 			{
-				vector<TCHAR> path(MAX_PATH);
-				GetModuleFileName(nullptr, &path.at(0), path.size());
-				char* ind = strrchr(path.data(), '\\');
-				if (ind != NULL)
-					*ind = '\0';
-
-				string temp(path.data());
+				string temp = get_exec_path();
 
 				if (!fs::is_directory(temp + "/cheats"))
 					fs::create_directory(temp + "/cheats");
@@ -714,53 +708,7 @@ namespace GUIGL
 			ImGui::BeginDisabled(!MEM::rom_loaded);
 			if (ImGui::Button("Load", ImVec2(BUTTON_W, 0)))
 			{
-				vector<TCHAR> path(MAX_PATH);
-				GetModuleFileName(nullptr, &path.at(0), path.size());
-				char* ind = strrchr(path.data(), '\\');
-				if (ind != NULL)
-					*ind = '\0';
-
-				string temp(path.data());
-
-				if (fs::exists(temp + "/cheats/" + header.name + ".cht"))
-				{
-					ifstream chtfile(temp + "/cheats/" + header.name + ".cht");
-					string s;
-					stringstream ss;
-
-					MEM::cheats.swap(vector<Cheats>());
-
-					while (getline(chtfile, s, '\n'))
-					{
-						Cheats c;
-						stringstream ss1(s);
-						getline(ss1, s, ',');
-						c.name = s;
-						getline(ss1, s, ',');
-						c.enabled = stoul(s.c_str(), nullptr);
-						while (getline(chtfile, s, '\n'))
-						{
-							if (s.empty())
-								break;
-
-							CheatLine l;
-							stringstream ss(s);
-							char* ptr;
-							getline(ss, s, ',');
-							l.addr = (u16)strtoul(s.c_str(), &ptr, 16);
-							getline(ss, s, ',');
-							l.value = (u8)strtoul(s.c_str(), &ptr, 16);
-							getline(ss, s, ',');
-							l.compare = (u8)strtoul(s.c_str(), &ptr, 16);
-							c.lines.push_back(l);
-						}
-
-						if (c.lines.size())
-							MEM::cheats.push_back(c);
-					}
-
-					chtfile.close();
-				}
+				load_cheats();
 			}
 		}
 		ImGui::EndDisabled();
@@ -935,6 +883,51 @@ namespace GUIGL
 			}
 		}
 		return 0;
+	}
+
+	void load_cheats()
+	{
+		string temp = get_exec_path();
+
+		if (fs::exists(temp + "/cheats/" + header.name + ".cht"))
+		{
+			ifstream chtfile(temp + "/cheats/" + header.name + ".cht");
+			string s;
+			stringstream ss;
+
+			MEM::cheats.swap(vector<Cheats>());
+
+			while (getline(chtfile, s, '\n'))
+			{
+				Cheats c;
+				stringstream ss1(s);
+				getline(ss1, s, ',');
+				c.name = s;
+				getline(ss1, s, ',');
+				c.enabled = stoul(s.c_str(), nullptr);
+				while (getline(chtfile, s, '\n'))
+				{
+					if (s.empty())
+						break;
+
+					CheatLine l;
+					stringstream ss(s);
+					char* ptr;
+					getline(ss, s, ',');
+					l.addr = (u16)strtoul(s.c_str(), &ptr, 16);
+					getline(ss, s, ',');
+					l.value = (u8)strtoul(s.c_str(), &ptr, 16);
+					getline(ss, s, ',');
+					l.compare = (u8)strtoul(s.c_str(), &ptr, 16);
+					c.lines.push_back(l);
+				}
+
+				if (c.lines.size())
+					MEM::cheats.push_back(c);
+			}
+
+			chtfile.close();
+		}
 	}
 
 	bool init()

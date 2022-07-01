@@ -3,6 +3,7 @@
 #include "apu.h"
 #include "mem.h"
 #include "mappers.h"
+#include "gui.h"
 
 namespace CPU
 {
@@ -617,6 +618,7 @@ namespace CPU
 		cpu.state = cstate::debugging;
 		cpu.stepoveraddr = -1;
 		APU::reset();
+		GUIGL::load_cheats();
 	}
 
 	void op_nmi()

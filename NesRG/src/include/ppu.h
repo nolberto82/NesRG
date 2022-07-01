@@ -41,7 +41,9 @@ namespace PPU
 	void render_pattern();
 	void x_inc();
 	void y_inc();
+	void clear_sprites();
 	void eval_sprites();
+	void load_sprites();
 	bool odd_frame();
 	u16 get_nt_addr();
 	u8 get_nt_byte(u16 a);

@@ -95,6 +95,7 @@ namespace GUIGL
 	void run_emu();
 	void reset_emu();
 	int decrypt_genie(const char* code);
+	void load_cheats();
 	bool init();
 	void clean();
 }

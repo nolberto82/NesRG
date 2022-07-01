@@ -80,7 +80,7 @@ void Mapper004::wb(u16 addr, u8 v)
 		else
 		{
 			write_prot = (v >> 6) & 1;
-			prg_ram = (v >> 7) & 1;
+			sram = (v >> 7) & 1;
 		}
 	}
 	else if (addr >= 0xc000 && addr <= 0xdfff)
@@ -125,7 +125,7 @@ void Mapper004::scanline()
 
 	if (counter == 0 && irq)
 	{
-		if ((reg.ps & FI) == 0)
+		//if ((reg.ps & FI) == 0)
 			fire = 1;
 			//CPU::op_irq(reg.pc);
 

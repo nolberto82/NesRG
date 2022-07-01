@@ -101,7 +101,9 @@ struct SpriteData
 	u8 tile;
 	u8 attrib;
 	u8 y;
-	u8 spritenum;
+	u8 num;
+	u8 lo;
+	u8 hi;
 };
 
 struct PpuCtrl

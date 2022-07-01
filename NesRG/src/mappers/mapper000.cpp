@@ -8,6 +8,7 @@ void Mapper000::setup()
 
 	if (header.prgnum == 1)
 	{
+		memcpy(&MEM::ram[0x8000], MEM::rom.data() + 0x10, prgsize);
 		memcpy(&MEM::ram[0xc000], MEM::rom.data() + 0x10, prgsize);
 		memcpy(&MEM::vram[0x0000], MEM::vrom.data(), chrsize);
 	}

@@ -13,7 +13,7 @@ namespace PPU
 		//if (pctrl.spritesize == 0 && pctrl.bgaddr == 0x1000)
 		//	tc = 324;
 
-		if (scanline < 240 && cycle == tc && RENDERING)
+		if ((scanline < 240 || scanline == SCAN_PRE) && cycle == tc && RENDERING)
 		{
 			MEM::mapper->scanline();
 		}
@@ -34,10 +34,14 @@ namespace PPU
 			//increment y scroll
 			if (cycle == 257)
 			{
-				y_inc();
-				load_registers();
 				eval_sprites();
+				load_registers();
+				y_inc();
 			}
+
+
+			//if (cycle == 321)
+			//	load_sprites();
 
 			//copy horizontal bits
 			if (cycle == 256)
@@ -48,7 +52,7 @@ namespace PPU
 			if (cycle == 1)
 			{
 				frame++;
-				frame_ready = true;
+				//frame_ready = true;
 			}
 		}
 		else if (scanline == VBLANK)
@@ -73,10 +77,9 @@ namespace PPU
 				//copy horizontal bits
 				if (cycle == 257)
 				{
-					//y_inc();
-					lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 					load_registers();
 					eval_sprites();
+					lp.v = (lp.v & ~0x41f) | (lp.t & 0x41f);
 				}
 
 				if ((cycle > 280 && cycle <= 304))
@@ -85,7 +88,7 @@ namespace PPU
 				//if (cycle == 1)
 				//	SDL::draw_frame(screen_pixels, cpu.state);
 
-				frame_ready = false;
+				//frame_ready = false;
 			}
 
 			if (cycle == 339)
@@ -106,6 +109,7 @@ namespace PPU
 				pstatus.sproverflow = 0;
 				no_nmi = no_vbl = 0;
 				MEM::ram[0x2002] &= 0x1f;
+				frame_ready = true;
 			}
 		}
 	}
@@ -120,8 +124,14 @@ namespace PPU
 		pctrl.spritesize = (v >> 5) & 1;
 		pctrl.nmi = (v >> 7) & 1;
 
-		if (pctrl.nmi && pstatus.vblank && !CPU::nmi_vblank)
-			CPU::nmi_triggered = 1;
+		//if (!pstatus.vblank)
+		//	pctrl.nmi = 0;
+		//else if (pstatus.vblank)
+		//	pctrl.nmi = 1;
+		//if (pctrl.nmi && pstatus.vblank && !CPU::nmi_vblank)
+		//	CPU::nmi_triggered = 1;
+
+
 
 		CPU::nmi_vblank = pctrl.nmi;
 		MEM::ram[0x2000 & 0x2007] = v;
@@ -130,7 +140,7 @@ namespace PPU
 	void mask(u8 v)
 	{
 		MEM::ram[0x2001] = v;
-		MEM::ram[0x2002] = v;
+		MEM::ram[0x2002] |= v;
 		pmask.backgroundleft = (v >> 1) & 1;
 		pmask.spriteleft = (v >> 2) & 1;
 		pmask.background = (v >> 3) & 1;
@@ -142,33 +152,33 @@ namespace PPU
 
 		u8 v = 0;
 
-		v = p2002 = (pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sproverflow << 5) & 0xe0
+		v = p2002 = ((pstatus.vblank << 7 | pstatus.sprite0hit << 6 | pstatus.sproverflow << 5) & 0xe0)
 			| (dummy2007 & 0x1f);
 
 		if (scanline == 241)
 		{
-			if (cycle == 0)
-			{
-				//v |= 0x80;
+			//if (cycle == 0)
+			//{
+			//	//v |= 0x80;
 
-				no_nmi = no_vbl = 1;
-			}
-			else if (cycle == 1 || cycle == 2)
-			{
-				return v &= 0x7f;
-			}
-			else if (cycle == 3)
-			{
-				no_nmi = 0;
-				pstatus.vblank = 0;
-				//MEM::ram[0x2000] = v & 0x7f;
-				MEM::ram[0x2002] = v & 0x7f;
-				return v &= 0x7f;
-			}
+			//	no_nmi = no_vbl = 1;
+			//}
+			//else if (cycle == 1 || cycle == 2)
+			//{
+			//	return v &= 0x7f;
+			//}
+			//else if (cycle == 3)
+			//{
+			//	no_nmi = 0;
+			//	pstatus.vblank = 0;
+			//	//MEM::ram[0x2000] = v & 0x7f;
+			//	MEM::ram[0x2002] &= 0x7f;
+			//	return v &= 0x7f;
+			//}
 		}
 
 		//MEM::ram[0x2000] |= v;
-		MEM::ram[0x2002] = v & 0x7f;
+		MEM::ram[0x2002] &= 0x7f;
 		pstatus.vblank = 0;
 
 		lp.w = 0;
@@ -185,7 +195,7 @@ namespace PPU
 	{
 		p2004 = v;
 		MEM::ram[0x2004] = v;
-		MEM::ram[0x2002] |= 0x1f;
+		//MEM::ram[0x2002] |= 0x1f;
 		MEM::ram[0x2003] = p2003++;
 	}
 
@@ -340,7 +350,7 @@ namespace PPU
 					spr_pixel = (MEM::ppurb(spraddr) >> fx & 1) | (MEM::ppurb(spraddr + 8) >> fx & 1) * 2;
 					if (!spr_pixel) continue;
 
-					if (spr.spritenum == 0 && pmask.sprite)
+					if (spr.num == 0 && pmask.sprite)
 					{
 						if (bg_pixel)
 						{
@@ -550,33 +560,58 @@ namespace PPU
 		}
 	}
 
+	void clear_sprites()
+	{
+		memset(sprites, 0xff, sizeof(sprites));
+	}
+
 	void eval_sprites()
 	{
-		if (cycle == 257)
+
+
+		memset(sprites, 0xff, sizeof(sprites));
+		int c = 0;
+
+		for (int i = 0; i < 64; i++)
 		{
-			memset(sprites, 0xff, sizeof(sprites));
-			int c = 0;
-
-			for (int i = 0; i < 64; i++)
+			if (c >= 8)
 			{
-				if (c >= 8)
-				{
-					MEM::ram[0x2002] |= (pstatus.sproverflow) << 5;
-					break;
-				}
-
-				int yp = scanline - MEM::oam[i * 4 + 0];
-				u8 size = pctrl.spritesize ? 16 : 8;
-				if (yp > -1 && yp < size)
-				{
-					sprites[c].y = MEM::oam[i * 4 + 0];
-					sprites[c].tile = MEM::oam[i * 4 + 1];
-					sprites[c].attrib = MEM::oam[i * 4 + 2];
-					sprites[c].x = MEM::oam[i * 4 + 3];
-					sprites[c].spritenum = i;
-					c++;
-				}
+				MEM::ram[0x2002] |= (pstatus.sproverflow) << 5;
+				break;
 			}
+
+			int yp = scanline - MEM::oam[i * 4 + 0];
+			u8 size = pctrl.spritesize ? 16 : 8;
+			if (yp > -1 && yp < size)
+			{
+				sprites[c].y = MEM::oam[i * 4 + 0];
+				sprites[c].tile = MEM::oam[i * 4 + 1];
+				sprites[c].attrib = MEM::oam[i * 4 + 2];
+				sprites[c].x = MEM::oam[i * 4 + 3];
+				sprites[c].num = i;
+				c++;
+			}
+		}
+	}
+
+	void load_sprites()
+	{
+		u16 bgaddr = pctrl.spraddr & 0x08 ? 0x1000 : 0x0000;
+		for (auto& s : sprites)
+		{
+			u8 fy = 0;
+			u8 fx = 0;
+			u16 spraddr = 0;
+			if (!(s.attrib & 0x40)) fx = 7 - fx;
+			if (s.attrib & 0x80) fy = (pctrl.spritesize ? 15 : 7) - fy;
+
+			if (pctrl.spritesize)
+				spraddr = ((s.tile & 1) * 0x1000) + (s.tile & 0xfe) * 16 + fy + (fy & 8);
+			else
+				spraddr = bgaddr + s.tile * 16 + fy;
+
+			s.lo = MEM::ppurb(spraddr);
+			s.hi = MEM::ppurb(spraddr + 8);
 		}
 	}
 

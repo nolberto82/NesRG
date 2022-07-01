@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "ppu.h"
 #include "cpu.h"
+#include "main.h"
 
 void log_to_file(u16 pc)
 {
@@ -18,7 +19,8 @@ void create_close_log(bool status)
 
 	if (logging)
 	{
-		outFile.open("cpu_trace.log"); //outFile << "FCEUX 2.6.1 - Trace Log File\n";
+		string filename = header.name.substr(0, header.name.find_last_of("."));
+		outFile.open(get_exec_path() + "\\" + filename + ".log");
 
 		if (!outFile)
 		{
@@ -154,7 +156,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 	{
 		char temp[TEXTSIZE] = { 0 };
 		char str[TEXTSIZE] = { 0 };
-		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
+		snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X P:%02X SP:%02X CYC:%-3d SL:%-3d", //CPU Cycle:%d",
 			reg.a, reg.x, reg.y, reg.ps, reg.sp, PPU::cycle, PPU::scanline);// , PPU::totalcycles);
 		//snprintf(temp, TEXTSIZE, "A:%02X X:%02X Y:%02X SP:%02X CYC:%-3d SL:%-3d CPU Cycle:%d",
 		//	reg.a, reg.x, reg.y, reg.sp, PPU::cycle, PPU::scanline, PPU::totalcycles);

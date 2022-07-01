@@ -122,7 +122,6 @@ struct Mapper004 : public Mapper
 	u8 reload = 0;
 	u8 rvalue = 0;
 	u8 write_prot = 0;
-	u8 prg_ram = 0;
 	u8 chrreg = 0;
 	u8 bankreg[8] = { 0 };
 

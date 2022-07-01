@@ -151,7 +151,7 @@ namespace MEM
 			v = APU::rb();
 		else if (addr == 0x4016)
 			v = controls_read();
-		else if (addr >= 0x6000 && addr <= 0x7fff)
+		else if (addr >= 0x6000 && addr <= 0x7fff && mapper->sram)
 			v = ram[addr];
 
 
@@ -251,7 +251,7 @@ namespace MEM
 			APU::wb(addr, v & 0xc0);
 		else if (addr >= 0x5000 && addr <= 0x5fff)
 			mapper->wb(addr, v);
-		else if (addr >= 0x6000 && addr <= 0x7fff)
+		else if (addr >= 0x6000 && addr <= 0x7fff && mapper->sram)
 			ram[addr] = v;
 		else if (addr >= 0x8000)
 			mapper->wb(addr, v);
