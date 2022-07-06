@@ -2,13 +2,13 @@
 
 #include "types.h"
 
-typedef struct
+struct disasmentry
 {
 	string line;
-	u8 size;
-	u16 pc;
-	bool isjump;
-}disasmentry;
+	u8 size = 0;
+	u16 pc = 0;
+	bool isjump = false;
+};
 
 inline bool logging;
 

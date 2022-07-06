@@ -9,11 +9,7 @@ namespace PPU
 {
 	void step()
 	{
-		u8 tc = 260;
-		//if (pctrl.spritesize == 0 && pctrl.bgaddr == 0x1000)
-		//	tc = 324;
-
-		if ((scanline < 240 || scanline == SCAN_PRE) && cycle == tc && RENDERING)
+		if ((scanline < 240 || scanline == SCAN_PRE) && cycle == 324 && RENDERING)
 		{
 			MEM::mapper->scanline();
 		}
@@ -86,7 +82,7 @@ namespace PPU
 					lp.v = (lp.v & ~0x7be0) | (lp.t & 0x7be0);
 
 				//if (cycle == 1)
-				//	SDL::draw_frame(screen_pixels, cpu.state);
+				//	SDL::render_screen(SDL::screen, screen_pix.data(), 256, 240, 30);
 
 				//frame_ready = false;
 			}
@@ -112,6 +108,9 @@ namespace PPU
 				frame_ready = true;
 			}
 		}
+
+		//if (scanline == 0 && cycle == 0)
+		//	cycle = 1;
 	}
 
 	void ctrl(u8 v) //2000
@@ -157,24 +156,24 @@ namespace PPU
 
 		if (scanline == 241)
 		{
-			//if (cycle == 0)
-			//{
-			//	//v |= 0x80;
+			if (cycle == 0)
+			{
+				//v |= 0x80;
 
-			//	no_nmi = no_vbl = 1;
-			//}
-			//else if (cycle == 1 || cycle == 2)
-			//{
-			//	return v &= 0x7f;
-			//}
-			//else if (cycle == 3)
-			//{
-			//	no_nmi = 0;
-			//	pstatus.vblank = 0;
-			//	//MEM::ram[0x2000] = v & 0x7f;
-			//	MEM::ram[0x2002] &= 0x7f;
-			//	return v &= 0x7f;
-			//}
+				no_nmi = no_vbl = 1;
+			}
+			else if (cycle == 1 || cycle == 2)
+			{
+				return v &= 0x7f;
+			}
+			else if (cycle == 3)
+			{
+				no_nmi = 0;
+				pstatus.vblank = 0;
+				//MEM::ram[0x2000] = v & 0x7f;
+				MEM::ram[0x2002] &= 0x7f;
+				return v &= 0x7f;
+			}
 		}
 
 		//MEM::ram[0x2000] |= v;
@@ -195,7 +194,7 @@ namespace PPU
 	{
 		p2004 = v;
 		MEM::ram[0x2004] = v;
-		//MEM::ram[0x2002] |= 0x1f;
+		MEM::ram[0x2002] |= 0x1f;
 		MEM::ram[0x2003] = p2003++;
 	}
 
@@ -228,7 +227,8 @@ namespace PPU
 		{
 			lp.t = (lp.t & 0xff00) | v;
 			lp.v = lp.t;
-
+			//if (header.name.find("Double Dragon II") != string::npos)
+			//	cycle -= 7;
 			//if ((lp.v ^ a12) & 0x1000)
 			//{
 			//	if (lp.v & 0x1000)
@@ -245,6 +245,7 @@ namespace PPU
 	{
 		MEM::ppuwb(lp.v, v);
 		lp.v += pctrl.vaddr ? 32 : 1;
+
 
 		if ((lp.v ^ a12) & 0x1000)
 		{

@@ -606,13 +606,22 @@ namespace GUIGL
 			ImGui::PushItemWidth(-1);
 			ImGui::Text("Cheat Code Input");
 			ImGui::PopItemWidth();
-			ImGui::InputTextMultiline("##chttext", &cheatstr, ImVec2(-1, 200), INPUT_FLAGS);
+			ImGui::InputTextMultiline("##chttext", &cheatstr, ImVec2(-1, 200), 0);
+
+			if (ImGui::BeginPopupContextItem("##chttext", ImGuiMouseButton_Right))
+			{
+				if (ImGui::MenuItem("Copy", nullptr, false))
+				{
+					ImGui::SetClipboardText(cheatstr.c_str());
+				}
+				ImGui::EndPopup();
+			}
 
 			if (ImGui::BeginPopupContextItem("##chttext", ImGuiMouseButton_Right))
 			{
 				if (ImGui::MenuItem("Paste", nullptr, false))
 				{
-					cheatstr = ImGui::GetClipboardText();
+					cheatstr += ImGui::GetClipboardText();
 				}
 				ImGui::EndPopup();
 			}
@@ -657,9 +666,18 @@ namespace GUIGL
 						c.name = cheatname;
 						l.addr = strlen(cheataddr) ? (u16)stoul(cheataddr, nullptr, 16) : 0;
 						l.value = strlen(cheatval) ? (u8)stoul(cheatval, nullptr, 16) : 0;
-						l.compare = strlen(cheatcmp) && strlen(s.c_str()) == 8 ? (u8)stoul(cheatcmp, nullptr, 16) : -1;
+						l.compare = strlen(cheatcmp) && strlen(data[i].c_str()) == 8 ? (u8)stoul(cheatcmp, nullptr, 16) : -1;
 						l.size = strlen(cheatgenie);
 						c.gglines.push_back(data[i]);
+
+						int addr = l.addr & 0xfff;
+						int startaddr = (l.addr >> 12) & 1 ? 0x1000 : 0x0000;
+						for (int a = startaddr; a < MEM::rom.size(); a += 0x2000)
+						{
+							if ((MEM::rom[addr + a + 0x10] == (u8)l.compare))
+								l.romaddr = addr + a + 0x10;
+						}
+
 						c.lines.push_back(l);
 						c.enabled = 1;
 					}
@@ -825,22 +843,20 @@ namespace GUIGL
 				| (res[1] & 8) << 4 | (res[3] & 8);
 			snprintf(cheataddr, sizeof(cheataddr), "%04X", addr | 0x8000);
 
-			if (strlen(code) == 6)
+
+			u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4 | res[0] & 7;
+
+			if (strlen(code) == 8)
 			{
-				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
-					| res[0] & 7 | res[5] & 8;
-				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+				u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4 | res[6] & 7 | res[5] & 8;
+				snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
+				val += res[7] & 8;
 			}
 			else
-			{
-				u8 val = (res[1] & 7) << 4 | (res[0] & 8) << 4
-					| res[0] & 7 | res[7] & 8;
-				snprintf(cheatval, sizeof(cheatval), "%02X", val);
+				val += res[5] & 8;
 
-				u8 cmp = (res[7] & 7) << 4 | (res[6] & 8) << 4
-					| res[6] & 7 | res[5] & 8;
-				snprintf(cheatcmp, sizeof(cheatcmp), "%02X", cmp);
-			}
+			snprintf(cheatval, sizeof(cheatval), "%02X", val);
+
 		}
 		return 0;
 	}
@@ -888,6 +904,7 @@ namespace GUIGL
 	void load_cheats()
 	{
 		string temp = get_exec_path();
+		MEM::cheats.swap(vector<Cheats>());
 
 		if (fs::exists(temp + "/cheats/" + header.name + ".cht"))
 		{
@@ -895,11 +912,9 @@ namespace GUIGL
 			string s;
 			stringstream ss;
 
-			MEM::cheats.swap(vector<Cheats>());
-
 			while (getline(chtfile, s, '\n'))
 			{
-				Cheats c;
+				Cheats c{};
 				stringstream ss1(s);
 				getline(ss1, s, ',');
 				c.name = s;

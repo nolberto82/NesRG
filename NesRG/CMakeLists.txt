@@ -84,6 +84,11 @@ if(WIN32)
 	include_directories(${PRJ_DIR}/imgui)
 
 	add_executable (${PROJECT_NAME} ${WIN_SRC} ${EMU_SRC})
+	set_target_properties(${PROJECT_NAME} PROPERTIES
+        LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE"
+        LINK_FLAGS_RELEASE "/SUBSYSTEM:windows /ENTRY:mainCRTStartup"
+        LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows /ENTRY:mainCRTStartup"
+        LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 
 	find_package(SDL2 CONFIG REQUIRED)
 	find_package(sdl2-ttf CONFIG REQUIRED)

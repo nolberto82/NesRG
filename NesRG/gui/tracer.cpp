@@ -163,7 +163,7 @@ vector<disasmentry> get_trace_line(u16 pc, bool get_registers, bool get_cycles)
 
 		string t(data);
 		t.erase(5, 10);
-		int ind = t.find('=');
+		int ind = (int)t.find('=');
 		if (ind > 0)
 			t.erase(ind, 5);
 

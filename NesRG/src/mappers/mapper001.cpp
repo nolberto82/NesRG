@@ -15,7 +15,6 @@ void Mapper001::setup()
 
 	header.mirror = 0;
 	sram = 1;
-	MEM::load_sram();
 }
 
 void Mapper001::update()

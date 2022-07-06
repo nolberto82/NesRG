@@ -38,11 +38,13 @@ typedef __int8 s8;
 typedef __int16 s16;
 typedef __int32 s32;
 
+#if DEBUG
 const int APP_WIDTH = 1250;
 const int APP_HEIGHT = 975;
-
-//const int APP_WIDTH = 512;
-//const int APP_HEIGHT = 480;
+#else
+const int APP_WIDTH = 256 * 3;
+const int APP_HEIGHT = 240 * 3;
+#endif
 
 const int NES_WIDTH = 256;
 const int NES_HEIGHT = 240;
@@ -72,10 +74,10 @@ struct Registers
 struct Cpu
 {
 	bool pagecrossed = false;
-	int state;
-	int cpucycles;
-	u8 state_loaded;
-	u32 cycles;
+	int state = 0;
+	int cpucycles = 0;
+	u8 state_loaded = 0;
+	u32 cycles = 0;
 	s16 stepoveraddr = -1;
 };
 
@@ -140,6 +142,7 @@ struct PpuStatus
 struct CheatLine
 {
 	u16 addr;
+	int romaddr;
 	s8 compare;
 	u8 value;
 	u8 size;

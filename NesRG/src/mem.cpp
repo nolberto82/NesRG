@@ -4,6 +4,7 @@
 #include "apu.h"
 #include "controls.h"
 #include "mappers.h"
+#include <main.h>
 
 namespace MEM
 {
@@ -95,6 +96,8 @@ namespace MEM
 		mapper->setup();
 		CPU::reset();
 
+		MEM::load_sram()
+			;
 		return true;
 	}
 
@@ -154,7 +157,6 @@ namespace MEM
 		else if (addr >= 0x6000 && addr <= 0x7fff && mapper->sram)
 			v = ram[addr];
 
-
 		//PPU::step();
 
 		return v;
@@ -164,13 +166,15 @@ namespace MEM
 	{
 		for (auto& it : cheats)
 		{
-			if (it.enabled)
+			u16 faddr = 0;
+			for (auto& l : it.lines)
 			{
-				for (auto& l : it.lines)
-					if (l.addr == addr && (u8)l.compare == ram[l.addr])
-						MEM::wb_cheats(l.addr, l.value);
-					else if (l.addr == addr && l.compare == -1)
-						MEM::wb_cheats(l.addr, l.value);
+				if (faddr == 0)
+					faddr = addr;
+				if (it.enabled && (u8)l.compare == ram[l.addr])
+					MEM::wb_cheats(l.addr, l.value);
+				//else if (it.lines.size() > 1 && it.enabled && l.addr == faddr)
+				//	MEM::wb_cheats(l.addr, l.value);
 			}
 		}
 	}
@@ -336,7 +340,7 @@ namespace MEM
 			vram[0x3f10] = v;
 	}
 
-	void wb_cheats(u16 addr, u8 val, s8 cmp)
+	void wb_cheats(int addr, u8 val, s8 cmp)
 	{
 		ram[addr] = val;
 	}
@@ -361,21 +365,19 @@ namespace MEM
 	{
 		if (MEM::mapper)
 		{
-			//if (MEM::mapper->sram)
-			//{
-			ofstream save(header.name + ".sav", ios::binary);
+			string path = get_exec_path();
+			ofstream save(path + "\\" + header.name + ".sav", ios::binary);
 			save.write((char*)MEM::ram.data() + 0x6000, 0x2000);
 			save.close();
-			//}
 		}
 	}
 
 	void load_sram()
 	{
-		string file = header.name + ".sav";
-		if (fs::exists(file))
+		string path = get_exec_path();
+		if (fs::exists(path + "\\" + header.name + ".sav"))
 		{
-			ifstream save(file, ios::binary);
+			ifstream save(path + "\\" + header.name + ".sav", ios::binary);
 			save.read((char*)MEM::ram.data() + 0x6000, 0x2000);
 			save.close();
 		}

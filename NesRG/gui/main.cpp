@@ -66,8 +66,6 @@ int main(int argc, char* argv[])
 			while (GUIGL::running)
 			{
 				if (SDL::frame_limit)
-					SDL_GL_SetSwapInterval(1);
-				else
 					SDL_GL_SetSwapInterval(0);
 
 				start_time = SDL_GetTicks();
